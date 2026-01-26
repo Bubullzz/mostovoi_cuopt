@@ -856,17 +856,18 @@ bool compute_probing_cache(bound_presolve_t<i_t, f_t>& bound_presolve,
   bound_presolve.settings.iteration_limit = 50;
   bound_presolve.settings.time_limit      = timer.remaining_time();
 
-  // Set the number of threads
-  const size_t max_threads = 8;
-  omp_set_num_threads(max_threads);
+  size_t num_threads = bound_presolve.settings.num_threads < 0
+                         ? 0.2 * omp_get_max_threads()
+                         : bound_presolve.settings.num_threads;
+  num_threads        = std::clamp<size_t>(num_threads, 1, 8);
 
   // Create a vector of multi_probe_t objects
   std::vector<multi_probe_t<i_t, f_t>> multi_probe_presolve_pool;
-  std::vector<std::vector<std::tuple<f_t, i_t, f_t, f_t>>> modification_vector_pool(max_threads);
-  std::vector<std::vector<substitution_t<i_t, f_t>>> substitution_vector_pool(max_threads);
+  std::vector<std::vector<std::tuple<f_t, i_t, f_t, f_t>>> modification_vector_pool(num_threads);
+  std::vector<std::vector<substitution_t<i_t, f_t>>> substitution_vector_pool(num_threads);
 
   // Initialize multi_probe_presolve_pool
-  for (size_t i = 0; i < max_threads; i++) {
+  for (size_t i = 0; i < num_threads; i++) {
     multi_probe_presolve_pool.emplace_back(bound_presolve.context);
     multi_probe_presolve_pool[i].resize(problem);
     multi_probe_presolve_pool[i].compute_stats = true;
@@ -879,13 +880,15 @@ bool compute_probing_cache(bound_presolve_t<i_t, f_t>& bound_presolve,
   size_t last_it_implied_singletons = 0;
   bool early_exit                   = false;
   const size_t step_size            = min((size_t)2048, priority_indices.size());
-  for (size_t step_start = 0; step_start < priority_indices.size(); step_start += step_size) {
-    if (timer.check_time_limit() || early_exit || problem_is_infeasible.load()) { break; }
-    size_t step_end = std::min(step_start + step_size, priority_indices.size());
+
 // Main parallel loop
-#pragma omp parallel
-    {
-#pragma omp for schedule(static, 4)
+#pragma omp parallel num_threads(num_threads)
+  {
+    for (size_t step_start = 0; step_start < priority_indices.size(); step_start += step_size) {
+      if (timer.check_time_limit() || early_exit || problem_is_infeasible.load()) { break; }
+      size_t step_end = std::min(step_start + step_size, priority_indices.size());
+
+#pragma omp for
       for (size_t i = step_start; i < step_end; ++i) {
         auto var_idx = priority_indices[i];
         if (timer.check_time_limit()) { continue; }

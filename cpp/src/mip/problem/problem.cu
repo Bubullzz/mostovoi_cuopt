@@ -1988,6 +1988,13 @@ void problem_t<i_t, f_t>::get_host_user_problem(
         : cuopt::linear_programming::dual_simplex::variable_type_t::INTEGER;
   }
 }
+
+template <typename i_t, typename f_t>
+f_t problem_t<i_t, f_t>::get_solver_obj_from_user_obj(f_t user_obj) const
+{
+  return (user_obj / presolve_data.objective_scaling_factor) - presolve_data.objective_offset;
+}
+
 template <typename i_t, typename f_t>
 f_t problem_t<i_t, f_t>::get_user_obj_from_solver_obj(f_t solver_obj) const
 {
