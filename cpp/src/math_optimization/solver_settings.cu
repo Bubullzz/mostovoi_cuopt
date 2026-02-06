@@ -98,6 +98,7 @@ solver_settings_t<i_t, f_t>::solver_settings_t() : pdlp_settings(), mip_settings
     {CUOPT_NUM_GPUS, &pdlp_settings.num_gpus, 1, 2, 1},
     {CUOPT_NUM_GPUS, &mip_settings.num_gpus, 1, 2, 1},
     {CUOPT_MIP_BATCH_PDLP_STRONG_BRANCHING, &mip_settings.mip_batch_pdlp_strong_branching, 0, 1, 0},
+    {CUOPT_MIP_RELIABILITY_BRANCHING, &mip_settings.reliability_branching, -1, std::numeric_limits<i_t>::max(), -1}
   };
 
     // Bool parameters
