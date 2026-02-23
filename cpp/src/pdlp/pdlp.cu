@@ -1821,15 +1821,15 @@ void pdlp_solver_t<i_t, f_t>::compute_fixed_error(std::vector<int>& has_restarte
   // Computing the deltas
   // TODO batch mdoe: this only works if everyone restarts
   cub::DeviceTransform::Transform(cuda::std::make_tuple(pdhg_solver_.get_reflected_primal().data(),
-                                                        pdhg_solver_.get_primal_solution().data()),
+                                                        pdhg_solver_.get_potential_next_primal_solution().data()),
                                   pdhg_solver_.get_saddle_point_state().get_delta_primal().data(),
-                                  pdhg_solver_.get_primal_solution().size(),
+                                  pdhg_solver_.get_potential_next_primal_solution().size(),
                                   cuda::std::minus<f_t>{},
                                   stream_view_.value());
   cub::DeviceTransform::Transform(cuda::std::make_tuple(pdhg_solver_.get_reflected_dual().data(),
-                                                        pdhg_solver_.get_dual_solution().data()),
+                                                        pdhg_solver_.get_potential_next_dual_solution().data()),
                                   pdhg_solver_.get_saddle_point_state().get_delta_dual().data(),
-                                  pdhg_solver_.get_dual_solution().size(),
+                                  pdhg_solver_.get_potential_next_dual_solution().size(),
                                   cuda::std::minus<f_t>{},
                                   stream_view_.value());
 
