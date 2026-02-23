@@ -859,6 +859,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                reflected_primal_.data(),
                                batch_size_divisor_},
                              stream_view_.value());
+                             // TODO: add primal halpern update here
       }
       if (new_bounds_idx_.size() != 0) {
 #ifdef CUPDLP_DEBUG_MODE
@@ -886,6 +887,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                make_span(reflected_primal_),
                                (int)climber_strategies_.size()},
                              stream_view_.value());
+                             // TODO: add dual halpern update here
       }
 #ifdef CUPDLP_DEBUG_MODE
       print("potential_next_primal_solution_", potential_next_primal_solution_);
