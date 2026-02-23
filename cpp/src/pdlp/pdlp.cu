@@ -2470,6 +2470,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
               (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
 
     if (settings_.hyper_params.use_reflected_primal_dual) {
+      halpern_update();
       if (settings_.hyper_params.use_fixed_point_error &&
           ((total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0 ||
            std::any_of(has_restarted.begin(), has_restarted.end(), [](int restarted) {
@@ -2502,7 +2503,6 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
             pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
         }
       }
-      halpern_update();
     }
 
     ++total_pdlp_iterations_;
