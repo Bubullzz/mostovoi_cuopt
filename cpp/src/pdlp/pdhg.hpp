@@ -61,6 +61,8 @@ class pdhg_solver_t {
 
   void take_step(rmm::device_uvector<f_t>& primal_step_size,
                  rmm::device_uvector<f_t>& dual_step_size,
+                 rmm::device_uvector<f_t>& initial_primal,
+                 rmm::device_uvector<f_t>& initial_dual,
                  i_t iterations_since_last_restart,
                  bool last_restart_was_average,
                  i_t total_pdlp_iterations,
@@ -79,6 +81,9 @@ class pdhg_solver_t {
   void compute_next_dual_solution(rmm::device_uvector<f_t>& dual_step_size);
   void compute_next_primal_dual_solution_reflected(rmm::device_uvector<f_t>& primal_step_size,
                                                    rmm::device_uvector<f_t>& dual_step_size,
+                                                   rmm::device_uvector<f_t>& initial_primal,
+                                                   rmm::device_uvector<f_t>& initial_dual,
+                                                   i_t iterations_since_last_restart,
                                                    bool should_major);
 
   void compute_primal_projection_with_gradient(rmm::device_uvector<f_t>& primal_step_size);

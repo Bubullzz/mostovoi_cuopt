@@ -2470,7 +2470,6 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
               (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
 
     if (settings_.hyper_params.use_reflected_primal_dual) {
-      halpern_update();
       if (settings_.hyper_params.use_fixed_point_error &&
           (
            std::any_of(has_restarted.begin(), has_restarted.end(), [](int restarted) {
@@ -2530,6 +2529,8 @@ void pdlp_solver_t<i_t, f_t>::take_adaptive_step(i_t total_pdlp_iterations, bool
 #endif
     pdhg_solver_.take_step(primal_step_size_,
                            dual_step_size_,
+                           restart_strategy_.last_restart_duality_gap_.primal_solution_,
+                           restart_strategy_.last_restart_duality_gap_.dual_solution_,
                            restart_strategy_.get_iterations_since_last_restart(),
                            restart_strategy_.get_last_restart_was_average(),
                            total_pdlp_iterations,
@@ -2555,8 +2556,16 @@ void pdlp_solver_t<i_t, f_t>::take_adaptive_step(i_t total_pdlp_iterations, bool
 template <typename i_t, typename f_t>
 void pdlp_solver_t<i_t, f_t>::take_constant_step(bool is_major_iteration)
 {
+  // primal solution here is useless !!!!
   pdhg_solver_.take_step(
-    primal_step_size_, dual_step_size_, 0, false, total_pdlp_iterations_, is_major_iteration);
+    primal_step_size_, 
+    dual_step_size_, 
+    restart_strategy_.last_restart_duality_gap_.primal_solution_, 
+    restart_strategy_.last_restart_duality_gap_.dual_solution_, 
+    0, 
+    false, 
+    total_pdlp_iterations_, 
+    is_major_iteration);
 }
 
 template <typename i_t, typename f_t>
