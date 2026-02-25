@@ -2564,7 +2564,7 @@ void pdlp_solver_t<i_t, f_t>::take_constant_step(bool is_major_iteration)
     dual_step_size_, 
     restart_strategy_.last_restart_duality_gap_.primal_solution_, 
     restart_strategy_.last_restart_duality_gap_.dual_solution_, 
-    0, 
+    restart_strategy_.weighted_average_solution_.get_iterations_since_last_restart(), 
     false, 
     total_pdlp_iterations_, 
     is_major_iteration);
