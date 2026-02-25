@@ -2277,7 +2277,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   }
   while (true) {
 #ifdef CUPDLP_DEBUG_MODE
-    printf("Step: %d\n", total_pdlp_iterations_);
+    printf("\n\nStep: %d\n", total_pdlp_iterations_);
 #endif
     bool is_major_iteration =
       (((total_pdlp_iterations_) % settings_.hyper_params.major_iteration == 0) &&
@@ -2462,12 +2462,16 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
       }
     }
 
+    bool is_halpern_merged_major_iteration = (total_pdlp_iterations_) % settings_.hyper_params.major_iteration == 0;
 #ifdef CUPDLP_DEBUG_MODE
     printf("Is Major %d\n",
-           (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
+           is_halpern_merged_major_iteration);
+    printf("get_iterations: iterations_since_last_restart %d\n", restart_strategy_.get_iterations_since_last_restart());
+    printf("total_pdlp_iterations_ %d\n", total_pdlp_iterations_);
 #endif
+    
     take_step(total_pdlp_iterations_,
-              (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
+              is_halpern_merged_major_iteration);
 
     if (settings_.hyper_params.use_reflected_primal_dual) {
       if (settings_.hyper_params.use_fixed_point_error &&
@@ -2518,7 +2522,6 @@ void pdlp_solver_t<i_t, f_t>::take_adaptive_step(i_t total_pdlp_iterations, bool
 {
   // continue testing stepsize until we find a valid one or encounter a numerical error
   step_size_strategy_.set_valid_step_size(0);
-
   while (step_size_strategy_.get_valid_step_size() == 0) {
 #ifdef PDLP_DEBUG_MODE
     std::cout << "PDHG Iteration:" << std::endl;
@@ -2562,7 +2565,7 @@ void pdlp_solver_t<i_t, f_t>::take_constant_step(bool is_major_iteration)
     dual_step_size_, 
     restart_strategy_.last_restart_duality_gap_.primal_solution_, 
     restart_strategy_.last_restart_duality_gap_.dual_solution_, 
-    0, 
+    restart_strategy_.weighted_average_solution_.get_iterations_since_last_restart(), 
     false, 
     total_pdlp_iterations_, 
     is_major_iteration);

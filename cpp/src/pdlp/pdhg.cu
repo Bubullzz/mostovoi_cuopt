@@ -436,7 +436,7 @@ struct primal_reflected_major_projection {
     reflection_coeff_{reflection_coeff},
     weight_{weight}
   {}
-  HDI thrust::tuple<f_t, f_t, f_t> operator()(f_t current_primal,
+  HDI thrust::tuple<f_t, f_t, f_t, f_t> operator()(f_t current_primal,
                                               f_t initial_primal,
                                               f_t objective,
                                               f_t Aty,
@@ -449,7 +449,7 @@ struct primal_reflected_major_projection {
     const f_t reflected = reflection_coeff_ * reflected_primal + 
                           (f_t(1.0) - reflection_coeff_) * current_primal;
     current_primal = weight_ * reflected + (f_t(1.0) - weight_) * initial_primal;
-    return {next_clamped,(next_clamped - next) / *scalar_, current_primal};
+    return {next_clamped,(next_clamped - next) / *scalar_, reflected_primal, current_primal};
     /* Original Line
     return {
       next_clamped, (next_clamped - next) / *scalar_, f_t(2.0) * next_clamped - current_primal};*/
@@ -515,7 +515,7 @@ struct dual_reflected_major_projection {
     reflection_coeff_{reflection_coeff},
     weight_{weight}
   {}
-  HDI thrust::tuple<f_t, f_t> operator()(f_t current_dual,
+  HDI thrust::tuple<f_t, f_t, f_t> operator()(f_t current_dual,
                                          f_t inital_dual,
                                          f_t Ax,
                                          f_t lower_bound,
@@ -529,7 +529,7 @@ struct dual_reflected_major_projection {
     const f_t reflected = reflection_coeff_ * reflected_dual +
                           (f_t(1.0) - reflection_coeff_) * current_dual;
     current_dual = weight_ * reflected + (f_t(1.0) - weight_) * inital_dual;
-    return {next_dual, current_dual};
+    return {next_dual, reflected_dual, current_dual};
     /* Original Line
     return {next_dual, f_t(2.0) * next_dual - current_dual}; */
   }
@@ -870,13 +870,16 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
   i_t iterations_since_last_restart,
   bool should_major)
 {
+#ifdef CUPDLP_DEBUG_MODE
+  printf("compute_next_primal_dual_solution_reflected iterations_since_last_restart %d\n", iterations_since_last_restart);
+#endif
   raft::common::nvtx::range fun_scope("compute_next_primal_dual_solution_reflected");
 
   using f_t2 = typename type_2<f_t>::type;
 
   const f_t halpern_weight =
     f_t(iterations_since_last_restart + 1) /
-    f_t(iterations_since_last_restart + 2);
+    f_t(iterations_since_last_restart + 2);  
   // Compute next primal solution reflected
 
   if (should_major) {
@@ -892,7 +895,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 current_saddle_point_state_.get_current_AtY().data(),
                                 problem_ptr->variable_bounds.data()),
           thrust::make_zip_iterator(
-            potential_next_primal_solution_.data(), dual_slack_.data(), reflected_primal_.data()),
+            potential_next_primal_solution_.data(), dual_slack_.data(), reflected_primal_.data(), get_primal_solution().data()),
           primal_size_h_,
           primal_reflected_major_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
           stream_view_.value());
@@ -955,7 +958,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 current_saddle_point_state_.get_dual_gradient().data(),
                                 problem_ptr->constraint_lower_bounds.data(),
                                 problem_ptr->constraint_upper_bounds.data()),
-          thrust::make_zip_iterator(potential_next_dual_solution_.data(), reflected_dual_.data()),
+          thrust::make_zip_iterator(potential_next_dual_solution_.data(), reflected_dual_.data(), get_dual_solution().data()),
           dual_size_h_,
           dual_reflected_major_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
           stream_view_.value());
@@ -1006,7 +1009,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 initial_primal.data(),
                                 problem_ptr->variable_bounds.data()),
           thrust::make_zip_iterator(
-            reflected_primal_.data(),current_saddle_point_state_.get_primal_solution().data()),
+            reflected_primal_.data(), get_primal_solution().data()),
           primal_size_h_,
           primal_reflected_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
           stream_view_.value());
@@ -1068,7 +1071,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 current_saddle_point_state_.get_dual_gradient().data(),
                                 problem_ptr->constraint_lower_bounds.data(),
                                 problem_ptr->constraint_upper_bounds.data()),
-          reflected_dual_.data(),
+          get_dual_solution().data(),
           dual_size_h_,
           dual_reflected_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
           stream_view_.value());
@@ -1103,8 +1106,9 @@ void pdhg_solver_t<i_t, f_t>::take_step(rmm::device_uvector<f_t>& primal_step_si
                                         i_t total_pdlp_iterations,
                                         bool is_major_iteration)
 {
-#ifdef PDLP_DEBUG_MODE
-  std::cout << "Take Step:" << std::endl;
+#ifdef CUPDLP_DEBUG_MODE
+  printf("pdhg_solver_t::take_step iterations_since_last_restart %d\n", iterations_since_last_restart);
+  printf("pdhg_solver_t::take_step total_pdlp_iterations %d\n", total_pdlp_iterations);
 #endif
 
   if (!hyper_params_.use_reflected_primal_dual) {
