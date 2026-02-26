@@ -18,7 +18,8 @@
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/core/cusparse_macros.hpp>
 
-#include <cusparse_v2.h>
+
+#include <cusparse.h>
 
 namespace cuopt::linear_programming::detail {
 
@@ -194,9 +195,28 @@ class cusparse_view_t {
   const rmm::device_uvector<i_t>& A_indices_;
 
   const std::vector<pdlp_climber_strategy_t>& climber_strategies_;
+
+  // SpMVOp descriptors and plans
+  cusparseSpMVOpDescr_t spmv_op_descr_non_transpose_{nullptr};
+  cusparseSpMVOpDescr_t spmv_op_descr_transpose_{nullptr};
+  cusparseSpMVOpPlan_t spmv_op_plan_non_transpose_{nullptr};
+  cusparseSpMVOpPlan_t spmv_op_plan_transpose_{nullptr};
+
+  ~cusparse_view_t();
 };
 
-#if CUDA_VER_12_4_UP
+template <
+  typename T,
+  typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr>
+cusparseStatus_t my_cusparsespmvop(cusparseHandle_t handle,
+                                  cusparseSpMVOpPlan_t plan,
+                                  const T* alpha,
+                                  const T* beta,
+                                  cusparseConstDnVecDescr_t vecX,
+                                  cusparseConstDnVecDescr_t vecY,
+                                  cusparseDnVecDescr_t vecZ,
+                                  cudaStream_t stream);
+
 template <
   typename T,
   typename std::enable_if_t<std::is_same_v<T, float> || std::is_same_v<T, double>>* = nullptr>
@@ -211,6 +231,5 @@ void my_cusparsespmm_preprocess(cusparseHandle_t handle,
                                 cusparseSpMMAlg_t alg,
                                 void* externalBuffer,
                                 cudaStream_t stream);
-#endif
 
 }  // namespace cuopt::linear_programming::detail

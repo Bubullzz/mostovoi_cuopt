@@ -109,6 +109,9 @@ if(BUILD_MSAN)
   add_link_options(-fsanitize=memory)
 endif(BUILD_MSAN)
 
+# Required for cuSPARSE SpMVOp experimental API (CUDA 12.4+)
+add_definitions(-DCUSPARSE_ENABLE_EXPERIMENTAL_API)
+
 if(DEFINE_ASSERT)
   add_definitions(-DASSERT_MODE)
 endif(DEFINE_ASSERT)
