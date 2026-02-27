@@ -960,7 +960,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 problem_ptr->constraint_upper_bounds.data()),
           thrust::make_zip_iterator(potential_next_dual_solution_.data(), reflected_dual_.data(), get_dual_solution().data()),
           dual_size_h_,
-          dual_reflected_major_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
+          dual_reflected_major_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
           stream_view_.value());
       } else {
         cub::DeviceFor::Bulk(potential_next_dual_solution_.size(),
