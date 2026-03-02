@@ -129,6 +129,8 @@ class pdhg_solver_t {
   // Needed for faster graph launch
   // Passing the host value each time would require updating the graph each time
   rmm::device_scalar<i_t> d_total_pdhg_iterations_;
+  // Halpern weight (k+1)/(k+2), must be updated before each launch when using fused Halpern
+  rmm::device_scalar<f_t> d_halpern_weight_;
 
   const std::vector<pdlp_climber_strategy_t>& climber_strategies_;
   const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params_;

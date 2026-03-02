@@ -88,6 +88,7 @@ pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
     graph_all{stream_view_, is_legacy_batch_mode || batch_mode_},
     graph_prim_proj_gradient_dual{stream_view_, is_legacy_batch_mode},
     d_total_pdhg_iterations_{0, stream_view_},
+    d_halpern_weight_{f_t(0.5), stream_view_},
     climber_strategies_(climber_strategies),
     hyper_params_(hyper_params),
     new_bounds_idx_{new_bounds.size(), stream_view_},
@@ -431,7 +432,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution(
 template <typename f_t>
 struct primal_reflected_major_projection {
   using f_t2 = typename type_2<f_t>::type;
-  primal_reflected_major_projection(const f_t* scalar, const f_t reflection_coeff, const f_t weight) :
+  primal_reflected_major_projection(const f_t* scalar, const f_t reflection_coeff, const f_t* weight) :
     scalar_{scalar},
     reflection_coeff_{reflection_coeff},
     weight_{weight}
@@ -446,9 +447,10 @@ struct primal_reflected_major_projection {
     const f_t next         = current_primal - *scalar_ * (objective - Aty);
     const f_t next_clamped = raft::max<f_t>(raft::min<f_t>(next, bounds.y), bounds.x);
     const f_t reflected_primal = f_t(2.0) * next_clamped - current_primal;
-    const f_t reflected = reflection_coeff_ * reflected_primal + 
+    const f_t reflected = reflection_coeff_ * reflected_primal +
                           (f_t(1.0) - reflection_coeff_) * current_primal;
-    current_primal = weight_ * reflected + (f_t(1.0) - weight_) * initial_primal;
+    const f_t w = *weight_;
+    current_primal = w * reflected + (f_t(1.0) - w) * initial_primal;
     return {next_clamped,(next_clamped - next) / *scalar_, reflected_primal, current_primal};
     /* Original Line
     return {
@@ -456,7 +458,7 @@ struct primal_reflected_major_projection {
   }
   const f_t* scalar_;
   const f_t reflection_coeff_;
-  const f_t weight_;
+  const f_t* weight_;
 };
 
 template <typename f_t>
@@ -477,7 +479,7 @@ struct primal_reflected_major_projection_batch {
 template <typename f_t>
 struct primal_reflected_projection {
   using f_t2 = typename type_2<f_t>::type;
-  primal_reflected_projection(const f_t* scalar, const f_t reflection_coeff, const f_t weight) :
+  primal_reflected_projection(const f_t* scalar, const f_t reflection_coeff, const f_t* weight) :
     scalar_{scalar},
     reflection_coeff_{reflection_coeff},
     weight_{weight}
@@ -489,12 +491,13 @@ struct primal_reflected_projection {
     const f_t reflected_primal = f_t(2.0) * next_clamped - current_primal;
     const f_t reflected = reflection_coeff_ * reflected_primal +
                           (f_t(1.0) - reflection_coeff_) * current_primal;
-    current_primal = weight_ * reflected + (f_t(1.0) - weight_) * initial_primal;
+    const f_t w = *weight_;
+    current_primal = w * reflected + (f_t(1.0) - w) * initial_primal;
     return {reflected_primal, current_primal};
   }
   const f_t* scalar_;
   const f_t reflection_coeff_;
-  const f_t weight_;
+  const f_t* weight_;
 };
 
 template <typename f_t>
@@ -510,7 +513,7 @@ struct primal_reflected_projection_batch {
 
 template <typename f_t>
 struct dual_reflected_major_projection {
-  dual_reflected_major_projection(const f_t* scalar, const f_t reflection_coeff, const f_t weight) :
+  dual_reflected_major_projection(const f_t* scalar, const f_t reflection_coeff, const f_t* weight) :
     scalar_{scalar},
     reflection_coeff_{reflection_coeff},
     weight_{weight}
@@ -528,7 +531,8 @@ struct dual_reflected_major_projection {
     const f_t reflected_dual = f_t(2.0) * next_dual - current_dual;
     const f_t reflected = reflection_coeff_ * reflected_dual +
                           (f_t(1.0) - reflection_coeff_) * current_dual;
-    current_dual = weight_ * reflected + (f_t(1.0) - weight_) * inital_dual;
+    const f_t w = *weight_;
+    current_dual = w * reflected + (f_t(1.0) - w) * inital_dual;
     return {next_dual, reflected_dual, current_dual};
     /* Original Line
     return {next_dual, f_t(2.0) * next_dual - current_dual}; */
@@ -536,7 +540,7 @@ struct dual_reflected_major_projection {
 
   const f_t* scalar_;
   const f_t reflection_coeff_;
-  const f_t weight_;
+  const f_t* weight_;
 };
 
 template <typename f_t>
@@ -554,7 +558,7 @@ struct dual_reflected_major_projection_batch {
 
 template <typename f_t>
 struct dual_reflected_projection {
-  dual_reflected_projection(const f_t* scalar, const f_t reflection_coeff, const f_t weight) : 
+  dual_reflected_projection(const f_t* scalar, const f_t reflection_coeff, const f_t* weight) :
   scalar_{scalar},
   reflection_coeff_{reflection_coeff},
   weight_{weight} {}
@@ -564,14 +568,15 @@ struct dual_reflected_projection {
     const f_t tmp       = current_dual / *scalar_ - Ax;
     const f_t tmp_proj  = raft::max<f_t>(-upper_bounds, raft::min<f_t>(tmp, -lower_bound));
     const f_t next_dual = (tmp - tmp_proj) * *scalar_;
-    const f_t reflected = reflection_coeff_ * (f_t(2.0) * next_dual - current_dual) + 
+    const f_t reflected = reflection_coeff_ * (f_t(2.0) * next_dual - current_dual) +
                           (f_t(1.0) - reflection_coeff_) * current_dual;
-    return weight_ * reflected + (1.0 - weight_) * initial_dual;
+    const f_t w = *weight_;
+    return w * reflected + (f_t(1.0) - w) * initial_dual;
   }
 
   const f_t* scalar_;
   const f_t reflection_coeff_;
-  const f_t weight_;
+  const f_t* weight_;
 };
 
 template <typename f_t>
@@ -870,18 +875,16 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
   i_t iterations_since_last_restart,
   bool should_major)
 {
-#ifdef CUPDLP_DEBUG_MODE
-  printf("compute_next_primal_dual_solution_reflected iterations_since_last_restart %d\n", iterations_since_last_restart);
-#endif
   raft::common::nvtx::range fun_scope("compute_next_primal_dual_solution_reflected");
 
   using f_t2 = typename type_2<f_t>::type;
 
   const f_t halpern_weight =
     f_t(iterations_since_last_restart + 1) /
-    f_t(iterations_since_last_restart + 2);  
-  // Compute next primal solution reflected
+    f_t(iterations_since_last_restart + 2);
+  d_halpern_weight_.set_value_async(halpern_weight, stream_view_);
 
+  // Compute next primal solution reflected
   if (should_major) {
     if (!graph_all.is_initialized(should_major)) {
       graph_all.start_capture(should_major);
@@ -897,7 +900,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
           thrust::make_zip_iterator(
             potential_next_primal_solution_.data(), dual_slack_.data(), reflected_primal_.data(), get_primal_solution().data()),
           primal_size_h_,
-          primal_reflected_major_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
+          primal_reflected_major_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, d_halpern_weight_.data()),
           stream_view_.value());
       } else {
         cub::DeviceFor::Bulk(potential_next_primal_solution_.size(),
@@ -960,7 +963,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 problem_ptr->constraint_upper_bounds.data()),
           thrust::make_zip_iterator(potential_next_dual_solution_.data(), reflected_dual_.data(), get_dual_solution().data()),
           dual_size_h_,
-          dual_reflected_major_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
+          dual_reflected_major_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, d_halpern_weight_.data()),
           stream_view_.value());
       } else {
         cub::DeviceFor::Bulk(potential_next_dual_solution_.size(),
@@ -1011,7 +1014,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
           thrust::make_zip_iterator(
             reflected_primal_.data(), get_primal_solution().data()),
           primal_size_h_,
-          primal_reflected_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
+          primal_reflected_projection<f_t>(primal_step_size.data(), hyper_params_.reflection_coefficient, d_halpern_weight_.data()),
           stream_view_.value());
       } else {
         cub::DeviceFor::Bulk(reflected_primal_.size(),
@@ -1073,7 +1076,7 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
                                 problem_ptr->constraint_upper_bounds.data()),
           get_dual_solution().data(),
           dual_size_h_,
-          dual_reflected_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, halpern_weight),
+          dual_reflected_projection<f_t>(dual_step_size.data(), hyper_params_.reflection_coefficient, d_halpern_weight_.data()),
           stream_view_.value());
       } else {
         cub::DeviceFor::Bulk(reflected_dual_.size(),
