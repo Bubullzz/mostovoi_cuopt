@@ -896,7 +896,6 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
   const f_t halpern_weight =
     f_t(iterations_since_last_restart + 1) /
     f_t(iterations_since_last_restart + 2);
-  d_halpern_weight_.set_value_async(halpern_weight, stream_view_);
 
   // Compute next primal solution reflected
   if (should_major) {
