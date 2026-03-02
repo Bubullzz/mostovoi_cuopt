@@ -403,6 +403,7 @@ bool pdlp_restart_strategy_t<i_t, f_t>::run_trust_region_restart(
     }
     reset_internal();
     weighted_average_solution_.reset_weighted_average_solution();
+    pdhg_solver.get_d_total_pdhg_iterations().set_value_to_zero_async(stream_view_);
   }
 
   return restart;
@@ -663,6 +664,7 @@ bool pdlp_restart_strategy_t<i_t, f_t>::run_kkt_restart(
 
     // Reset average
     weighted_average_solution_.reset_weighted_average_solution();
+    pdhg_solver.get_d_total_pdhg_iterations().set_value_to_zero_async(stream_view_);
 
     // Set last restart candidate
     last_restart_kkt_score = candidate_kkt_score;
@@ -982,6 +984,7 @@ void pdlp_restart_strategy_t<i_t, f_t>::cupdlpx_restart(
     weighted_average_solution_.iterations_since_last_restart_ = 0;
     last_trial_fixed_point_error_[i] = std::numeric_limits<f_t>::infinity();
   }
+  pdhg_solver.get_d_total_pdhg_iterations().set_value_to_zero_async(stream_view_);
 }
 
 template <typename i_t, typename f_t>

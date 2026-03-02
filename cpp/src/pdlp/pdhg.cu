@@ -429,6 +429,20 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution(
   }
 }
 
+template <typename i_t, typename f_t>
+struct halpern_weight_functor {
+  __device__ f_t operator()(i_t k) const { 
+    return f_t(k + 1) / f_t(k + 2); }
+};
+
+// Used to update d_total_pdhg_iterations_
+template <typename i_t>
+struct plus_one_functor {
+  __device__ i_t operator()(i_t k) const {
+    return k + 1;
+  } 
+};
+
 template <typename f_t>
 struct primal_reflected_major_projection {
   using f_t2 = typename type_2<f_t>::type;
@@ -882,12 +896,23 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
   const f_t halpern_weight =
     f_t(iterations_since_last_restart + 1) /
     f_t(iterations_since_last_restart + 2);
-  d_halpern_weight_.set_value_async(halpern_weight, stream_view_);
 
   // Compute next primal solution reflected
   if (should_major) {
     if (!graph_all.is_initialized(should_major)) {
       graph_all.start_capture(should_major);
+
+      cub::DeviceTransform::Transform(d_total_pdhg_iterations_.data(),
+                                      d_total_pdhg_iterations_.data(),
+                                      1,
+                                      plus_one_functor<i_t>{}, 
+                                      stream_view_.value());        
+      // Update Halpern weight
+      cub::DeviceTransform::Transform(d_total_pdhg_iterations_.data(),
+                                      d_halpern_weight_.data(),
+                                      1,
+                                      halpern_weight_functor<i_t, f_t>{},
+                                      stream_view_.value());
 
       compute_At_y();
       if (!batch_mode_) {
@@ -991,6 +1016,17 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
     if (!graph_all.is_initialized(should_major)) {
       graph_all.start_capture(should_major);
 
+      cub::DeviceTransform::Transform(d_total_pdhg_iterations_.data(),
+                                      d_total_pdhg_iterations_.data(),
+                                      1,
+                                      plus_one_functor<i_t>{}, 
+                                      stream_view_.value());        
+      // Update Halpern weight
+      cub::DeviceTransform::Transform(d_total_pdhg_iterations_.data(),
+                                      d_halpern_weight_.data(),
+                                      1,
+                                      halpern_weight_functor<i_t, f_t>{},
+                                      stream_view_.value());  
       // Compute next primal
       compute_At_y();
 
