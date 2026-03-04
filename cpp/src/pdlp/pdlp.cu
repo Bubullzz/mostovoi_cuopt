@@ -2505,6 +2505,9 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
             pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
         }
       }
+      if (batch_mode_) {
+        halpern_update();
+      }
     }
 
     ++total_pdlp_iterations_;
