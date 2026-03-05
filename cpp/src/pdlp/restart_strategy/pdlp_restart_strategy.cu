@@ -2335,6 +2335,7 @@ void pdlp_restart_strategy_t<i_t, f_t>::compute_lagrangian_value(
                                                        (f_t*)cusparse_view.buffer_transpose.data(),
                                                        stream_view_));
 
+
   RAFT_CUBLAS_TRY(raft::linalg::detail::cublasdot(handle_ptr_->get_cublas_handle(),
                                                   primal_size_h_,
                                                   duality_gap.primal_solution_.data(),

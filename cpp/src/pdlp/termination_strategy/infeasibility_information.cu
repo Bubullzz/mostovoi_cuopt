@@ -549,6 +549,7 @@ void infeasibility_information_t<i_t, f_t>::compute_homogenous_primal_residual(
                                        (f_t*)cusparse_view.buffer_non_transpose.data(),
                                        stream_view_));
 
+
   raft::linalg::ternaryOp(homogenous_primal_residual_.data(),
                           tmp_dual.data(),
                           homogenous_dual_lower_bounds_.data(),
@@ -618,6 +619,7 @@ void infeasibility_information_t<i_t, f_t>::compute_homogenous_dual_residual(
                                                        CUSPARSE_SPMV_CSR_ALG2,
                                                        (f_t*)cusparse_view.buffer_transpose.data(),
                                                        stream_view_));
+
 
   compute_reduced_cost_from_primal_gradient(tmp_primal,
                                             primal_ray);  // primal gradient is now in temp

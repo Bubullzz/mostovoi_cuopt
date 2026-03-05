@@ -16,6 +16,7 @@
 #include <cuopt/error.hpp>
 #include <cuopt/linear_programming/pdlp/solver_settings.hpp>
 
+#include <raft/core/cusparse_macros.hpp>
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/core/nvtx.hpp>
 #include <raft/linalg/binary_op.cuh>
@@ -519,6 +520,7 @@ void convergence_information_t<i_t, f_t>::compute_primal_residual(
                                          CUSPARSE_SPMV_CSR_ALG2,
                                          (f_t*)cusparse_view.buffer_non_transpose.data(),
                                          stream_view_));
+
   } else {
     RAFT_CUSPARSE_TRY(
       raft::sparse::detail::cusparsespmm(handle_ptr_->get_cusparse_handle(),
@@ -667,6 +669,7 @@ void convergence_information_t<i_t, f_t>::compute_dual_residual(
                                          CUSPARSE_SPMV_CSR_ALG2,
                                          (f_t*)cusparse_view.buffer_transpose.data(),
                                          stream_view_));
+
   } else {
     RAFT_CUSPARSE_TRY(
       raft::sparse::detail::cusparsespmm(handle_ptr_->get_cusparse_handle(),

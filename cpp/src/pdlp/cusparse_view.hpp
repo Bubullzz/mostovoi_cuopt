@@ -20,6 +20,16 @@
 
 #include <cusparse_v2.h>
 
+#define CHECK_CUSPARSE(func)                                                   \
+    {                                                                          \
+        cusparseStatus_t status = (func);                                      \
+        if (status != CUSPARSE_STATUS_SUCCESS) {                               \
+            printf("CUSPARSE API failed at line %d with error: %s (%d)\n",     \
+                   __LINE__, cusparseGetErrorString(status), status);          \
+            return EXIT_FAILURE;                                               \
+        }                                                                      \
+    }
+    
 namespace cuopt::linear_programming::detail {
 
 template <typename i_t, typename f_t>
@@ -119,6 +129,14 @@ class cusparse_view_t {
                   const rmm::device_uvector<i_t>&,               // Empty just to init the const&
                   const std::vector<pdlp_climber_strategy_t>&);  // Empty just to init the const&
 
+  /// Creates SpMVOp plans. Must be called after scale_problem() so plans use the scaled matrix.
+  void create_spmv_op_plans();
+
+   private:
+  void destroy_spmv_op_plans();
+
+ public:
+
   const bool batch_mode_{false};
 
   raft::handle_t const* handle_ptr_{nullptr};
@@ -170,6 +188,13 @@ class cusparse_view_t {
   // reuse buffers for cusparse spmv
   rmm::device_uvector<uint8_t> buffer_non_transpose;
   rmm::device_uvector<uint8_t> buffer_transpose;
+
+  // here for tests of compilation
+  cusparseSpMVOpDescr_t spmv_op_descr_A_;
+  cusparseSpMVOpDescr_t spmv_op_descr_A_t_;
+  cusparseSpMVOpPlan_t spmv_op_plan_A_;
+  cusparseSpMVOpPlan_t spmv_op_plan_A_t_;
+
 
   // reuse buffers for cusparse spmm
   rmm::device_uvector<uint8_t> buffer_transpose_batch;

@@ -2090,6 +2090,10 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 
   initial_scaling_strategy_.scale_problem();
 
+  pdhg_solver_.get_cusparse_view().create_spmv_op_plans();
+  //average_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
+  //current_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
+
   if (!settings_.hyper_params.compute_initial_step_size_before_scaling &&
       !settings_.get_initial_step_size().has_value())
     compute_initial_step_size();
@@ -2276,7 +2280,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   }
   while (true) {
 #ifdef CUPDLP_DEBUG_MODE
-    printf("Step: %d\n", total_pdlp_iterations_);
+    printf("\nStep: %d\n", total_pdlp_iterations_);
 #endif
     bool is_major_iteration =
       (((total_pdlp_iterations_) % settings_.hyper_params.major_iteration == 0) &&
@@ -2730,6 +2734,16 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
         stream_view_.value());
 
       // A_t_q = A_t @ d_q
+#ifdef CUPDLP_DEBUG_MODE
+      if (sing_iters == 1) {
+        RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_.value()));
+        raft::print_device_vector("power_iter vecQ before A_T", d_q.data(),
+                                 std::min(m, static_cast<i_t>(5)), std::cout);
+        raft::print_device_vector("power_iter vecATQ before A_T", d_atq.data(),
+                                 std::min(n, static_cast<i_t>(5)), std::cout);
+      }
+#endif
+      /* old code */
       RAFT_CUSPARSE_TRY(
         raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -2741,8 +2755,17 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
                                            CUSPARSE_SPMV_CSR_ALG2,
                                            (f_t*)cusparse_view_.buffer_transpose.data(),
                                            stream_view_.value()));
-
+      /* New code
+      RAFT_CUSPARSE_TRY(cusparseSetStream(handle_ptr_->get_cusparse_handle(), stream_view_.value()));
+      RAFT_CUSPARSE_TRY(cusparseSpMVOp(handle_ptr_->get_cusparse_handle(),
+                                       cusparse_view_.spmv_op_plan_A_t_,
+                                       reusable_device_scalar_value_1_.data(),
+                                       reusable_device_scalar_value_0_.data(),
+                                       vecQ,
+                                       vecATQ,
+                                       vecATQ)); */
       // z = A @ A_t_q
+      /* old code */
       RAFT_CUSPARSE_TRY(
         raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -2754,6 +2777,14 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
                                            CUSPARSE_SPMV_CSR_ALG2,
                                            (f_t*)cusparse_view_.buffer_non_transpose.data(),
                                            stream_view_.value()));
+      /* New code
+      RAFT_CUSPARSE_TRY(cusparseSpMVOp(handle_ptr_->get_cusparse_handle(),
+                                       cusparse_view_.spmv_op_plan_A_,
+                                       reusable_device_scalar_value_1_.data(),
+                                       reusable_device_scalar_value_0_.data(),
+                                       vecATQ,
+                                       vecZ,
+                                       vecZ)); */
       // sigma_max_sq = dot(q, z)
       RAFT_CUBLAS_TRY(raft::linalg::detail::cublasdot(handle_ptr_->get_cublas_handle(),
                                                       m,

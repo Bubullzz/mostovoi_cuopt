@@ -397,6 +397,7 @@ void adaptive_step_size_strategy_t<i_t, f_t>::compute_interaction_and_movement(
                                          CUSPARSE_SPMV_CSR_ALG2,
                                          (f_t*)cusparse_view.buffer_transpose.data(),
                                          stream_view_.value()));
+
   } else {
     // TODO later batch mode: handle if not all restart
     RAFT_CUSPARSE_TRY(
