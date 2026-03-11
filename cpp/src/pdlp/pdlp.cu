@@ -2094,13 +2094,19 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   //average_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
   //current_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
 
+
   if (!settings_.hyper_params.compute_initial_step_size_before_scaling &&
       !settings_.get_initial_step_size().has_value())
     compute_initial_step_size();
+  
+    pdhg_solver_.compute_At_y();
+  
+
   if (!settings_.hyper_params.compute_initial_primal_weight_before_scaling &&
       !settings_.get_initial_primal_weight().has_value())
     compute_initial_primal_weight();
 
+  
 #ifdef PDLP_DEBUG_MODE
   std::cout << "Initial Scaling done" << std::endl;
 #endif
@@ -2119,6 +2125,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
                                  step_size_.end(),
                                  settings_.get_initial_step_size().value());
   }
+
   if (settings_.get_initial_primal_weight().has_value() || initial_primal_weight_.has_value()) {
     if (initial_primal_weight_.has_value()) {
       thrust::uninitialized_fill(handle_ptr_->get_thrust_policy(),
@@ -2146,6 +2153,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
     pdhg_solver_.total_pdhg_iterations_ = initial_k_.value();
     pdhg_solver_.get_d_total_pdhg_iterations().set_value_async(initial_k_.value(), stream_view_);
   }
+
 
   // Only the primal_weight_ and step_size_ variables are initialized during the initial phase
   // The associated primal/dual step_size (computed using the two firstly mentionned) are not
@@ -2648,6 +2656,7 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
 {
   raft::common::nvtx::range fun_scope("compute_initial_step_size");
 
+  std::cout << "AAAAAAAAAA" << settings_.hyper_params.initial_step_size_max_singular_value << std::endl;
   if (!settings_.hyper_params.initial_step_size_max_singular_value) {
     // set stepsize relative to maximum absolute value of A
     rmm::device_scalar<f_t> abs_max_element{0.0, stream_view_};

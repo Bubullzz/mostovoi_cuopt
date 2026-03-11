@@ -188,6 +188,8 @@ class cusparse_view_t {
   // reuse buffers for cusparse spmv
   rmm::device_uvector<uint8_t> buffer_non_transpose;
   rmm::device_uvector<uint8_t> buffer_transpose;
+  rmm::device_uvector<uint8_t> buffer_non_transpose_spmvop;
+  rmm::device_uvector<uint8_t> buffer_transpose_spmvop;
 
   // here for tests of compilation
   cusparseSpMVOpDescr_t spmv_op_descr_A_;

@@ -317,33 +317,55 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
                                          (f_t*)cusparse_view_.buffer_transpose.data(),
                                          stream_view_));
     */
-#ifdef CUPDLP_DEBUG_MODE
-    std::cout << "compute_At_y" << std::endl;
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_.value()));
+
+    std::cout << "begin_At_y" << std::endl;
     raft::print_device_vector("reusable_device_scalar_value_1_: ",
-                             reusable_device_scalar_value_1_.data(), 1, std::cout);
-    raft::print_device_vector("reusable_device_scalar_value_0_: ",
-                             reusable_device_scalar_value_0_.data(), 1, std::cout);
+      reusable_device_scalar_value_1_.data(), 1, std::cout);
+      raft::print_device_vector("reusable_device_scalar_value_0_: ",
+        reusable_device_scalar_value_0_.data(), 1, std::cout);
+    // Right before cusparseSpMVOp in compute_At_y
+    printf("current_AtY.data() = %p, size = %zu\n", 
+          current_saddle_point_state_.get_current_AtY().data(),
+          current_saddle_point_state_.get_current_AtY().size());
+    printf("dual_solution.data() = %p\n", 
+          current_saddle_point_state_.get_dual_solution().data());
+    printf("buffer_transpose.data() = %p, size = %zu\n",
+          cusparse_view_.buffer_transpose.data(),
+          cusparse_view_.buffer_transpose.size());
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_.value()));
+
+#ifdef CUPDLP_DEBUG_MODE
+    /*
     raft::print_device_vector("dual_solution: ",
                              current_saddle_point_state_.get_dual_solution().data(),
                              dual_size_h_, std::cout);
     raft::print_device_vector("current_AtY before: ",
                              current_saddle_point_state_.get_current_AtY().data(),
                              primal_size_h_, std::cout);
+    */
 #endif
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_.value()));
+
     RAFT_CUSPARSE_TRY(cusparseSetStream(handle_ptr_->get_cusparse_handle(), stream_view_.value()));
+    std::cout << "IS IT GOOD ???_______________________" << std::endl;
+    double alpha = 1.0;
+    double beta = 0.0;
     RAFT_CUSPARSE_TRY(cusparseSpMVOp(handle_ptr_->get_cusparse_handle(),
                                   cusparse_view_.spmv_op_plan_A_t_,
-                                  reusable_device_scalar_value_1_.data(),
-                                  reusable_device_scalar_value_0_.data(),
+                                  &alpha,
+                                  &beta,
                                   cusparse_view_.dual_solution,
                                   cusparse_view_.current_AtY,
                                   cusparse_view_.current_AtY));
 #ifdef CUPDLP_DEBUG_MODE
-    cudaStreamSynchronize(stream_view_.value());
-    raft::print_device_vector("current_AtY after",
-                             current_saddle_point_state_.get_current_AtY().data(),
-                             primal_size_h_, std::cout);
+  raft::print_device_vector("current_AtY after",
+  current_saddle_point_state_.get_current_AtY().data(),
+  primal_size_h_, std::cout);
 #endif
+  RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_.value()));
+  std::cout << "IT IS GOOD !!!" << std::endl;
+
   } else {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(
       handle_ptr_->get_cusparse_handle(),
@@ -378,6 +400,8 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
                                          (f_t*)cusparse_view_.buffer_non_transpose.data(),
                                          stream_view_));
     */
+    std::cout << "compute_A_x" << std::endl;
+    
     RAFT_CUSPARSE_TRY(cusparseSetStream(handle_ptr_->get_cusparse_handle(), stream_view_.value()));
     RAFT_CUSPARSE_TRY(cusparseSpMVOp(handle_ptr_->get_cusparse_handle(),
                                   cusparse_view_.spmv_op_plan_A_,
@@ -386,6 +410,7 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
                                   cusparse_view_.reflected_primal_solution,
                                   cusparse_view_.dual_gradient,
                                   cusparse_view_.dual_gradient));
+    std::cout << "compute_A_x done" << std::endl;
   } else {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(
       handle_ptr_->get_cusparse_handle(),
@@ -1102,7 +1127,7 @@ void pdhg_solver_t<i_t, f_t>::take_step(rmm::device_uvector<f_t>& primal_step_si
 #ifdef PDLP_DEBUG_MODE
   std::cout << "Take Step:" << std::endl;
 #endif
-
+  printf("Take Step: %d\n", total_pdlp_iterations);
   if (!hyper_params_.use_reflected_primal_dual) {
     cuopt_expects(!batch_mode_,
                   error_type_t::ValidationError,
@@ -1127,7 +1152,6 @@ void pdhg_solver_t<i_t, f_t>::update_solution(
   cusparse_view_t<i_t, f_t>& current_op_problem_evaluation_cusparse_view_)
 {
   raft::common::nvtx::range fun_scope("update_solution");
-
   // Instead of copying, use a swap (that moves pointers)
   // It's ok because the next will be overwritten next iteration anyways
   // No need to sync, compute_step_sizes has already synced the host
@@ -1156,7 +1180,6 @@ void pdhg_solver_t<i_t, f_t>::update_solution(
                            current_saddle_point_state_.dual_solution_.data()));
 
   // Recreate SpMVOp plans so they use the updated buffer pointers after the swap
-  // cusparse_view_.create_spmv_op_plans();
 }
 
 template <typename i_t, typename f_t>

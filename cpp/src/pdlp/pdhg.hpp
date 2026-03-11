@@ -70,7 +70,7 @@ class pdhg_solver_t {
 
   i_t total_pdhg_iterations_;
 
- private:
+ public:
   void compute_next_primal_dual_solution(rmm::device_uvector<f_t>& primal_step_size,
                                          i_t iterations_since_last_restart,
                                          bool last_restart_was_average,
