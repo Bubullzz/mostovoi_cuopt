@@ -946,26 +946,14 @@ void cusparse_view_t<i_t, f_t>::destroy_spmv_op_plans()
 }
 
 template <typename i_t, typename f_t>
-void cusparse_view_t<i_t, f_t>::create_spmv_op_plans()
+void cusparse_view_t<i_t, f_t>::create_spmv_op_plans(bool is_reflected)
 {
 #if CUDA_VER_12_4_UP
   // destroy_spmv_op_plans();
   RAFT_CUSPARSE_TRY(cusparseSetStream(handle_ptr_->get_cusparse_handle(), handle_ptr_->get_stream()));
 
-  size_t buffer_size_non_transpose = 0;
+  // Prepare buffers for At_y SpMVOp
   size_t buffer_size_transpose = 0;
-
-  RAFT_CUSPARSE_TRY(
-    cusparseSpMVOp_bufferSize(handle_ptr_->get_cusparse_handle(),
-                              CUSPARSE_OPERATION_NON_TRANSPOSE,
-                              A,
-                              reflected_primal_solution,
-                              dual_gradient,
-                              dual_gradient,
-                              CUDA_R_64F,
-                              &buffer_size_non_transpose));
-  buffer_non_transpose_spmvop.resize(buffer_size_non_transpose, handle_ptr_->get_stream());
-
   RAFT_CUSPARSE_TRY(
     cusparseSpMVOp_bufferSize(handle_ptr_->get_cusparse_handle(),
                               CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -977,16 +965,7 @@ void cusparse_view_t<i_t, f_t>::create_spmv_op_plans()
                               &buffer_size_transpose));
   buffer_transpose_spmvop.resize(buffer_size_transpose, handle_ptr_->get_stream());
 
-  // PDHG main view: A*x uses reflected_primal_solution -> dual_gradient, A^T*y uses dual_solution -> current_AtY
-  RAFT_CUSPARSE_TRY(cusparseSpMVOp_createDescr(handle_ptr_->get_cusparse_handle(),
-                              &spmv_op_descr_A_,
-                              CUSPARSE_OPERATION_NON_TRANSPOSE,
-                              A,
-                              reflected_primal_solution,
-                              dual_gradient,
-                              dual_gradient,
-                              CUDA_R_64F,
-                              buffer_non_transpose_spmvop.data()));
+
   RAFT_CUSPARSE_TRY(cusparseSpMVOp_createDescr(handle_ptr_->get_cusparse_handle(),
                               &spmv_op_descr_A_t_,
                               CUSPARSE_OPERATION_NON_TRANSPOSE,
@@ -996,57 +975,45 @@ void cusparse_view_t<i_t, f_t>::create_spmv_op_plans()
                               current_AtY,
                               CUDA_R_64F,
                               buffer_transpose_spmvop.data()));
-  int64_t aty_size = 0, dual_size = 0;
-  void* values_ptr = nullptr;
-  cudaDataType value_type = CUDA_R_64F;
-  RAFT_CUSPARSE_TRY(cusparseDnVecGet(current_AtY, &aty_size, &values_ptr, &value_type));
-  RAFT_CUSPARSE_TRY(cusparseDnVecGet(dual_solution, &dual_size, &values_ptr, &value_type));
-
-
-  std::cout << "aty size: " << aty_size << std::endl;
-  std::cout << "dual_solution size: " << dual_size << std::endl;
-  int64_t A_T_rows = 0, A_T_cols = 0, A_T_nnz = 0;
-  RAFT_CUSPARSE_TRY(cusparseSpMatGetSize(A_T, &A_T_rows, &A_T_cols, &A_T_nnz));
-  std::cout << "A_T size: " << A_T_rows << " x " << A_T_cols << ", nnz: " << A_T_nnz << std::endl;
-
-  int64_t reflected_size = 0, dual_grad_size = 0;
-  RAFT_CUSPARSE_TRY(cusparseDnVecGet(reflected_primal_solution, &reflected_size, &values_ptr, &value_type));
-  RAFT_CUSPARSE_TRY(cusparseDnVecGet(dual_gradient, &dual_grad_size, &values_ptr, &value_type));
-  std::cout << "reflected_primal_solution size: " << reflected_size << std::endl;
-  std::cout << "dual_gradient size: " << dual_grad_size << std::endl;
-  int64_t A_rows = 0, A_cols = 0, A_nnz = 0;
-  RAFT_CUSPARSE_TRY(cusparseSpMatGetSize(A, &A_rows, &A_cols, &A_nnz));
-  std::cout << "A size: " << A_rows << " x " << A_cols << ", nnz: " << A_nnz << std::endl;
-
+  
   char* lto_buffer = NULL;
   size_t lto_buffer_size = 0;
-  RAFT_CUSPARSE_TRY(cusparseSpMVOp_createPlan(handle_ptr_->get_cusparse_handle(),
-                          spmv_op_descr_A_,
-                          &spmv_op_plan_A_,
-                          lto_buffer,
-                          lto_buffer_size));
   RAFT_CUSPARSE_TRY(cusparseSpMVOp_createPlan(handle_ptr_->get_cusparse_handle(),
                           spmv_op_descr_A_t_,
                           &spmv_op_plan_A_t_,
                           lto_buffer,
                           lto_buffer_size));
 
+  // Only prepare buffers for A_x if using reflected
+  if (is_reflected)
+  {
+    size_t buffer_size_non_transpose = 0;
+    RAFT_CUSPARSE_TRY(
+    cusparseSpMVOp_bufferSize(handle_ptr_->get_cusparse_handle(),
+                              CUSPARSE_OPERATION_NON_TRANSPOSE,
+                              A,
+                              reflected_primal_solution,
+                              dual_gradient,
+                              dual_gradient,
+                              CUDA_R_64F,
+                              &buffer_size_non_transpose));
+    buffer_non_transpose_spmvop.resize(buffer_size_non_transpose, handle_ptr_->get_stream());
 
-
-
-  std::cout << "performing an spmvop HERE" << std::endl;
-
-  double alpha = 1.0;
-  double beta = 0.0;
-  RAFT_CUSPARSE_TRY(cusparseSpMVOp(handle_ptr_->get_cusparse_handle(),
-    spmv_op_plan_A_t_,
-    &alpha,
-    &beta,
-    dual_solution,
-    current_AtY,
-    current_AtY));
-  RAFT_CUDA_TRY(cudaStreamSynchronize(handle_ptr_->get_stream()));
-  std::cout << "performing an spmvop HERE done" << std::endl;
+    RAFT_CUSPARSE_TRY(cusparseSpMVOp_createDescr(handle_ptr_->get_cusparse_handle(),
+          &spmv_op_descr_A_,
+          CUSPARSE_OPERATION_NON_TRANSPOSE,
+          A,
+          reflected_primal_solution,
+          dual_gradient,
+          dual_gradient,
+          CUDA_R_64F,
+          buffer_non_transpose_spmvop.data()));
+    RAFT_CUSPARSE_TRY(cusparseSpMVOp_createPlan(handle_ptr_->get_cusparse_handle(),
+          spmv_op_descr_A_,
+          &spmv_op_plan_A_,
+          lto_buffer,
+          lto_buffer_size));
+  }
 #endif
 }
 

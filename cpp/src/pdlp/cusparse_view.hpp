@@ -130,7 +130,7 @@ class cusparse_view_t {
                   const std::vector<pdlp_climber_strategy_t>&);  // Empty just to init the const&
 
   /// Creates SpMVOp plans. Must be called after scale_problem() so plans use the scaled matrix.
-  void create_spmv_op_plans();
+  void create_spmv_op_plans(bool is_reflected);
 
    private:
   void destroy_spmv_op_plans();

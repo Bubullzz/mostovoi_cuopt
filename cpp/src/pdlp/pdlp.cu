@@ -2089,8 +2089,8 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
     compute_initial_primal_weight();
 
   initial_scaling_strategy_.scale_problem();
-
-  pdhg_solver_.get_cusparse_view().create_spmv_op_plans();
+  
+  pdhg_solver_.get_cusparse_view().create_spmv_op_plans(settings_.hyper_params.use_reflected_primal_dual);
   //average_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
   //current_op_problem_evaluation_cusparse_view_.create_spmv_op_plans();
 
@@ -2656,7 +2656,6 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
 {
   raft::common::nvtx::range fun_scope("compute_initial_step_size");
 
-  std::cout << "AAAAAAAAAA" << settings_.hyper_params.initial_step_size_max_singular_value << std::endl;
   if (!settings_.hyper_params.initial_step_size_max_singular_value) {
     // set stepsize relative to maximum absolute value of A
     rmm::device_scalar<f_t> abs_max_element{0.0, stream_view_};
