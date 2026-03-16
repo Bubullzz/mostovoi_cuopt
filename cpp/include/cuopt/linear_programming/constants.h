@@ -133,6 +133,11 @@
 #define CUOPT_PDLP_DOUBLE_PRECISION  1
 #define CUOPT_PDLP_MIXED_PRECISION   2
 
+/* @brief PDLP multi-gpu mode constants */
+#define CUOPT_PDLP_SINGLE_GPU  0
+#define CUOPT_PDLP_MULTI_GPU   1
+#define CUOPT_PDLP_MULTI_GPU_TEST   2
+
 /* @brief File format constants for problem I/O */
 #define CUOPT_FILE_FORMAT_MPS 0
 

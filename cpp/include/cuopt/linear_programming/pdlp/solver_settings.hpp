@@ -78,6 +78,18 @@ enum pdlp_precision_t : int {
   MixedPrecision   = CUOPT_PDLP_MIXED_PRECISION
 };
 
+/**
+ * @brief Enum representing the PDLP multi-gpu mode.
+ * SingleGPU: Use a single GPU.
+ * MultiGPU: Use multiple GPUs.
+ * MultiGPUTest: Emulates multi-gpu mode but runs on a single GPU. Used for testing.
+ */
+ enum pdlp_multi_gpu_mode_t : int {
+  SingleGPU = CUOPT_PDLP_SINGLE_GPU,
+  MultiGPU  = CUOPT_PDLP_MULTI_GPU,
+  MultiGPUTest = CUOPT_PDLP_MULTI_GPU_TEST
+};
+
 template <typename i_t, typename f_t>
 class pdlp_solver_settings_t {
  public:
@@ -255,6 +267,7 @@ class pdlp_solver_settings_t {
   i_t barrier_dual_initial_point{-1};
   bool eliminate_dense_columns{true};
   pdlp_precision_t pdlp_precision{pdlp_precision_t::DefaultPrecision};
+  pdlp_multi_gpu_mode_t pdlp_multi_gpu_mode{pdlp_multi_gpu_mode_t::SingleGPU};
   bool save_best_primal_so_far{false};
   bool first_primal_feasible{false};
   presolver_t presolver{presolver_t::Default};
