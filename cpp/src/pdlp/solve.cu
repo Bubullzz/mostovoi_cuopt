@@ -1451,11 +1451,19 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
 
     if (settings.user_problem_file != "") {
       CUOPT_LOG_INFO("Writing user problem to file: %s", settings.user_problem_file.c_str());
-      op_problem.write_to_mps(settings.user_problem_file);
+      auto& reduced = result->reduced_problem;
+      if (reduced.get_variable_types().size() == 0) {
+        std::vector<var_t> dummy_types(reduced.get_n_variables(), var_t::CONTINUOUS);
+        reduced.set_variable_types(dummy_types.data(), static_cast<i_t>(dummy_types.size()));
+      }
+      result->reduced_problem.write_to_mps(settings.user_problem_file);
+      //op_problem.write_to_mps(settings.user_problem_file);
     }
-
+    return optimization_problem_solution_t<i_t, f_t>(pdlp_termination_status_t::Optimal, op_problem.get_handle_ptr()->get_stream());
     // Set the hyper-parameters based on the solver_settings
     if (use_pdlp_solver_mode) { set_pdlp_solver_mode(settings); }
+
+
 
     auto solution = solve_lp_with_method(problem, settings, lp_timer, is_batch_mode);
 

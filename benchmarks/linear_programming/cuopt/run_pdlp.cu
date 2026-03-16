@@ -136,8 +136,29 @@ static cuopt::linear_programming::pdlp_solver_settings_t<int, double> create_sol
   return settings;
 }
 
+#include <cstdlib>
+
+inline std::string make_path_absolute(const std::string& file)
+{
+  const char* envVar = std::getenv("RAPIDS_DATASET_ROOT_DIR");
+  std::string root  = (envVar != nullptr) ? envVar : "./datasets";
+  return root + "/" + file;
+}
+
+
 static int run_solver(const argparse::ArgumentParser& program, const raft::handle_t& handle_)
 {
+  /*std::vector<std::string> instances = {"L1_sixm250obs",
+    "qap15", "Linf_520c", "a2864", "bdry2", "cont1", "cont11",
+    "datt256_lp", "dlr1", "ex10", "fhnw-binschedule1", "fome13", "graph40-40",
+    "irish-electricity", "neos", "neos3", "neos-3025225", "neos-5052403-cygnet",
+    "neos-5251015", "ns1687037", "ns1688926", "nug08-3rd", "pds-100",
+    "physiciansched3-3", "qap15", "rail02", "rail4284", "rmine15", "s82", "s100",
+    "s250r10", "savsched1", "scpm1", "shs1023", "square41", "stat96v2",
+    "stormG2_1000", "stp3d", "supportcase10", "tpl-tub-ws1617", "woodlands09",
+    "Dual2_5000", "Primal2_1000", "thk_48", "thk_63", "L1_sixm1000obs",
+    "L2CTA3D", "degme", "dlr2", "set-cover-model"};*/
+  std::vector<std::string> instances = {"Dual2_5000"};
   auto settings = create_solver_settings(program);
 
   bool use_pdlp_solver_mode = true;
@@ -147,19 +168,24 @@ static int run_solver(const argparse::ArgumentParser& program, const raft::handl
     use_pdlp_solver_mode = false;
   }
 
+  for(auto instance_name : instances) {
+    
+    auto path = make_path_absolute("../../mittlman_matrices_mps/" + instance_name + "/" + instance_name + ".mps");
+   // auto path = make_path_absolute("../../presolved_mittlman_mps/a2864.mps");
+    //auto path = make_path_absolute("../../mittlman_matrices_mps/a2864/a2864.mps");
   // Parse MPS file
   cuopt::mps_parser::mps_data_model_t<int, double> op_problem =
-    cuopt::mps_parser::parse_mps<int, double>(program.get<std::string>("--path"));
+    cuopt::mps_parser::parse_mps<int, double>(path);
 
   // Solve LP problem
   bool problem_checking = true;
+  settings.user_problem_file = "/home/vmostovoi/nvidia/presolved_mittlman_mps/" + instance_name + ".mps";
   cuopt::linear_programming::optimization_problem_solution_t<int, double> solution =
     cuopt::linear_programming::solve_lp(
       &handle_, op_problem, settings, problem_checking, use_pdlp_solver_mode);
+  }
 
-  // Write solution to file if requested
-  if (program.is_used("--solution-path"))
-    solution.write_to_file(program.get<std::string>("--solution-path"), handle_.get_stream());
+
 
   return 0;
 }
