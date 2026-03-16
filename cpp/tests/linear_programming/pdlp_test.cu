@@ -2043,6 +2043,24 @@ TEST(pdlp_class, precision_single_pslp_presolve)
     afiro_primal_objective, solution.get_additional_termination_information().primal_objective));
 }
 
+TEST(pdlp_class, multi_gpu_spmv)
+{
+  const raft::handle_t handle_{};
+
+  auto path = make_path_absolute("linear_programming/afiro_original.mps");
+  cuopt::mps_parser::mps_data_model_t<int, double> op_problem =
+    cuopt::mps_parser::parse_mps<int, double>(path, true);
+
+  auto solver_settings   = pdlp_solver_settings_t<int, double>{};
+  solver_settings.pdlp_multi_gpu_mode = pdlp_multi_gpu_mode_t::MultiGPUTest;
+
+  optimization_problem_solution_t<int, double> solution =
+    solve_lp(&handle_, op_problem, solver_settings);
+  
+  EXPECT_EQ((int)solution.get_termination_status(), CUOPT_TERIMINATION_STATUS_OPTIMAL);
+  EXPECT_FALSE(is_incorrect_objective(
+    afiro_primal_objective, solution.get_additional_termination_information().primal_objective));
+}
 }  // namespace cuopt::linear_programming::test
 
 CUOPT_TEST_PROGRAM_MAIN()
