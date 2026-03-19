@@ -11,6 +11,7 @@
 #include <pdlp/pdlp_constants.hpp>
 #include <pdlp/solve.cuh>
 #include <pdlp/utils.cuh>
+#include <pdlp/multi_gpu_handler.hpp>
 #include "utilities/pdlp_test_utilities.cuh"
 
 #include <utilities/base_fixture.hpp>
@@ -2041,6 +2042,21 @@ TEST(pdlp_class, precision_single_pslp_presolve)
   EXPECT_EQ((int)solution.get_termination_status(), CUOPT_TERIMINATION_STATUS_OPTIMAL);
   EXPECT_FALSE(is_incorrect_objective(
     afiro_primal_objective, solution.get_additional_termination_information().primal_objective));
+}
+
+TEST(pdlp_class, multi_gpu_split)
+{
+  const raft::handle_t handle_{};
+
+  auto path = make_path_absolute("linear_programming/afiro_original.mps");
+  cuopt::mps_parser::mps_data_model_t<int, double> mps_data_model =
+    cuopt::mps_parser::parse_mps<int, double>(path, true);
+
+  auto op_problem = cuopt::linear_programming::mps_data_model_to_optimization_problem<int, double>(
+    &handle_, mps_data_model);
+  cuopt::linear_programming::detail::problem_t<int, double> problem(op_problem);
+
+  detail::multi_gpu_handler<int, double> multi_gpu_handl(problem);
 }
 
 TEST(pdlp_class, multi_gpu_spmv)
