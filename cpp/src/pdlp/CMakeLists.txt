@@ -18,6 +18,7 @@ set(LP_CORE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/solution_conversion.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/saddle_point.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/cusparse_view.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/multi_gpu_handler.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/pdlp_warm_start_data.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/cpu_pdlp_warm_start_data.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/initial_scaling_strategy/initial_scaling.cu
