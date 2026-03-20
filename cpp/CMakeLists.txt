@@ -255,6 +255,12 @@ create_logger_macros(CUOPT "cuopt::default_logger()" include/cuopt)
 
 find_package(CUDSS REQUIRED)
 
+find_library(NCCL_LIBRARY nccl)
+if(NOT NCCL_LIBRARY)
+  message(FATAL_ERROR "NCCL library not found. Install nccl (e.g. conda install nccl) or set NCCL_LIBRARY")
+endif()
+message(STATUS "Found NCCL: ${NCCL_LIBRARY}")
+
 if(BUILD_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
@@ -384,6 +390,7 @@ target_link_libraries(cuopt
   ${CUDSS_LIB_FILE}
   PRIVATE
   ${CUOPT_PRIVATE_CUDA_LIBS}
+  ${NCCL_LIBRARY}
   )
 
 

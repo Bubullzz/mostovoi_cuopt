@@ -351,6 +351,12 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
 template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::compute_A_x()
 {
+  if (multi_gpu_handler_ != nullptr) {
+    multi_gpu_handler_->spmv_A_x(reusable_device_scalar_value_1_.data(),
+                                 cusparse_view_.reflected_primal_solution,
+                                 reusable_device_scalar_value_0_.data(),
+                                 cusparse_view_.dual_gradient);
+  } else {
   // A @ x
   if (!batch_mode_) {
     if constexpr (std::is_same_v<f_t, double>) {
@@ -393,6 +399,7 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
       (deterministic_batch_pdlp) ? CUSPARSE_SPMM_CSR_ALG3 : CUSPARSE_SPMM_CSR_ALG2,
       (f_t*)cusparse_view_.buffer_non_transpose_batch_row_row_.data(),
       stream_view_));
+  }
   }
 }
 

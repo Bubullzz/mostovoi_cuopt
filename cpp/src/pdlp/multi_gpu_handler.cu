@@ -1,36 +1,46 @@
 #include <cuda_runtime_api.h>
 #include <algorithm>
 #include <cassert>
-#include <pdlp/multi_gpu_handler.hpp>
+#include <pdlp/multi_gpu_handler_t.hpp>
 #include "cusparse.h"
 #include <thrust/host_vector.h>
 #include <cuda_runtime.h>
 
+#include <nccl.h>
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/util/cudart_utils.hpp>
 
 namespace cuopt::linear_programming::detail {
 
-template class multi_gpu_handler<int, double>;
+template class multi_gpu_handler_t<int, double>;
 
 template <typename i_t, typename f_t>
-multi_gpu_handler<i_t, f_t>::multi_gpu_handler(const problem_t<i_t, f_t>& op_problem)
+multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(const problem_t<i_t, f_t>& op_problem)
   : sub_mat_descriptors{},
     all_offsets{},
     all_indices{},
     all_coefficients{}
 {
+    cudaGetDevice(&base_rank);
     cudaGetDeviceCount(&nbDevice);
     if (is_test)
     {
         std::cout << "Running in test mode" << std::endl;
         nbDevice = 4; // Arbitrary
         std::cout << "Number of dummy devices: " << nbDevice << std::endl;
+        devs.resize(nbDevice);
+        std::fill(devs.begin(), devs.end(), 0);
     }
     else {
         std::cout << "Running in production mode" << std::endl;
         std::cout << "Number of devices: " << nbDevice << std::endl;
+        devs.resize(nbDevice);
+        std::iota(devs.begin(), devs.end(), 0);
     }
+    comms.resize(nbDevice);
+    ncclCommInitAll(comms.data(), nbDevice, devs.data());
+
+
     sub_mat_descriptors.resize(nbDevice);
     external_buffers.resize(nbDevice);
     streams.resize(nbDevice);
@@ -38,13 +48,20 @@ multi_gpu_handler<i_t, f_t>::multi_gpu_handler(const problem_t<i_t, f_t>& op_pro
     all_offsets.reserve(nbDevice);
     all_indices.reserve(nbDevice);
     all_coefficients.reserve(nbDevice);
+    all_vecX_buf.reserve(nbDevice);
+    all_vecY_buf.reserve(nbDevice);
+    all_vecX.resize(nbDevice);
+    all_vecY.resize(nbDevice);
 
     // Ugly but lets make something that works
     auto h_offsets     = cuopt::host_copy(op_problem.offsets, op_problem.handle_ptr->get_stream());
     auto h_indices   = cuopt::host_copy(op_problem.variables, op_problem.handle_ptr->get_stream());
-    auto h_coefficients= cuopt::host_copy(op_problem.coefficients, op_problem.handle_ptr->get_stream());
+    auto h_coefficients = cuopt::host_copy(op_problem.coefficients, op_problem.handle_ptr->get_stream());
 
-    int rows_per_matrix = ((op_problem.n_constraints - 1) / nbDevice) + 1;
+    rows_per_matrix = ((op_problem.n_constraints - 1) / nbDevice) + 1;
+    nb_A_rows = op_problem.n_constraints;
+    nb_A_cols = op_problem.n_variables;
+
     // Dispatch the matrix
     for (int rank = 0; rank < nbDevice; rank++)
     {
@@ -52,12 +69,15 @@ multi_gpu_handler<i_t, f_t>::multi_gpu_handler(const problem_t<i_t, f_t>& op_pro
             cudaSetDevice(rank);
         cudaStreamCreate(&streams[rank]);
         cusparseCreate(&handles[rank]);
+
+        // !!!!!!!!! Will this work ???? Maybe I should use pointers ??????
         cudaStream_t stream = streams[rank];
         cusparseHandle_t handle = handles[rank];
         cusparseSetStream(handle, stream);
 
         int start_row_index = rows_per_matrix * rank;
-        int   end_row_index = std::min(int(h_offsets.size() - 1), rows_per_matrix * (rank + 1));
+        int end_row_index =
+          std::min(int(h_offsets.size() - 1), int(rows_per_matrix * (rank + 1)));
         
         int start_row = h_offsets[start_row_index];
         int   end_row = h_offsets[  end_row_index];
@@ -66,9 +86,14 @@ multi_gpu_handler<i_t, f_t>::multi_gpu_handler(const problem_t<i_t, f_t>& op_pro
         all_offsets.emplace_back(rows_per_matrix + 1, stream);
         all_indices.emplace_back(nb_values, stream);
         all_coefficients.emplace_back(nb_values, stream);
+        all_vecX_buf.emplace_back(op_problem.n_variables, stream);
+        all_vecY_buf.emplace_back(rows_per_matrix, stream);
+
+        cusparseCreateDnVec(&all_vecX[rank], op_problem.n_variables, all_vecX_buf[rank].data(), CUDA_R_64F);
+        cusparseCreateDnVec(&all_vecY[rank], rows_per_matrix, all_vecY_buf[rank].data(), CUDA_R_64F);
 
         // Offsets
-        int n_copied = end_row_index - start_row_index + 1;
+        size_t n_copied = end_row_index - start_row_index + 1;
         std::vector<int> local_offsets(rows_per_matrix + 1);
         std::copy(h_offsets.begin() + start_row_index,
                    h_offsets.begin() + end_row_index + 1,
@@ -188,11 +213,62 @@ multi_gpu_handler<i_t, f_t>::multi_gpu_handler(const problem_t<i_t, f_t>& op_pro
                           }) &&
                "A_indices values must be in [0, n_variables).");
     }
+
+    // Ensure when we leave we are on the base gpu again
+    cudaSetDevice(base_rank);
 }
 
 template <typename i_t, typename f_t>
-void multi_gpu_handler<i_t, f_t >::spmv(double* alpha, cusparseConstDnVecDescr_t vecX, double *beta, cusparseDnVecDescr_t vecY)
+void multi_gpu_handler_t<i_t, f_t >::spmv_A_x(double* alpha, cusparseConstDnVecDescr_t vecX, double *beta, cusparseDnVecDescr_t vecY)
 {
-    return;
+    // Assuming vectors/computing is owned by Device(0)
+    if (!is_test)
+        cudaSetDevice(base_rank); // This call should be useless but eh
+
+
+    int64_t x_size = 0, y_size = 0;
+    const void* x_ptr = nullptr;
+    void*       y_ptr = nullptr;
+
+    RAFT_CUSPARSE_TRY(cusparseConstDnVecGet(vecX, &x_size, &x_ptr, nullptr));
+    RAFT_CUSPARSE_TRY(cusparseDnVecGet(vecY, &y_size, &y_ptr, nullptr));
+
+    // Optional sanity checks
+    assert(x_size == nb_A_cols);
+    assert(y_size == nb_A_rows);
+    ncclGroupStart();
+    // Broadcast VecX and VecY to all devices
+    for (int rank = 0; rank < nbDevice; rank++)
+    {
+        // Vecx.data() is used only if we are on root
+        cudaSetDevice(devs[rank]);
+        ncclBroadcast(x_ptr, all_vecX_buf[rank].data(), nb_A_cols, ncclFloat64, base_rank, comms[rank], streams[rank]);
+
+        ncclScatter(y_ptr, all_vecY_buf[rank].data(), rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]);
+    }
+    ncclGroupEnd();
+
+    // Perform SpMV on each device
+    for (int rank = 0; rank < nbDevice; rank++)
+    {
+        cudaSetDevice(devs[rank]);
+        cusparseSpMV(handles[rank],
+            CUSPARSE_OPERATION_NON_TRANSPOSE,
+            alpha,
+            sub_mat_descriptors[rank],
+            all_vecX[rank],
+            beta,
+            all_vecY[rank],
+            CUDA_R_64F,
+            CUSPARSE_SPMV_ALG_DEFAULT,
+            external_buffers[rank]);
+    }
+
+    ncclGroupStart();
+    for (int rank = 0; rank < nbDevice; rank++){
+        cudaSetDevice(devs[rank]);
+        ncclGather(all_vecY_buf[rank].data(), y_ptr, rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]);
+    }
+    ncclGroupEnd();
 }
 }
