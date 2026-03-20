@@ -11,7 +11,7 @@
 #include <pdlp/pdlp_constants.hpp>
 #include <pdlp/solve.cuh>
 #include <pdlp/utils.cuh>
-#include <pdlp/multi_gpu_handler.hpp>
+#include <pdlp/multi_gpu_handler_t.hpp>
 #include "utilities/pdlp_test_utilities.cuh"
 
 #include <utilities/base_fixture.hpp>
@@ -2056,7 +2056,7 @@ TEST(pdlp_class, multi_gpu_split)
     &handle_, mps_data_model);
   cuopt::linear_programming::detail::problem_t<int, double> problem(op_problem);
 
-  detail::multi_gpu_handler<int, double> multi_gpu_handl(problem);
+  detail::multi_gpu_handler_t<int, double> multi_gpu_handler(problem);
 }
 
 TEST(pdlp_class, multi_gpu_spmv)
