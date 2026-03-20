@@ -1458,6 +1458,9 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
       result->reduced_problem.write_to_mps(settings.presolve_file);
     }
 
+    if (settings.pdlp_multi_gpu_mode == pdlp_multi_gpu_mode_t::MultiGPUTest) {
+      //multi_gpu_handler = std::make_unique<detail::multi_gpu_handler_t<i_t, f_t>>(problem);
+    }
     // Set the hyper-parameters based on the solver_settings
     if (use_pdlp_solver_mode) { set_pdlp_solver_mode(settings); }
 
