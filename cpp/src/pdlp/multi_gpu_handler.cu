@@ -54,7 +54,7 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
         std::iota(devs.begin(), devs.end(), 0);
     }
     comms.resize(nbDevice);
-    ncclCommInitAll(comms.data(), nbDevice, devs.data());
+    RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
 
     sub_mat_descriptors.resize(nbDevice);
     external_buffers.resize(nbDevice);
@@ -238,17 +238,17 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDe
     // Optional sanity checks
     assert(x_size == nb_A_cols);
     assert(y_size == nb_A_rows);
-    ncclGroupStart();
+    RAFT_NCCL_TRY(ncclGroupStart());
     // Broadcast VecX and VecY to all devices
     for (int rank = 0; rank < nbDevice; rank++)
     {
         // Vecx.data() is used only if we are on root
         cudaSetDevice(devs[rank]);
-        ncclBroadcast(x_ptr, all_vecX_buf[rank].data(), nb_A_cols, ncclFloat64, base_rank, comms[rank], streams[rank]);
+        RAFT_NCCL_TRY(ncclBroadcast(x_ptr, all_vecX_buf[rank].data(), nb_A_cols, ncclFloat64, base_rank, comms[rank], streams[rank]));
 
-        ncclScatter(y_ptr, all_vecY_buf[rank].data(), rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]);
+        RAFT_NCCL_TRY(ncclScatter(y_ptr, all_vecY_buf[rank].data(), rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
-    ncclGroupEnd();
+    RAFT_NCCL_TRY(ncclGroupEnd());
 
     // Perform SpMV on each device
     for (int rank = 0; rank < nbDevice; rank++)
@@ -266,11 +266,11 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDe
             external_buffers[rank]);
     }
 
-    ncclGroupStart();
+    RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++){
         cudaSetDevice(devs[rank]);
-        ncclGather(all_vecY_buf[rank].data(), y_ptr, rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]);
+        RAFT_NCCL_TRY(ncclGather(all_vecY_buf[rank].data(), y_ptr, rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
-    ncclGroupEnd();
+    RAFT_NCCL_TRY(ncclGroupEnd());
 }
 }

@@ -1,7 +1,17 @@
 #pragma once
 
 #include <nccl.h>
+#include <stdexcept>
+#include <string>
 #include <vector>
+
+#define RAFT_NCCL_TRY(call)                                                       \
+  do {                                                                            \
+    ncclResult_t const status = (call);                                            \
+    if (status != ncclSuccess) {                                                  \
+      throw std::runtime_error(std::string("NCCL error: ") + ncclGetErrorString(status)); \
+    }                                                                             \
+  } while (0)
 #include <cusparse_v2.h>
 #include <mip_heuristics/problem/problem.cuh>
 #include "rmm/device_uvector.hpp"
