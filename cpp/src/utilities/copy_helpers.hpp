@@ -21,6 +21,8 @@
 
 #include <cuda/std/functional>
 
+#include <iostream>
+
 namespace cuopt {
 
 template <typename T>
@@ -300,6 +302,47 @@ template <typename T>
 void print(std::string_view const name, rmm::device_uvector<T> const& container)
 {
   raft::print_device_vector(name.data(), container.data(), container.size(), std::cout);
+}
+
+/**
+ * @brief Print a CSR-format matrix in dense form for debugging.
+ *
+ * @tparam i_t Index type (e.g. int)
+ * @tparam f_t Value type (e.g. double)
+ * @param n_rows Number of rows
+ * @param n_cols Number of columns
+ * @param offsets Row offsets (size n_rows + 1)
+ * @param indices Column indices
+ * @param values Non-zero values
+ * @param prefix Optional prefix for each line (e.g. "Rank 0: ")
+ */
+template <typename i_t, typename f_t>
+void print_csr_matrix(int n_rows,
+                     int n_cols,
+                     const std::vector<i_t>& offsets,
+                     const std::vector<i_t>& indices,
+                     const std::vector<f_t>& values,
+                     const char* prefix = "")
+{
+  if (n_rows <= 0 || static_cast<size_t>(n_rows) >= offsets.size()) return;
+  std::vector<f_t> dense(static_cast<size_t>(n_rows) * n_cols, f_t{0});
+  for (int i = 0; i < n_rows; ++i) {
+    for (i_t j = offsets[i]; j < offsets[i + 1]; ++j) {
+      int col = indices[j];
+      if (col >= 0 && col < n_cols) {
+        dense[static_cast<size_t>(i) * n_cols + col] = values[j];
+      }
+    }
+  }
+  std::cout << prefix << "CSR matrix " << n_rows << "x" << n_cols << ":\n";
+  for (int i = 0; i < n_rows; ++i) {
+    std::cout << prefix << "  [";
+    for (int j = 0; j < n_cols; ++j) {
+      std::cout << dense[static_cast<size_t>(i) * n_cols + j];
+      if (j < n_cols - 1) std::cout << ", ";
+    }
+    std::cout << "]\n";
+  }
 }
 
 template <typename T>

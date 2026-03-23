@@ -24,6 +24,9 @@ class multi_gpu_handler_t {
     public:
         void spmv_A_x(double* alpha, cusparseConstDnVecDescr_t vecX, double* beta, cusparseDnVecDescr_t vecY);
 
+        /// Debug: print each rank's sub-matrix (host-copies from device)
+        void print_sub_matrices() const;
+
         // Primary constructor - takes raw CSR data (host vectors)
         multi_gpu_handler_t(i_t n_constraints,
                             i_t n_variables,

@@ -1,6 +1,7 @@
 #include <cuda_runtime_api.h>
 #include <algorithm>
 #include <cassert>
+#include <string>
 #include <pdlp/multi_gpu_handler.hpp>
 #include "cusparse.h"
 #include <thrust/host_vector.h>
@@ -54,7 +55,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
         std::iota(devs.begin(), devs.end(), 0);
     }
     comms.resize(nbDevice);
-    RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
+    // why the fuck did I comment that
+    //RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
 
     sub_mat_descriptors.resize(nbDevice);
     external_buffers.resize(nbDevice);
@@ -272,5 +274,27 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDe
         RAFT_NCCL_TRY(ncclGather(all_vecY_buf[rank].data(), y_ptr, rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
+    cudaSetDevice(base_rank);
+}
+
+template <typename i_t, typename f_t>
+void multi_gpu_handler_t<i_t, f_t>::print_sub_matrices() const
+{
+    for (int rank = 0; rank < nbDevice; rank++)
+    {
+        if (!is_test) cudaSetDevice(devs[rank]);
+        rmm::cuda_stream_view stream_view(streams[rank]);
+        auto h_offsets  = cuopt::host_copy(all_offsets[rank], stream_view);
+        auto h_indices = cuopt::host_copy(all_indices[rank], stream_view);
+        auto h_values  = cuopt::host_copy(all_coefficients[rank], stream_view);
+
+        std::string prefix = "Rank " + std::to_string(rank) + ": ";
+        cuopt::print_csr_matrix(static_cast<int>(rows_per_matrix),
+                               static_cast<int>(nb_A_cols),
+                               h_offsets,
+                               h_indices,
+                               h_values,
+                               prefix.c_str());
+    }
 }
 }
