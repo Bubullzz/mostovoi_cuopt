@@ -40,7 +40,7 @@ class multi_gpu_handler_t {
 
     private:
         int nbDevice;
-        bool is_test = true;
+        bool is_test = false;
         // The rank that owns all the pdlp single-gpu data
         int base_rank;
 

@@ -41,7 +41,9 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     cudaGetDeviceCount(&nbDevice);
     if (is_test)
     {
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
         std::cout << "Running in test mode" << std::endl;
+        std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
         nbDevice = 4;  // Arbitrary
         std::cout << "Number of dummy devices: " << nbDevice << std::endl;
         devs.resize(nbDevice);
@@ -56,7 +58,7 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     }
     comms.resize(nbDevice);
     // why the fuck did I comment that
-    //RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
+    RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
 
     sub_mat_descriptors.resize(nbDevice);
     external_buffers.resize(nbDevice);
@@ -225,6 +227,7 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 template <typename i_t, typename f_t>
 void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDescr_t vecX, double *beta, cusparseDnVecDescr_t vecY)
 {
+    //print_sub_matrices();
     // Assuming vectors/computing is owned by Device(0)
     if (!is_test)
         cudaSetDevice(base_rank); // This call should be useless but eh
