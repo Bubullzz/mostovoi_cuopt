@@ -2077,7 +2077,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse)
     cusparseCreateDnVec(&vecY_descr, n_rows, d_vecY_multi.data(), CUDA_R_64F));
 
   double alpha = 1.0;
-  double beta  = 0.0;
+  double beta  = 2.0;
   multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
   stream.synchronize();
 
@@ -2213,7 +2213,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
     cusparseCreateDnVec(&vecY_descr, n_rows, d_vecY_multi.data(), CUDA_R_64F));
 
   double alpha = 1.0;
-  double beta  = 0.0;
+  double beta  = 2.0;
   multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
   stream.synchronize();
 
@@ -2293,6 +2293,120 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
   cusparseDestroySpMat(matA);
 }
 
+// Same SpMV check as multi_gpu_spmv_compare_cusparse, but CSR comes from an MPS instance
+// (parse_mps → mps_data_model_to_optimization_problem → problem_t constraint matrix).
+TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_from_mps)
+{
+  const raft::handle_t handle_{};
+  auto stream = handle_.get_stream();
+
+  auto path = make_path_absolute("linear_programming/afiro_original.mps");
+  cuopt::mps_parser::mps_data_model_t<int, double> mps_data_model =
+    cuopt::mps_parser::parse_mps<int, double>(path, true);
+
+  auto op_problem = cuopt::linear_programming::mps_data_model_to_optimization_problem<int, double>(
+    &handle_, mps_data_model);
+  cuopt::linear_programming::detail::problem_t<int, double> problem(op_problem);
+
+  std::vector<int> h_offsets    = cuopt::host_copy(problem.offsets, stream);
+  std::vector<int> h_indices    = cuopt::host_copy(problem.variables, stream);
+  std::vector<double> h_values  = cuopt::host_copy(problem.coefficients, stream);
+  const int n_rows              = problem.n_constraints;
+  const int n_cols              = problem.n_variables;
+
+  detail::multi_gpu_handler_t<int, double> multi_gpu_handler(problem);
+
+  std::vector<double> h_vecX(n_cols, 1.0);
+  rmm::device_uvector<double> d_vecX = cuopt::device_copy(h_vecX, stream);
+  rmm::device_uvector<double> d_vecY_multi(n_rows, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_vecY_multi.data(), 0, n_rows * sizeof(double), stream));
+
+  cusparseConstDnVecDescr_t vecX_descr = nullptr;
+  cusparseDnVecDescr_t vecY_descr     = nullptr;
+  RAFT_CUSPARSE_TRY(
+    cusparseCreateConstDnVec(&vecX_descr, n_cols, d_vecX.data(), CUDA_R_64F));
+  RAFT_CUSPARSE_TRY(
+    cusparseCreateDnVec(&vecY_descr, n_rows, d_vecY_multi.data(), CUDA_R_64F));
+
+  double alpha = 1.0;
+  double beta  = 2.0;
+  multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
+  stream.synchronize();
+
+  for (auto stream_handle : multi_gpu_handler.streams) {
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_handle));
+  }
+  auto h_vecY_multi = cuopt::host_copy(d_vecY_multi, stream);
+
+  rmm::device_uvector<int> d_offsets = cuopt::device_copy(h_offsets, stream);
+  rmm::device_uvector<int> d_indices = cuopt::device_copy(h_indices, stream);
+  rmm::device_uvector<double> d_values = cuopt::device_copy(h_values, stream);
+
+  cusparseSpMatDescr_t matA = nullptr;
+  RAFT_CUSPARSE_TRY(cusparseCreateCsr(&matA,
+                                      n_rows,
+                                      n_cols,
+                                      static_cast<int64_t>(h_values.size()),
+                                      d_offsets.data(),
+                                      d_indices.data(),
+                                      d_values.data(),
+                                      CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_32I,
+                                      CUSPARSE_INDEX_BASE_ZERO,
+                                      CUDA_R_64F));
+
+  rmm::device_uvector<double> d_vecY_ref(n_rows, stream);
+  RAFT_CUDA_TRY(cudaMemsetAsync(d_vecY_ref.data(), 0, n_rows * sizeof(double), stream));
+
+  cusparseConstDnVecDescr_t vecX_ref_descr = nullptr;
+  cusparseDnVecDescr_t vecY_ref_descr      = nullptr;
+  RAFT_CUSPARSE_TRY(
+    cusparseCreateConstDnVec(&vecX_ref_descr, n_cols, d_vecX.data(), CUDA_R_64F));
+  RAFT_CUSPARSE_TRY(
+    cusparseCreateDnVec(&vecY_ref_descr, n_rows, d_vecY_ref.data(), CUDA_R_64F));
+
+  size_t buffer_size = 0;
+  RAFT_CUSPARSE_TRY(cusparseSpMV_bufferSize(handle_.get_cusparse_handle(),
+                                            CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                            &alpha,
+                                            matA,
+                                            vecX_ref_descr,
+                                            &beta,
+                                            vecY_ref_descr,
+                                            CUDA_R_64F,
+                                            CUSPARSE_SPMV_ALG_DEFAULT,
+                                            &buffer_size));
+
+  rmm::device_uvector<char> d_buffer(buffer_size, stream);
+  RAFT_CUSPARSE_TRY(cusparseSpMV(handle_.get_cusparse_handle(),
+                                 CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                 &alpha,
+                                 matA,
+                                 vecX_ref_descr,
+                                 &beta,
+                                 vecY_ref_descr,
+                                 CUDA_R_64F,
+                                 CUSPARSE_SPMV_ALG_DEFAULT,
+                                 d_buffer.data()));
+  stream.synchronize();
+
+  auto h_vecY_ref = cuopt::host_copy(d_vecY_ref, stream);
+
+  const double tol = 1e-10;
+  for (int i = 0; i < n_rows; ++i) {
+    EXPECT_NEAR(h_vecY_multi[i], h_vecY_ref[i], tol)
+      << "Mismatch at row " << i << ": multi_gpu=" << h_vecY_multi[i]
+      << " cusparse=" << h_vecY_ref[i];
+  }
+
+  cusparseDestroyDnVec(vecX_descr);
+  cusparseDestroyDnVec(vecY_descr);
+  cusparseDestroyDnVec(vecX_ref_descr);
+  cusparseDestroyDnVec(vecY_ref_descr);
+  cusparseDestroySpMat(matA);
+}
+
+
 TEST(pdlp_class, multi_gpu_split)
 {
   const raft::handle_t handle_{};
@@ -2317,7 +2431,6 @@ TEST(pdlp_class, multi_gpu_spmv)
     cuopt::mps_parser::parse_mps<int, double>(path, true);
 
   auto solver_settings   = pdlp_solver_settings_t<int, double>{};
-  solver_settings.pdlp_multi_gpu_mode = pdlp_multi_gpu_mode_t::MultiGPUTest;
 
   optimization_problem_solution_t<int, double> solution =
     solve_lp(&handle_, op_problem, solver_settings);

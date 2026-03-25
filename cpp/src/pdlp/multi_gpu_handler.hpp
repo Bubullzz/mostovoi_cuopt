@@ -22,7 +22,7 @@ namespace cuopt::linear_programming::detail {
 template <typename i_t, typename f_t>
 class multi_gpu_handler_t {
     public:
-        void spmv_A_x(double* alpha, cusparseConstDnVecDescr_t vecX, double* beta, cusparseDnVecDescr_t vecY);
+        void spmv_A_x(const f_t* alpha, cusparseConstDnVecDescr_t vecX, const f_t *beta, cusparseDnVecDescr_t vecY);
 
         /// Debug: print each rank's sub-matrix (host-copies from device)
         void print_sub_matrices() const;
@@ -62,6 +62,9 @@ class multi_gpu_handler_t {
         std::vector<rmm::device_uvector<f_t>> all_vecY_buf;
         std::vector<cusparseDnVecDescr_t>     all_vecX;
         std::vector<cusparseDnVecDescr_t>     all_vecY;
+        std::vector<rmm::device_scalar<f_t>> all_alpha;
+        std::vector<rmm::device_scalar<f_t>> all_beta;
+
 };
 
 }

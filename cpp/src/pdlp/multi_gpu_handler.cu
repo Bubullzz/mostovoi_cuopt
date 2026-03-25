@@ -15,6 +15,7 @@
 namespace cuopt::linear_programming::detail {
 
 template class multi_gpu_handler_t<int, double>;
+template class multi_gpu_handler_t<int, float>;
 
 template <typename i_t, typename f_t>
 multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(const problem_t<i_t, f_t>& op_problem)
@@ -37,6 +38,13 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     all_indices{},
     all_coefficients{}
 {
+    /*
+    cuopt::print_csr_matrix(static_cast<int>(n_constraints),
+    static_cast<int>(n_variables),
+    h_offsets,
+    h_indices,
+    h_coefficients,
+    "Initial CSR matrix"); */
     cudaGetDevice(&base_rank);
     cudaGetDeviceCount(&nbDevice);
     if (is_test)
@@ -69,6 +77,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     all_coefficients.reserve(nbDevice);
     all_vecX_buf.reserve(nbDevice);
     all_vecY_buf.reserve(nbDevice);
+    all_alpha.reserve(nbDevice);
+    all_beta.reserve(nbDevice);
     all_vecX.resize(nbDevice);
     all_vecY.resize(nbDevice);
 
@@ -100,7 +110,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
         all_coefficients.emplace_back(nb_values, stream);
         all_vecX_buf.emplace_back(n_variables, stream);
         all_vecY_buf.emplace_back(rows_per_matrix, stream);
-
+        all_alpha.emplace_back(0,stream);
+        all_beta.emplace_back(0,stream);
         RAFT_CUSPARSE_TRY(
             cusparseCreateDnVec(&all_vecX[rank], n_variables, all_vecX_buf[rank].data(), CUDA_R_64F));
         RAFT_CUSPARSE_TRY(
@@ -225,13 +236,17 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 }
 
 template <typename i_t, typename f_t>
-void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDescr_t vecX, double *beta, cusparseDnVecDescr_t vecY)
+void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(const f_t* alpha, cusparseConstDnVecDescr_t vecX, const f_t *beta, cusparseDnVecDescr_t vecY)
 {
+    // Assuming ALPHA and BETA on Host
+
+
+    //print_sub_matrices();
+    std::cout << "SpMV A x" << std::endl;
     //print_sub_matrices();
     // Assuming vectors/computing is owned by Device(0)
     if (!is_test)
         cudaSetDevice(base_rank); // This call should be useless but eh
-
 
     int64_t x_size = 0, y_size = 0;
     const void* x_ptr = nullptr;
@@ -250,26 +265,29 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDe
         // Vecx.data() is used only if we are on root
         cudaSetDevice(devs[rank]);
         RAFT_NCCL_TRY(ncclBroadcast(x_ptr, all_vecX_buf[rank].data(), nb_A_cols, ncclFloat64, base_rank, comms[rank], streams[rank]));
-
         RAFT_NCCL_TRY(ncclScatter(y_ptr, all_vecY_buf[rank].data(), rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
+    std::cout << "Performing SpMV on each device" << std::endl;
     // Perform SpMV on each device
     for (int rank = 0; rank < nbDevice; rank++)
     {
+        //continue;
         cudaSetDevice(devs[rank]);
-        cusparseSpMV(handles[rank],
+        RAFT_CUSPARSE_TRY(cusparseSpMV(handles[rank],
             CUSPARSE_OPERATION_NON_TRANSPOSE,
-            alpha,
+            alpha, //all_alpha[rank].data(),
             sub_mat_descriptors[rank],
             all_vecX[rank],
-            beta,
+            beta, //all_beta[rank].data(),
             all_vecY[rank],
             CUDA_R_64F,
             CUSPARSE_SPMV_ALG_DEFAULT,
-            external_buffers[rank]);
+            external_buffers[rank]));
     }
+    cudaSetDevice(base_rank);
+    std::cout << "SpMV on each device done" << std::endl;
 
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++){
@@ -278,6 +296,7 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(double* alpha, cusparseConstDnVecDe
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
     cudaSetDevice(base_rank);
+    std::cout << "SpMV A x done" << std::endl;
 }
 
 template <typename i_t, typename f_t>

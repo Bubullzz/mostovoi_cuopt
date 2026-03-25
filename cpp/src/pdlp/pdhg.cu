@@ -45,7 +45,8 @@ pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
   const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params,
   const std::vector<std::tuple<i_t, f_t, f_t>>& new_bounds,
   bool enable_mixed_precision_spmv)
-  : batch_mode_(climber_strategies.size() > 1),
+  : multi_gpu_handler_(op_problem_scaled),
+    batch_mode_(climber_strategies.size() > 1),
     handle_ptr_(handle_ptr),
     stream_view_(handle_ptr_->get_stream()),
     problem_ptr(&op_problem_scaled),
@@ -353,12 +354,11 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
 template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::compute_A_x()
 {
-  if (false /*multi_gpu_handler_ != nullptr*/) {
-    /*
-    multi_gpu_handler_->spmv_A_x(reusable_device_scalar_value_1_.data(),
+  if (true /*multi_gpu_handler_ != nullptr*/) {
+    multi_gpu_handler_.spmv_A_x(reusable_device_scalar_value_1_.data(),
                                  cusparse_view_.reflected_primal_solution,
                                  reusable_device_scalar_value_0_.data(),
-                                 cusparse_view_.dual_gradient); */
+                                 cusparse_view_.dual_gradient);
   } else {
   // A @ x
   if (!batch_mode_) {

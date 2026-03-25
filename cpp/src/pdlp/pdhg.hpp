@@ -13,6 +13,7 @@
 #include <pdlp/saddle_point.hpp>
 #include <pdlp/swap_and_resize_helper.cuh>
 #include <pdlp/utilities/ping_pong_graph.cuh>
+#include <pdlp/multi_gpu_handler.hpp>
 
 #include <raft/core/handle.hpp>
 
@@ -32,6 +33,7 @@ class pdhg_solver_t {
                 const std::vector<std::tuple<i_t, f_t, f_t>>& new_bounds,
                 bool enable_mixed_precision_spmv = false);
 
+  multi_gpu_handler_t<i_t, f_t> multi_gpu_handler_;
   saddle_point_state_t<i_t, f_t>& get_saddle_point_state();
   cusparse_view_t<i_t, f_t>& get_cusparse_view();
   rmm::device_uvector<f_t>& get_primal_tmp_resource();
