@@ -45,7 +45,7 @@ pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
   const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params,
   const std::vector<std::tuple<i_t, f_t, f_t>>& new_bounds,
   bool enable_mixed_precision_spmv)
-  : multi_gpu_handler_(op_problem_scaled),
+  : multi_gpu_handler_ptr_(nullptr),
     batch_mode_(climber_strategies.size() > 1),
     handle_ptr_(handle_ptr),
     stream_view_(handle_ptr_->get_stream()),
@@ -90,7 +90,7 @@ pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
     // In both multi stream and SpMM PDLP CUDA Graphs are causing issue
     // Currently graph capture is not supported for cuSparse SpMM
     // TODO enable once cuSparse SpMM supports graph capture
-    graph_all{stream_view_, is_legacy_batch_mode || batch_mode_},
+    graph_all{stream_view_, true || is_legacy_batch_mode || batch_mode_},
     graph_prim_proj_gradient_dual{stream_view_, is_legacy_batch_mode},
     d_total_pdhg_iterations_{0, stream_view_},
     climber_strategies_(climber_strategies),
@@ -354,12 +354,6 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
 template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::compute_A_x()
 {
-  if (true /*multi_gpu_handler_ != nullptr*/) {
-    multi_gpu_handler_.spmv_A_x(reusable_device_scalar_value_1_.data(),
-                                 cusparse_view_.reflected_primal_solution,
-                                 reusable_device_scalar_value_0_.data(),
-                                 cusparse_view_.dual_gradient);
-  } else {
   // A @ x
   if (!batch_mode_) {
     if constexpr (std::is_same_v<f_t, double>) {
@@ -377,17 +371,9 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
       }
     }
     if (!cusparse_view_.mixed_precision_enabled_) {
-      RAFT_CUSPARSE_TRY(
-        raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
-                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                           reusable_device_scalar_value_1_.data(),
-                                           cusparse_view_.A,
-                                           cusparse_view_.reflected_primal_solution,
-                                           reusable_device_scalar_value_0_.data(),
-                                           cusparse_view_.dual_gradient,
-                                           CUSPARSE_SPMV_CSR_ALG2,
-                                           (f_t*)cusparse_view_.buffer_non_transpose.data(),
-                                           stream_view_));
+      multi_gpu_handler_ptr_->spmv_A_x(
+        cusparse_view_.reflected_primal_solution,
+        cusparse_view_.dual_gradient);
     }
   } else {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(
@@ -402,7 +388,6 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
       (deterministic_batch_pdlp) ? CUSPARSE_SPMM_CSR_ALG3 : CUSPARSE_SPMM_CSR_ALG2,
       (f_t*)cusparse_view_.buffer_non_transpose_batch_row_row_.data(),
       stream_view_));
-  }
   }
 }
 

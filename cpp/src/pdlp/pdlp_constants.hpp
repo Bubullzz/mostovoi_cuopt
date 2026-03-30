@@ -32,7 +32,7 @@ inline constexpr int dual_stride   = 1;
 
 // #define PDLP_DEBUG_MODE
 
-#define CUPDLP_DEBUG_MODE
+// #define CUPDLP_DEBUG_MODE
 
 // #define BATCH_VERBOSE_MODE
 

@@ -2062,7 +2062,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse)
 
   // Create multi_gpu_handler with raw CSR data
   detail::multi_gpu_handler_t<int, double> multi_gpu_handler(
-    n_rows, n_cols, h_offsets, h_indices, h_values);
+    n_rows, n_cols, h_offsets, h_indices, h_values, stream);
 
   // Device vectors for multi_gpu spmv
   rmm::device_uvector<double> d_vecX = cuopt::device_copy(h_vecX, stream);
@@ -2078,7 +2078,8 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse)
 
   double alpha = 1.0;
   double beta  = 2.0;
-  multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
+  multi_gpu_handler.set_alpha_beta(alpha, beta);
+  multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
   for (auto stream_handle : multi_gpu_handler.streams) {
@@ -2198,7 +2199,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
 
   // Create multi_gpu_handler with raw CSR data
   detail::multi_gpu_handler_t<int, double> multi_gpu_handler(
-    n_rows, n_cols, h_offsets, h_indices, h_values);
+    n_rows, n_cols, h_offsets, h_indices, h_values, stream);
 
   // Device vectors for multi_gpu spmv
   rmm::device_uvector<double> d_vecX = cuopt::device_copy(h_vecX, stream);
@@ -2214,7 +2215,8 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
 
   double alpha = 1.0;
   double beta  = 2.0;
-  multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
+  multi_gpu_handler.set_alpha_beta(alpha, beta);
+  multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
   for (auto stream_handle : multi_gpu_handler.streams) {
@@ -2330,7 +2332,8 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_from_mps)
 
   double alpha = 1.0;
   double beta  = 2.0;
-  multi_gpu_handler.spmv_A_x(&alpha, vecX_descr, &beta, vecY_descr);
+  multi_gpu_handler.set_alpha_beta(alpha, beta);
+  multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
   for (auto stream_handle : multi_gpu_handler.streams) {

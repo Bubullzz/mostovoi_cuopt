@@ -409,7 +409,7 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
 
   primal_gradient.create(op_problem_scaled.n_variables,
                          current_saddle_point_state.get_primal_gradient().data());
-  dual_gradient.create(op_problem_scaled.n_constraints + 8,
+  dual_gradient.create(op_problem_scaled.n_constraints,
                        current_saddle_point_state.get_dual_gradient().data());
 
   current_AtY.create(op_problem_scaled.n_variables,

@@ -2147,7 +2147,8 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 
   // Update FP32 matrix copies for mixed precision SpMV after scaling
   pdhg_solver_.get_cusparse_view().update_mixed_precision_matrices();
-
+  pdhg_solver_.multi_gpu_handler_ptr_ = new multi_gpu_handler_t<i_t, f_t>(op_problem_scaled_);
+  
   if (!settings_.hyper_params.compute_initial_step_size_before_scaling &&
       !settings_.get_initial_step_size().has_value())
     compute_initial_step_size();

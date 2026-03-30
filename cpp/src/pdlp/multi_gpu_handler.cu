@@ -11,6 +11,7 @@
 #include <raft/core/cusparse_macros.hpp>
 #include <raft/util/cudart_utils.hpp>
 #include <utilities/copy_helpers.hpp>
+#include <utilities/event_handler.cuh>
 
 namespace cuopt::linear_programming::detail {
 
@@ -23,7 +24,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(const problem_t<i_t, f_t>& op
                         op_problem.n_variables,
                         cuopt::host_copy(op_problem.offsets, op_problem.handle_ptr->get_stream()),
                         cuopt::host_copy(op_problem.variables, op_problem.handle_ptr->get_stream()),
-                        cuopt::host_copy(op_problem.coefficients, op_problem.handle_ptr->get_stream()))
+                        cuopt::host_copy(op_problem.coefficients, op_problem.handle_ptr->get_stream()),
+                        op_problem.handle_ptr->get_stream())
 {}
 
 template <typename i_t, typename f_t>
@@ -32,28 +34,23 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     i_t n_variables,
     const std::vector<i_t>& h_offsets,
     const std::vector<i_t>& h_indices,
-    const std::vector<f_t>& h_coefficients)
+    const std::vector<f_t>& h_coefficients,
+    rmm::cuda_stream_view base_stream)
   : sub_mat_descriptors{},
     all_offsets{},
     all_indices{},
-    all_coefficients{}
+    all_coefficients{},
+    base_stream(base_stream),
+    done_events{}
 {
-    /*
-    cuopt::print_csr_matrix(static_cast<int>(n_constraints),
-    static_cast<int>(n_variables),
-    h_offsets,
-    h_indices,
-    h_coefficients,
-    "Initial CSR matrix"); */
     cudaGetDevice(&base_rank);
     cudaGetDeviceCount(&nbDevice);
-    if (is_test)
+    if (is_test || nbDevice == 0)
     {
         std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
         std::cout << "Running in test mode" << std::endl;
         std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
-        nbDevice = 4;  // Arbitrary
-        std::cout << "Number of dummy devices: " << nbDevice << std::endl;
+        std::cout << "Number of devices: " << nbDevice << std::endl;
         devs.resize(nbDevice);
         std::fill(devs.begin(), devs.end(), 0);
     }
@@ -65,7 +62,7 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
         std::iota(devs.begin(), devs.end(), 0);
     }
     comms.resize(nbDevice);
-    // why the fuck did I comment that
+
     RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
 
     sub_mat_descriptors.resize(nbDevice);
@@ -81,6 +78,12 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     all_beta.reserve(nbDevice);
     all_vecX.resize(nbDevice);
     all_vecY.resize(nbDevice);
+    done_events.reserve(nbDevice); 
+
+    for (int i = 0; i < nbDevice; i++){
+        cudaSetDevice(i);
+        done_events.emplace_back(std::make_unique<event_handler_t>());
+    }
 
     rows_per_matrix = ((n_constraints - 1) / nbDevice) + 1;
     nb_A_rows       = n_constraints;
@@ -89,7 +92,7 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     // Dispatch the matrix
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        if (!is_test) cudaSetDevice(rank);
+        cudaSetDevice(rank);
         cudaStreamCreate(&streams[rank]);
         cusparseCreate(&handles[rank]);
 
@@ -211,6 +214,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
                                 CUDA_R_64F,
                                 CUSPARSE_SPMV_ALG_DEFAULT,
                                 external_buffers[rank]);
+        RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecX));
+        RAFT_CUSPARSE_TRY(cusparseDestroyDnVec(vecY));
     }
 
     // CSR validity checks for each submatrix (mirrors check_csr_representation)
@@ -236,17 +241,13 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 }
 
 template <typename i_t, typename f_t>
-void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(const f_t* alpha, cusparseConstDnVecDescr_t vecX, const f_t *beta, cusparseDnVecDescr_t vecY)
+void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY)
 {
-    // Assuming ALPHA and BETA on Host
-
-
-    //print_sub_matrices();
-    std::cout << "SpMV A x" << std::endl;
-    //print_sub_matrices();
-    // Assuming vectors/computing is owned by Device(0)
-    if (!is_test)
-        cudaSetDevice(base_rank); // This call should be useless but eh
+    // Forking base_stream
+    start_spmv_event.record(base_stream);
+    for(int rank = 0; rank < nbDevice; rank++){
+        start_spmv_event.stream_wait(streams[rank]);
+    }
 
     int64_t x_size = 0, y_size = 0;
     const void* x_ptr = nullptr;
@@ -255,48 +256,102 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(const f_t* alpha, cusparseConstDnVe
     RAFT_CUSPARSE_TRY(cusparseConstDnVecGet(vecX, &x_size, &x_ptr, &not_null_type));
     RAFT_CUSPARSE_TRY(cusparseDnVecGet(vecY, &y_size, &y_ptr, &not_null_type));
 
-    // Optional sanity checks
-    assert(x_size == nb_A_cols);
-    assert(y_size == nb_A_rows);
     RAFT_NCCL_TRY(ncclGroupStart());
     // Broadcast VecX and VecY to all devices
     for (int rank = 0; rank < nbDevice; rank++)
     {
         // Vecx.data() is used only if we are on root
-        cudaSetDevice(devs[rank]);
+        //cudaSetDevice(devs[rank]);
         RAFT_NCCL_TRY(ncclBroadcast(x_ptr, all_vecX_buf[rank].data(), nb_A_cols, ncclFloat64, base_rank, comms[rank], streams[rank]));
+
+        // This scatter might be useless since beta always = 0 ??
         RAFT_NCCL_TRY(ncclScatter(y_ptr, all_vecY_buf[rank].data(), rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
-    std::cout << "Performing SpMV on each device" << std::endl;
     // Perform SpMV on each device
     for (int rank = 0; rank < nbDevice; rank++)
     {
         //continue;
         cudaSetDevice(devs[rank]);
+        // Debug info about descriptors / vectors
         RAFT_CUSPARSE_TRY(cusparseSpMV(handles[rank],
             CUSPARSE_OPERATION_NON_TRANSPOSE,
-            alpha, //all_alpha[rank].data(),
+            &alpha_h,
             sub_mat_descriptors[rank],
             all_vecX[rank],
-            beta, //all_beta[rank].data(),
+            &beta_h, 
             all_vecY[rank],
             CUDA_R_64F,
-            CUSPARSE_SPMV_ALG_DEFAULT,
+            CUSPARSE_SPMV_CSR_ALG2,
             external_buffers[rank]));
     }
     cudaSetDevice(base_rank);
-    std::cout << "SpMV on each device done" << std::endl;
 
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++){
-        cudaSetDevice(devs[rank]);
+        //cudaSetDevice(devs[rank]);
         RAFT_NCCL_TRY(ncclGather(all_vecY_buf[rank].data(), y_ptr, rows_per_matrix, ncclFloat64, base_rank, comms[rank], streams[rank]));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
-    cudaSetDevice(base_rank);
-    std::cout << "SpMV A x done" << std::endl;
+
+    for (int rank = 0; rank < nbDevice; ++rank) {
+        RAFT_CUDA_TRY(cudaSetDevice(devs[rank]));
+        done_events[rank]->record(streams[rank]);
+        RAFT_CUDA_TRY(cudaSetDevice(base_rank));
+    }
+    for (int rank = 0; rank < nbDevice; ++rank) {
+        done_events[rank]->stream_wait(base_stream);
+    }
+}
+
+template <typename i_t, typename f_t>
+void multi_gpu_handler_t<i_t, f_t>::set_alpha_beta(f_t alpha, f_t beta)
+{
+    alpha_h = alpha;
+    beta_h = beta;
+}
+
+template <typename i_t, typename f_t>
+multi_gpu_handler_t<i_t, f_t>::~multi_gpu_handler_t()
+{
+  if (nbDevice <= 0 || static_cast<int>(streams.size()) != nbDevice) { return; }
+  // Finish GPU work before tearing down NCCL / cuSPARSE / streams
+  for (int rank = 0; rank < nbDevice; ++rank) {
+    RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(devs[rank]));
+    if (streams[rank] != nullptr) {
+      RAFT_CUDA_TRY_NO_THROW(cudaStreamSynchronize(streams[rank]));
+    }
+  }
+  // Events may have been recorded on these streams; safe after sync
+  done_events.clear();
+  for (int rank = 0; rank < nbDevice; ++rank) {
+    ncclCommDestroy(comms[rank]);
+  }
+  for (int rank = 0; rank < nbDevice; ++rank) {
+    RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(devs[rank]));
+    if (rank < static_cast<int>(external_buffers.size()) && external_buffers[rank] != nullptr) {
+      RAFT_CUDA_TRY_NO_THROW(cudaFree(external_buffers[rank]));
+      external_buffers[rank] = nullptr;
+    }
+    if (rank < static_cast<int>(all_vecX.size())) {
+      RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(all_vecX[rank]));
+    }
+    if (rank < static_cast<int>(all_vecY.size())) {
+      RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroyDnVec(all_vecY[rank]));
+    }
+    if (rank < static_cast<int>(sub_mat_descriptors.size())) {
+      RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroySpMat(sub_mat_descriptors[rank]));
+    }
+    if (rank < static_cast<int>(handles.size())) {
+      RAFT_CUSPARSE_TRY_NO_THROW(cusparseDestroy(handles[rank]));
+    }
+    if (streams[rank] != nullptr) {
+      RAFT_CUDA_TRY_NO_THROW(cudaStreamDestroy(streams[rank]));
+      streams[rank] = nullptr;
+    }
+  }
+  RAFT_CUDA_TRY_NO_THROW(cudaSetDevice(base_rank));
 }
 
 template <typename i_t, typename f_t>
