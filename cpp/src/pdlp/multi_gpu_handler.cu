@@ -283,7 +283,7 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(cusparseConstDnVecDescr_t vecX, cus
             &beta_h, 
             all_vecY[rank],
             CUDA_R_64F,
-            CUSPARSE_SPMV_CSR_ALG2,
+            CUSPARSE_SPMV_ALG_DEFAULT,
             external_buffers[rank]));
     }
     cudaSetDevice(base_rank);
