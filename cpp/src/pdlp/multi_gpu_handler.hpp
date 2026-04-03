@@ -34,13 +34,23 @@
 
 namespace cuopt::linear_programming::detail {
 
-  template <typename f_t>
+template <typename f_t>
 constexpr ncclDataType_t get_nccl_dtype()
 {
   if constexpr (std::is_same_v<f_t, float>) {
     return ncclFloat32;
   } else {
     return ncclFloat64;
+  }
+}
+
+template <typename f_t>
+constexpr cudaDataType get_cuda_dtype()
+{
+  if constexpr (std::is_same_v<f_t, float>) {
+    return CUDA_R_32F;
+  } else {
+    return CUDA_R_64F;
   }
 }
 
