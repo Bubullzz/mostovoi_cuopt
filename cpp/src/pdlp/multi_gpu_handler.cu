@@ -30,9 +30,9 @@ template <typename i_t, typename f_t>
 sub_matrix_t<i_t, f_t>::sub_matrix_t(
     int rank, 
     int device_id,
-    std::vector<i_t> local_offsets,
-    std::vector<i_t> local_indices,
-    std::vector<f_t> local_coeffs,
+    const std::vector<i_t>& local_offsets,
+    const std::vector<i_t>& local_indices,
+    const std::vector<f_t>& local_coeffs,
     size_t n_variables,
     size_t local_n_constraints,
     size_t n_values
@@ -113,6 +113,65 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(const problem_t<i_t, f_t>& op
 {}
 
 template <typename i_t, typename f_t>
+void multi_gpu_handler_t<i_t, f_t>::create_sub_mat(
+    int rank,
+    size_t rows_per_matrix,
+    size_t n_variables,
+    const std::vector<i_t>& h_offsets,
+    const std::vector<i_t>& h_indices,
+    const std::vector<f_t>& h_coefficients,
+    std::vector<sub_matrix_owner_t<i_t, f_t>>& mat_vec
+)
+{
+    int start_row_index = rows_per_matrix * rank;
+    int end_row_index =
+        std::min(int(h_offsets.size() - 1), int(rows_per_matrix * (rank + 1)));
+
+    int start_row = h_offsets[start_row_index];
+    int end_row   = h_offsets[end_row_index];
+    int nb_values = end_row - start_row;
+
+    // Offsets
+    size_t n_copied = end_row_index - start_row_index + 1;
+    std::vector<int> local_offsets(rows_per_matrix + 1);
+    std::copy(h_offsets.begin() + start_row_index,
+              h_offsets.begin() + end_row_index + 1,
+              local_offsets.begin());
+    // Handle case where len(offsets) % rows_per_matrix != 0 so last gpu needs padding
+    if (n_copied < rows_per_matrix + 1)
+    {
+        assert(rank == nbDevice - 1);
+        int last_val = h_offsets[end_row_index];
+        std::fill(local_offsets.begin() + n_copied, local_offsets.end(), last_val);
+    }
+    int first_entry = local_offsets[0];
+    std::transform(local_offsets.begin(),
+                   local_offsets.end(),
+                   local_offsets.begin(),
+                   [first_entry](int x) { return x - first_entry; });
+
+    // Indices and coefficients
+    std::vector<int> local_indices(nb_values);
+    std::copy(h_indices.begin() + start_row, h_indices.begin() + end_row, local_indices.begin());
+
+    std::vector<f_t> local_coeffs(nb_values);
+    std::copy(h_coefficients.begin() + start_row,
+              h_coefficients.begin() + end_row,
+              local_coeffs.begin());
+
+    mat_vec.emplace_back(make_sub_matrix<i_t, f_t>(
+    rank,
+    devs[rank],
+    local_offsets,
+    local_indices,
+    local_coeffs,
+    n_variables,
+    rows_per_matrix,
+    nb_values));
+}
+
+
+template <typename i_t, typename f_t>
 multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     i_t n_constraints,
     i_t n_variables,
@@ -134,67 +193,26 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 
     RAFT_NCCL_TRY(ncclCommInitAll(comms.data(), nbDevice, devs.data()));
 
-    rows_per_matrix = ((n_constraints - 1) / nbDevice) + 1;
     nb_A_rows       = n_constraints;
     nb_A_cols       = n_variables;
+    rows_per_matrix_A = ((nb_A_rows - 1) / nbDevice) + 1;
 
-    sub_matrices.reserve(nbDevice);
+    nb_A_t_rows = nb_A_cols;
+    nb_A_t_cols = nb_A_rows;
+    rows_per_matrix_A_t = ((nb_A_t_rows - 1) / nbDevice) + 1;
+
+    sub_matrices_A.reserve(nbDevice);
+    sub_matrices_A_t.reserve(nbDevice);
 
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        raft::device_setter device_setter(devs[rank]);
-
-        int start_row_index = rows_per_matrix * rank;
-        int end_row_index =
-            std::min(int(h_offsets.size() - 1), int(rows_per_matrix * (rank + 1)));
-
-        int start_row = h_offsets[start_row_index];
-        int end_row   = h_offsets[end_row_index];
-        int nb_values = end_row - start_row;
-
-        // Offsets
-        size_t n_copied = end_row_index - start_row_index + 1;
-        std::vector<int> local_offsets(rows_per_matrix + 1);
-        std::copy(h_offsets.begin() + start_row_index,
-                  h_offsets.begin() + end_row_index + 1,
-                  local_offsets.begin());
-        // Handle case where len(offsets) % rows_per_matrix != 0 so last gpu needs padding
-        if (n_copied < rows_per_matrix + 1)
-        {
-            assert(rank == nbDevice - 1);
-            int last_val = h_offsets[end_row_index];
-            std::fill(local_offsets.begin() + n_copied, local_offsets.end(), last_val);
-        }
-        int first_entry = local_offsets[0];
-        std::transform(local_offsets.begin(),
-                       local_offsets.end(),
-                       local_offsets.begin(),
-                       [first_entry](int x) { return x - first_entry; });
-
-        // Indices and coefficients
-        std::vector<int> local_indices(nb_values);
-        std::copy(h_indices.begin() + start_row, h_indices.begin() + end_row, local_indices.begin());
-
-        std::vector<f_t> local_coeffs(nb_values);
-        std::copy(h_coefficients.begin() + start_row,
-                  h_coefficients.begin() + end_row,
-                  local_coeffs.begin());
-
-        sub_matrices.emplace_back(make_sub_matrix<i_t, f_t>(
-        rank,
-        devs[rank],
-        std::move(local_offsets),
-        std::move(local_indices),
-        std::move(local_coeffs),
-        n_variables,
-        rows_per_matrix,
-        nb_values));
+        create_sub_mat(rank, rows_per_matrix_A, n_variables, h_offsets, h_indices, h_coefficients, sub_matrices_A);
     }
 
     // CSR validity checks for each submatrix
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         raft::device_setter device_setter(devs[rank]);
         rmm::cuda_stream_view stream_view(sub.stream);
         auto h_offsets_rank = cuopt::host_copy(sub.offsets, stream_view);
@@ -220,8 +238,8 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
     // Fork base_stream into per-rank streams
     start_spmv_event.record(base_stream);
     for (int rank = 0; rank < nbDevice; rank++) {
-        raft::device_setter device_setter(sub_matrices[rank]->device_id);
-        start_spmv_event.stream_wait(sub_matrices[rank]->stream.view());
+        raft::device_setter device_setter(sub_matrices_A[rank]->device_id);
+        start_spmv_event.stream_wait(sub_matrices_A[rank]->stream.view());
     }
 
     int64_t x_size = 0, y_size = 0;
@@ -234,17 +252,17 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         RAFT_NCCL_TRY(ncclBroadcast(
             x_ptr, sub.vecX_buf.data(), nb_A_cols, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
         RAFT_NCCL_TRY(ncclScatter(
-            y_ptr, sub.vecY_buf.data(), rows_per_matrix, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
+            y_ptr, sub.vecY_buf.data(), rows_per_matrix_A, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         raft::device_setter device_setter(sub.device_id);
         RAFT_CUSPARSE_TRY(
             raft::sparse::detail::cusparsespmv(sub.handle.get_cusparse_handle(),
@@ -261,26 +279,26 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
 
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++) {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         RAFT_NCCL_TRY(ncclGather(
-            sub.vecY_buf.data(), y_ptr, rows_per_matrix, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
+            sub.vecY_buf.data(), y_ptr, rows_per_matrix_A, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
     for (int rank = 0; rank < nbDevice; ++rank) {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         raft::device_setter device_setter(sub.device_id);
         sub.done_event.record(sub.stream.view());
     }
     for (int rank = 0; rank < nbDevice; ++rank) {
-        sub_matrices[rank]->done_event.stream_wait(base_stream);
+        sub_matrices_A[rank]->done_event.stream_wait(base_stream);
     }
 }
 
 template <typename i_t, typename f_t>
 multi_gpu_handler_t<i_t, f_t>::~multi_gpu_handler_t()
 {
-    sub_matrices.clear();
+    sub_matrices_A.clear();
     for (int rank = 0; rank < nbDevice; ++rank) {
         ncclCommDestroy(comms[rank]);
     }
@@ -290,7 +308,7 @@ template <typename i_t, typename f_t>
 void multi_gpu_handler_t<i_t, f_t>::set_alpha_beta(f_t alpha, f_t beta)
 {
     for (int rank = 0; rank < nbDevice; ++rank) {
-        auto& sub = *sub_matrices[rank];
+        auto& sub = *sub_matrices_A[rank];
         raft::device_setter device_setter(sub.device_id);
         sub.alpha.set_value_async(alpha, sub.stream.view());
         sub.beta.set_value_async(beta, sub.stream.view());
@@ -302,7 +320,7 @@ void multi_gpu_handler_t<i_t, f_t>::sync_spmv()
 {
     for (int rank = 0; rank < nbDevice; rank++) {
         raft::device_setter device_setter(devs[rank]);
-        sub_matrices[rank]->stream.synchronize();
+        sub_matrices_A[rank]->stream.synchronize();
     }
 }
 
@@ -313,14 +331,14 @@ void multi_gpu_handler_t<i_t, f_t>::print_sub_matrices() const
     {
         raft::device_setter device_setter(devs[rank]);
 
-        const auto& sub = *sub_matrices[rank];
+        const auto& sub = *sub_matrices_A[rank];
         rmm::cuda_stream_view stream_view(sub.stream);
         auto h_offsets = cuopt::host_copy(sub.offsets, stream_view);
         auto h_indices = cuopt::host_copy(sub.indices, stream_view);
         auto h_values  = cuopt::host_copy(sub.coefficients, stream_view);
 
         std::string prefix = "Rank " + std::to_string(rank) + ": ";
-        cuopt::print_csr_matrix(static_cast<int>(rows_per_matrix),
+        cuopt::print_csr_matrix(static_cast<int>(rows_per_matrix_A),
                                static_cast<int>(nb_A_cols),
                                h_offsets,
                                h_indices,

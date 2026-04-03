@@ -67,9 +67,9 @@ struct sub_matrix_t {
       sub_matrix_t(
         int rank, 
         int device_id,
-        std::vector<i_t> local_offsets,
-        std::vector<i_t> local_indices,
-        std::vector<f_t> local_coeffs,
+        const std::vector<i_t>& local_offsets,
+        const std::vector<i_t>& local_indices,
+        const std::vector<f_t>& local_coeffs,
         size_t n_variables,
         size_t local_n_constraints,
         size_t n_values
@@ -116,9 +116,9 @@ template <typename i_t, typename f_t>
 sub_matrix_owner_t<i_t, f_t> make_sub_matrix(
     int rank,
     int device_id,
-    std::vector<i_t> local_offsets,
-    std::vector<i_t> local_indices,
-    std::vector<f_t> local_coeffs,
+    const std::vector<i_t>& local_offsets,
+    const std::vector<i_t>& local_indices,
+    const std::vector<f_t>& local_coeffs,
     size_t n_variables,
     size_t local_n_constraints,
     size_t n_values)
@@ -127,9 +127,9 @@ sub_matrix_owner_t<i_t, f_t> make_sub_matrix(
   return sub_matrix_owner_t<i_t, f_t>(
       new sub_matrix_t<i_t, f_t>(rank,
                                  device_id,
-                                 std::move(local_offsets),
-                                 std::move(local_indices),
-                                 std::move(local_coeffs),
+                                 local_offsets,
+                                 local_indices,
+                                 local_coeffs,
                                  n_variables,
                                  local_n_constraints,
                                  n_values),
@@ -155,20 +155,34 @@ class multi_gpu_handler_t {
         multi_gpu_handler_t(const problem_t<i_t, f_t>& op_problem);
 
         void set_alpha_beta(f_t alpha, f_t beta);
+
         ~multi_gpu_handler_t();
         
     private:
+      void create_sub_mat(    
+          int rank,
+          size_t rows_per_matrix,
+          size_t n_variables,
+          const std::vector<i_t>& h_offsets,
+          const std::vector<i_t>& h_indices, 
+          const std::vector<f_t>& h_coefficients, 
+          std::vector<sub_matrix_owner_t<i_t, f_t>>& mat_vec);
+
         int                   nbDevice{0};
         int                   base_rank{0}; // The rank that owns the single-gpu Data
 
         rmm::cuda_stream_view base_stream;
         std::vector<int>      devs;
         std::vector<ncclComm_t> comms;
-        size_t                rows_per_matrix{0};
         size_t                nb_A_rows{0};
         size_t                nb_A_cols{0};
+        size_t                rows_per_matrix_A{0};
+        size_t                nb_A_t_rows{0};
+        size_t                nb_A_t_cols{0};
+        size_t                rows_per_matrix_A_t{0};
         event_handler_t       start_spmv_event;
-        std::vector<sub_matrix_owner_t<i_t, f_t>> sub_matrices;
+        std::vector<sub_matrix_owner_t<i_t, f_t>> sub_matrices_A;
+        std::vector<sub_matrix_owner_t<i_t, f_t>> sub_matrices_A_t;
       };
 
 }
