@@ -109,6 +109,9 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(const problem_t<i_t, f_t>& op
                         cuopt::host_copy(op_problem.offsets, op_problem.handle_ptr->get_stream()),
                         cuopt::host_copy(op_problem.variables, op_problem.handle_ptr->get_stream()),
                         cuopt::host_copy(op_problem.coefficients, op_problem.handle_ptr->get_stream()),
+                        cuopt::host_copy(op_problem.reverse_offsets, op_problem.handle_ptr->get_stream()),
+                        cuopt::host_copy(op_problem.reverse_constraints, op_problem.handle_ptr->get_stream()),
+                        cuopt::host_copy(op_problem.reverse_coefficients, op_problem.handle_ptr->get_stream()),
                         op_problem.handle_ptr->get_stream())
 {}
 
@@ -178,6 +181,9 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
     const std::vector<i_t>& h_offsets,
     const std::vector<i_t>& h_indices,
     const std::vector<f_t>& h_coefficients,
+    const std::vector<i_t>& h_reverse_offsets,
+    const std::vector<i_t>& h_reverse_constraints,
+    const std::vector<f_t>& h_reverse_coefficients,
     rmm::cuda_stream_view base_stream)
   : base_stream(base_stream)
 {
@@ -206,7 +212,8 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        create_sub_mat(rank, rows_per_matrix_A, n_variables, h_offsets, h_indices, h_coefficients, sub_matrices_A);
+        create_sub_mat(rank, rows_per_matrix_A, nb_A_cols, h_offsets, h_indices, h_coefficients, sub_matrices_A);
+        create_sub_mat(rank, rows_per_matrix_A_t, nb_A_t_cols, h_reverse_offsets, h_reverse_constraints, h_reverse_coefficients, sub_matrices_A_t);
     }
 
     // CSR validity checks for each submatrix
@@ -231,15 +238,21 @@ multi_gpu_handler_t<i_t, f_t>::multi_gpu_handler_t(
 }
 
 template <typename i_t, typename f_t>
-void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
-    cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY)
+void multi_gpu_handler_t<i_t, f_t>::spmv(cusparseConstDnVecDescr_t vecX,
+                                         cusparseDnVecDescr_t vecY,
+                                         size_t x_broadcast_size,
+                                         size_t y_scatter_size,
+                                         std::vector<sub_matrix_owner_t<i_t, f_t>>& sub_matrices)
 {
+    if (sub_matrices.size() != static_cast<size_t>(nbDevice)) {
+        throw std::runtime_error("Requested multi-GPU SpMV for an uninitialized matrix partition.");
+    }
     constexpr auto nccl_dtype = get_nccl_dtype<f_t>();
     // Fork base_stream into per-rank streams
     start_spmv_event.record(base_stream);
     for (int rank = 0; rank < nbDevice; rank++) {
-        raft::device_setter device_setter(sub_matrices_A[rank]->device_id);
-        start_spmv_event.stream_wait(sub_matrices_A[rank]->stream.view());
+        raft::device_setter device_setter(sub_matrices[rank]->device_id);
+        start_spmv_event.stream_wait(sub_matrices[rank]->stream.view());
     }
 
     int64_t x_size = 0, y_size = 0;
@@ -252,17 +265,29 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        auto& sub = *sub_matrices_A[rank];
+        auto& sub = *sub_matrices[rank];
         RAFT_NCCL_TRY(ncclBroadcast(
-            x_ptr, sub.vecX_buf.data(), nb_A_cols, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
+            x_ptr,
+            sub.vecX_buf.data(),
+            x_broadcast_size,
+            nccl_dtype,
+            base_rank,
+            comms[rank],
+            sub.stream.value()));
         RAFT_NCCL_TRY(ncclScatter(
-            y_ptr, sub.vecY_buf.data(), rows_per_matrix_A, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
+            y_ptr,
+            sub.vecY_buf.data(),
+            y_scatter_size,
+            nccl_dtype,
+            base_rank,
+            comms[rank],
+            sub.stream.value()));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
     for (int rank = 0; rank < nbDevice; rank++)
     {
-        auto& sub = *sub_matrices_A[rank];
+        auto& sub = *sub_matrices[rank];
         raft::device_setter device_setter(sub.device_id);
         RAFT_CUSPARSE_TRY(
             raft::sparse::detail::cusparsespmv(sub.handle.get_cusparse_handle(),
@@ -279,26 +304,47 @@ void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
 
     RAFT_NCCL_TRY(ncclGroupStart());
     for (int rank = 0; rank < nbDevice; rank++) {
-        auto& sub = *sub_matrices_A[rank];
+        auto& sub = *sub_matrices[rank];
         RAFT_NCCL_TRY(ncclGather(
-            sub.vecY_buf.data(), y_ptr, rows_per_matrix_A, nccl_dtype, base_rank, comms[rank], sub.stream.value()));
+            sub.vecY_buf.data(),
+            y_ptr,
+            y_scatter_size,
+            nccl_dtype,
+            base_rank,
+            comms[rank],
+            sub.stream.value()));
     }
     RAFT_NCCL_TRY(ncclGroupEnd());
 
     for (int rank = 0; rank < nbDevice; ++rank) {
-        auto& sub = *sub_matrices_A[rank];
+        auto& sub = *sub_matrices[rank];
         raft::device_setter device_setter(sub.device_id);
         sub.done_event.record(sub.stream.view());
     }
     for (int rank = 0; rank < nbDevice; ++rank) {
-        sub_matrices_A[rank]->done_event.stream_wait(base_stream);
+        sub_matrices[rank]->done_event.stream_wait(base_stream);
     }
+}
+
+template <typename i_t, typename f_t>
+void multi_gpu_handler_t<i_t, f_t>::spmv_A_x(
+    cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY)
+{
+    spmv(vecX, vecY, nb_A_cols, rows_per_matrix_A, sub_matrices_A);
+}
+
+template <typename i_t, typename f_t>
+void multi_gpu_handler_t<i_t, f_t>::spmv_A_t_y(
+    cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY)
+{
+    spmv(vecX, vecY, nb_A_t_cols, rows_per_matrix_A_t, sub_matrices_A_t);
 }
 
 template <typename i_t, typename f_t>
 multi_gpu_handler_t<i_t, f_t>::~multi_gpu_handler_t()
 {
     sub_matrices_A.clear();
+    sub_matrices_A_t.clear();
     for (int rank = 0; rank < nbDevice; ++rank) {
         ncclCommDestroy(comms[rank]);
     }
@@ -313,6 +359,12 @@ void multi_gpu_handler_t<i_t, f_t>::set_alpha_beta(f_t alpha, f_t beta)
         sub.alpha.set_value_async(alpha, sub.stream.view());
         sub.beta.set_value_async(beta, sub.stream.view());
     }
+    for (int rank = 0; rank < nbDevice; ++rank) {
+        auto& sub = *sub_matrices_A_t[rank];
+        raft::device_setter device_setter(sub.device_id);
+        sub.alpha.set_value_async(alpha, sub.stream.view());
+        sub.beta.set_value_async(beta, sub.stream.view());
+    }
 }
 
 template <typename i_t, typename f_t>
@@ -321,6 +373,7 @@ void multi_gpu_handler_t<i_t, f_t>::sync_spmv()
     for (int rank = 0; rank < nbDevice; rank++) {
         raft::device_setter device_setter(devs[rank]);
         sub_matrices_A[rank]->stream.synchronize();
+        sub_matrices_A_t[rank]->stream.synchronize();
     }
 }
 

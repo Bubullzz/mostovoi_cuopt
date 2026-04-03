@@ -140,6 +140,7 @@ template <typename i_t, typename f_t>
 class multi_gpu_handler_t {
     public:
         void spmv_A_x(cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY);
+        void spmv_A_t_y(cusparseConstDnVecDescr_t vecX, cusparseDnVecDescr_t vecY);
         void sync_spmv();
 
         void print_sub_matrices() const;
@@ -149,6 +150,9 @@ class multi_gpu_handler_t {
                             const std::vector<i_t>& h_offsets,
                             const std::vector<i_t>& h_indices,
                             const std::vector<f_t>& h_coefficients,
+                            const std::vector<i_t>& h_reverse_offsets,
+                            const std::vector<i_t>& h_reverse_constraints,
+                            const std::vector<f_t>& h_reverse_coefficients,
                             rmm::cuda_stream_view base_stream);
 
         // Delegating constructor from problem_t
@@ -167,6 +171,11 @@ class multi_gpu_handler_t {
           const std::vector<i_t>& h_indices, 
           const std::vector<f_t>& h_coefficients, 
           std::vector<sub_matrix_owner_t<i_t, f_t>>& mat_vec);
+      void spmv(cusparseConstDnVecDescr_t vecX,
+                cusparseDnVecDescr_t vecY,
+                size_t x_broadcast_size,
+                size_t y_scatter_size,
+                std::vector<sub_matrix_owner_t<i_t, f_t>>& sub_matrices);
 
         int                   nbDevice{0};
         int                   base_rank{0}; // The rank that owns the single-gpu Data

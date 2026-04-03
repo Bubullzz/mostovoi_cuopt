@@ -2062,7 +2062,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse)
 
   // Create multi_gpu_handler with raw CSR data
   detail::multi_gpu_handler_t<int, double> multi_gpu_handler(
-    n_rows, n_cols, h_offsets, h_indices, h_values, stream);
+    n_rows, n_cols, h_offsets, h_indices, h_values, h_offsets, h_indices, h_values, stream);
 
   // Device vectors for multi_gpu spmv
   rmm::device_uvector<double> d_vecX = cuopt::device_copy(h_vecX, stream);
@@ -2197,7 +2197,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
 
   // Create multi_gpu_handler with raw CSR data
   detail::multi_gpu_handler_t<int, double> multi_gpu_handler(
-    n_rows, n_cols, h_offsets, h_indices, h_values, stream);
+    n_rows, n_cols, h_offsets, h_indices, h_values, h_offsets, h_indices, h_values, stream);
 
   // Device vectors for multi_gpu spmv
   rmm::device_uvector<double> d_vecX = cuopt::device_copy(h_vecX, stream);

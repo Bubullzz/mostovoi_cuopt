@@ -323,17 +323,25 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
       }
     }
     if (!cusparse_view_.mixed_precision_enabled_) {
-      RAFT_CUSPARSE_TRY(
-        raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
-                                           CUSPARSE_OPERATION_NON_TRANSPOSE,
-                                           reusable_device_scalar_value_1_.data(),
-                                           cusparse_view_.A_T,
-                                           cusparse_view_.dual_solution,
-                                           reusable_device_scalar_value_0_.data(),
-                                           cusparse_view_.current_AtY,
-                                           CUSPARSE_SPMV_CSR_ALG2,
-                                           (f_t*)cusparse_view_.buffer_transpose.data(),
-                                           stream_view_));
+      if (multi_gpu_handler_ptr_ != nullptr) {
+        multi_gpu_handler_ptr_->spmv_A_t_y(
+          cusparse_view_.dual_solution,
+          cusparse_view_.current_AtY);
+      } else {
+        std::cout << "Multi-GPU handler not initialized !!!!!!!!!!" << std::endl;
+        return;
+        RAFT_CUSPARSE_TRY(
+          raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
+                                             CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                             reusable_device_scalar_value_1_.data(),
+                                             cusparse_view_.A_T,
+                                             cusparse_view_.dual_solution,
+                                             reusable_device_scalar_value_0_.data(),
+                                             cusparse_view_.current_AtY,
+                                             CUSPARSE_SPMV_CSR_ALG2,
+                                             (f_t*)cusparse_view_.buffer_transpose.data(),
+                                             stream_view_));
+      }
     }
   } else {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(
