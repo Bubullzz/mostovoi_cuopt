@@ -88,16 +88,23 @@ sub_matrix_t<i_t, f_t>::sub_matrix_t(
                                                         stream.view()));
 
     external_buffer = rmm::device_buffer(buffer_size, stream);
-    my_cusparsespmv_preprocess(handle.get_cusparse_handle(),
-    CUSPARSE_OPERATION_NON_TRANSPOSE,
-    alpha.data(),
-    mat_descriptor,
-    vecX,
-    beta.data(),
-    vecY,
-    CUSPARSE_SPMV_ALG_DEFAULT,
-    external_buffer.data(),
-    stream.value());
+    auto constexpr float_type = []() constexpr {
+      if constexpr (std::is_same_v<f_t, float>) {
+        return CUDA_R_32F;
+      } else {
+        return CUDA_R_64F;
+      }
+    }();
+    RAFT_CUSPARSE_TRY(cusparseSpMV_preprocess(handle.get_cusparse_handle(),
+                                              CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                              alpha.data(),
+                                              mat_descriptor,
+                                              vecX,
+                                              beta.data(),
+                                              vecY,
+                                              float_type,
+                                              CUSPARSE_SPMV_ALG_DEFAULT,
+                                              external_buffer.data()));
 }
 
 template <typename i_t, typename f_t>
