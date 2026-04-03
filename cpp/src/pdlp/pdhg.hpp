@@ -6,6 +6,7 @@
 /* clang-format on */
 
 #pragma once
+#include <memory>
 #include <cuopt/linear_programming/pdlp/pdlp_hyper_params.cuh>
 #include <mip_heuristics/problem/problem.cuh>
 #include <pdlp/cusparse_view.hpp>
@@ -33,7 +34,7 @@ class pdhg_solver_t {
                 const std::vector<std::tuple<i_t, f_t, f_t>>& new_bounds,
                 bool enable_mixed_precision_spmv = false);
 
-  multi_gpu_handler_t<i_t, f_t> * multi_gpu_handler_ptr_;
+  std::unique_ptr<multi_gpu_handler_t<i_t, f_t>> multi_gpu_handler_ptr_;
   saddle_point_state_t<i_t, f_t>& get_saddle_point_state();
   cusparse_view_t<i_t, f_t>& get_cusparse_view();
   rmm::device_uvector<f_t>& get_primal_tmp_resource();

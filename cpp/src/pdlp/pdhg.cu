@@ -371,9 +371,14 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
       }
     }
     if (!cusparse_view_.mixed_precision_enabled_) {
-      multi_gpu_handler_ptr_->spmv_A_x(
-        cusparse_view_.reflected_primal_solution,
-        cusparse_view_.dual_gradient);
+      if (multi_gpu_handler_ptr_ != nullptr) {
+        multi_gpu_handler_ptr_->spmv_A_x(
+          cusparse_view_.reflected_primal_solution,
+          cusparse_view_.dual_gradient);
+      }
+      else {
+        std::cout << "Multi-GPU handler not initialized !!!!!!!!!!" << std::endl;
+      }
     }
   } else {
     RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmm(

@@ -2082,9 +2082,7 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse)
   multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
-  for (auto stream_handle : multi_gpu_handler.streams) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_handle));
-  }
+  multi_gpu_handler.sync_spmv();
   auto h_vecY_multi = cuopt::host_copy(d_vecY_multi, stream);
 
   // Reference: cuSPARSE SpMV on full non-split matrix
@@ -2219,9 +2217,8 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_big)
   multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
-  for (auto stream_handle : multi_gpu_handler.streams) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_handle));
-  }
+  multi_gpu_handler.sync_spmv();
+
   auto h_vecY_multi = cuopt::host_copy(d_vecY_multi, stream);
 
   // Reference: cuSPARSE SpMV on full non-split matrix
@@ -2336,9 +2333,8 @@ TEST(pdlp_class, multi_gpu_spmv_compare_cusparse_from_mps)
   multi_gpu_handler.spmv_A_x(vecX_descr, vecY_descr);
   stream.synchronize();
 
-  for (auto stream_handle : multi_gpu_handler.streams) {
-    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_handle));
-  }
+  multi_gpu_handler.sync_spmv();
+  
   auto h_vecY_multi = cuopt::host_copy(d_vecY_multi, stream);
 
   rmm::device_uvector<int> d_offsets = cuopt::device_copy(h_offsets, stream);
