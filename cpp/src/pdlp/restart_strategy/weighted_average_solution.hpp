@@ -21,8 +21,7 @@ class weighted_average_solution_t {
  public:
   weighted_average_solution_t(raft::handle_t const* handle_ptr,
                               i_t primal_size,
-                              i_t dual_size,
-                              bool is_batch_mode);
+                              i_t dual_size);
 
   void reset_weighted_average_solution();
   void add_current_solution_to_weighted_average_solution(const f_t* primal_solution,

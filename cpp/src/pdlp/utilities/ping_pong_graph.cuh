@@ -22,7 +22,11 @@ namespace cuopt::linear_programming::detail {
 template <typename i_t>
 class ping_pong_graph_t {
  public:
-  ping_pong_graph_t(rmm::cuda_stream_view stream_view, bool is_legacy_batch_mode = false);
+  // `capture_disabled` should be set to true whenever the work to be captured
+  // contains operations that cuSPARSE / CUDA currently can't capture (e.g. SpMM).
+  // When disabled, all of capture/launch are no-ops and the caller must run the
+  // wrapped work directly.
+  explicit ping_pong_graph_t(rmm::cuda_stream_view stream_view, bool capture_disabled = false);
   ~ping_pong_graph_t();
 
   void start_capture(i_t total_pdlp_iterations);
@@ -40,7 +44,7 @@ class ping_pong_graph_t {
   bool odd_initialized{false};
   bool capture_even_active_{false};
   bool capture_odd_active_{false};
-  bool is_legacy_batch_mode_{false};
+  bool capture_disabled_{false};
 };
 
 }  // namespace cuopt::linear_programming::detail

@@ -40,7 +40,6 @@ adaptive_step_size_strategy_t<i_t, f_t>::adaptive_step_size_strategy_t(
   raft::handle_t const* handle_ptr,
   rmm::device_uvector<f_t>* primal_weight,
   rmm::device_uvector<f_t>* step_size,
-  bool is_legacy_batch_mode,
   i_t primal_size,
   i_t dual_size,
   const std::vector<pdlp_climber_strategy_t>& climber_strategies,
@@ -59,7 +58,7 @@ adaptive_step_size_strategy_t<i_t, f_t>::adaptive_step_size_strategy_t(
     reusable_device_scalar_value_1_{f_t(1.0), stream_view_},
     reusable_device_scalar_value_0_{f_t(0.0), stream_view_},
     dot_product_storage(0, stream_view_),
-    graph(stream_view_, is_legacy_batch_mode),
+    graph(stream_view_),
     climber_strategies_(climber_strategies),
     hyper_params_(hyper_params)
 {

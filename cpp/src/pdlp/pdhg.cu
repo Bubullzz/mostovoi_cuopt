@@ -44,7 +44,6 @@ template <typename i_t, typename f_t>
 pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
   raft::handle_t const* handle_ptr,
   problem_t<i_t, f_t>& op_problem_scaled,
-  bool is_legacy_batch_mode,  // Batch mode with streams
   const std::vector<pdlp_climber_strategy_t>& climber_strategies,
   const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params,
   const std::vector<std::tuple<i_t, i_t, f_t, f_t>>& new_bounds,
@@ -90,11 +89,11 @@ pdhg_solver_t<i_t, f_t>::pdhg_solver_t(
     reusable_device_scalar_value_0_{0.0, stream_view_},
     reusable_device_scalar_value_neg_1_{f_t(-1.0), stream_view_},
     reusable_device_scalar_1_{stream_view_},
-    // In both multi stream and SpMM PDLP CUDA Graphs are causing issue
-    // Currently graph capture is not supported for cuSparse SpMM
-    // TODO enable once cuSparse SpMM supports graph capture
-    graph_all{stream_view_, is_legacy_batch_mode || batch_mode_},
-    graph_prim_proj_gradient_dual{stream_view_, is_legacy_batch_mode},
+    // cuSPARSE SpMM doesn't currently support stream capture, so disable graphs
+    // in batch (SpMM) mode. The non-reflected path is single-LP only, so its
+    // dedicated graph is unconditionally enabled.
+    graph_all{stream_view_, /*capture_disabled=*/batch_mode_},
+    graph_prim_proj_gradient_dual{stream_view_},
     d_total_pdhg_iterations_{0, stream_view_},
     climber_strategies_(climber_strategies),
     hyper_params_(hyper_params),

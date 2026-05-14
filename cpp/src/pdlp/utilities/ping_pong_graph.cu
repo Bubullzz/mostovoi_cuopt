@@ -15,9 +15,8 @@
 namespace cuopt::linear_programming::detail {
 
 template <typename i_t>
-ping_pong_graph_t<i_t>::ping_pong_graph_t(rmm::cuda_stream_view stream_view,
-                                          bool is_legacy_batch_mode)
-  : stream_view_(stream_view), is_legacy_batch_mode_(is_legacy_batch_mode)
+ping_pong_graph_t<i_t>::ping_pong_graph_t(rmm::cuda_stream_view stream_view, bool capture_disabled)
+  : stream_view_(stream_view), capture_disabled_(capture_disabled)
 {
 }
 
@@ -25,7 +24,7 @@ template <typename i_t>
 ping_pong_graph_t<i_t>::~ping_pong_graph_t()
 {
 #ifndef CUPDLP_DEBUG_MODE
-  if (!is_legacy_batch_mode_) {
+  if (!capture_disabled_) {
     if (even_initialized) { RAFT_CUDA_TRY_NO_THROW(cudaGraphExecDestroy(even_instance)); }
     if (odd_initialized) { RAFT_CUDA_TRY_NO_THROW(cudaGraphExecDestroy(odd_instance)); }
   }
@@ -36,7 +35,7 @@ template <typename i_t>
 void ping_pong_graph_t<i_t>::start_capture(i_t total_pdlp_iterations)
 {
 #ifndef CUPDLP_DEBUG_MODE
-  if (!is_legacy_batch_mode_) {
+  if (!capture_disabled_) {
     if (total_pdlp_iterations % 2 == 0 && !even_initialized) {
       RAFT_CUDA_TRY(cudaStreamBeginCapture(stream_view_.value(), cudaStreamCaptureModeThreadLocal));
       capture_even_active_ = true;
@@ -52,7 +51,7 @@ template <typename i_t>
 void ping_pong_graph_t<i_t>::end_capture(i_t total_pdlp_iterations)
 {
 #ifndef CUPDLP_DEBUG_MODE
-  if (!is_legacy_batch_mode_) {
+  if (!capture_disabled_) {
     if (total_pdlp_iterations % 2 == 0 && !even_initialized) {
       RAFT_CUDA_TRY(cudaStreamEndCapture(stream_view_.value(), &even_graph));
       capture_even_active_ = false;
@@ -74,7 +73,7 @@ template <typename i_t>
 void ping_pong_graph_t<i_t>::launch(i_t total_pdlp_iterations)
 {
 #ifndef CUPDLP_DEBUG_MODE
-  if (!is_legacy_batch_mode_) {
+  if (!capture_disabled_) {
     if (total_pdlp_iterations % 2 == 0 && even_initialized) {
       RAFT_CUDA_TRY(cudaGraphLaunch(even_instance, stream_view_.value()));
     } else if (total_pdlp_iterations % 2 == 1 && odd_initialized) {
@@ -88,7 +87,7 @@ template <typename i_t>
 bool ping_pong_graph_t<i_t>::is_initialized(i_t total_pdlp_iterations)
 {
 #ifndef CUPDLP_DEBUG_MODE
-  if (!is_legacy_batch_mode_) {
+  if (!capture_disabled_) {
     return (total_pdlp_iterations % 2 == 0 && even_initialized) ||
            (total_pdlp_iterations % 2 == 1 && odd_initialized);
   }

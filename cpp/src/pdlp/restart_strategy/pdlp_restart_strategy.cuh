@@ -116,7 +116,6 @@ class pdlp_restart_strategy_t {
                           const cusparse_view_t<i_t, f_t>& cusparse_view,
                           const i_t primal_size,
                           const i_t dual_size,
-                          bool is_legacy_batch_mode,
                           const std::vector<pdlp_climber_strategy_t>& climber_strategies_,
                           const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params);
 

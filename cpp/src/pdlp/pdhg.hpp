@@ -29,7 +29,6 @@ class pdhg_solver_t {
  public:
   pdhg_solver_t(raft::handle_t const* handle_ptr,
                 problem_t<i_t, f_t>& op_problem,
-                bool is_legacy_batch_mode,
                 const std::vector<pdlp_climber_strategy_t>& climber_strategies,
                 const pdlp_hyper_params::pdlp_hyper_params_t& hyper_params,
                 const std::vector<std::tuple<i_t, i_t, f_t, f_t>>& new_bounds,

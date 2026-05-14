@@ -465,7 +465,7 @@ TEST(pdlp_class, initial_solution_test)
   EXPECT_FALSE(solver_settings.hyper_params.update_primal_weight_on_initial_solution);
 
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     solver.run_solver(pdlp_timer);
     RAFT_CUDA_TRY(cudaStreamSynchronize(handle_.get_stream()));
@@ -476,7 +476,7 @@ TEST(pdlp_class, initial_solution_test)
   // First add an initial primal then dual, then both, which shouldn't influence the values as the
   // scale on initial option is not toggled
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -487,7 +487,7 @@ TEST(pdlp_class, initial_solution_test)
     EXPECT_NEAR(initial_primal_weight_afiro, solver.get_primal_weight_h(0), factor_tolerance);
   }
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_dual(op_problem.get_n_constraints(), 1);
     auto d_initial_dual = device_copy(initial_dual, handle_.get_stream());
@@ -498,7 +498,7 @@ TEST(pdlp_class, initial_solution_test)
     EXPECT_NEAR(initial_primal_weight_afiro, solver.get_primal_weight_h(0), factor_tolerance);
   }
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -514,7 +514,7 @@ TEST(pdlp_class, initial_solution_test)
 
   // Toggle the scale on initial solution while not providing should yield the same
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     solver_settings.hyper_params.update_step_size_on_initial_solution = true;
     solver.run_solver(pdlp_timer);
@@ -524,7 +524,7 @@ TEST(pdlp_class, initial_solution_test)
     solver_settings.hyper_params.update_step_size_on_initial_solution = false;
   }
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
     solver.run_solver(pdlp_timer);
@@ -534,7 +534,7 @@ TEST(pdlp_class, initial_solution_test)
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = false;
   }
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
     solver_settings.hyper_params.update_step_size_on_initial_solution     = true;
@@ -550,7 +550,7 @@ TEST(pdlp_class, initial_solution_test)
   // should not break but not modify the step size
   {
     solver_settings.hyper_params.update_step_size_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -563,7 +563,7 @@ TEST(pdlp_class, initial_solution_test)
   }
   {
     solver_settings.hyper_params.update_step_size_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_dual(op_problem.get_n_constraints(), 1);
     auto d_initial_dual = device_copy(initial_dual, handle_.get_stream());
@@ -579,7 +579,7 @@ TEST(pdlp_class, initial_solution_test)
   // dual should *not* break but the primal weight should not change
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -591,7 +591,7 @@ TEST(pdlp_class, initial_solution_test)
   }
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_dual(op_problem.get_n_constraints(), 1);
     auto d_initial_dual = device_copy(initial_dual, handle_.get_stream());
@@ -606,7 +606,7 @@ TEST(pdlp_class, initial_solution_test)
   // break but not change primal weight and step size
   {
     solver_settings.hyper_params.update_step_size_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 0);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -624,7 +624,7 @@ TEST(pdlp_class, initial_solution_test)
   // *not* an error but should not change primal weight and step size
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 0);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -636,7 +636,7 @@ TEST(pdlp_class, initial_solution_test)
   }
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_dual(op_problem.get_n_constraints(), 0);
     auto d_initial_dual = device_copy(initial_dual, handle_.get_stream());
@@ -648,7 +648,7 @@ TEST(pdlp_class, initial_solution_test)
   }
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 0);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -666,7 +666,7 @@ TEST(pdlp_class, initial_solution_test)
   // weight and step size
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -681,7 +681,7 @@ TEST(pdlp_class, initial_solution_test)
   }
   {
     solver_settings.hyper_params.update_step_size_on_initial_solution = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -697,7 +697,7 @@ TEST(pdlp_class, initial_solution_test)
   {
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
     solver_settings.hyper_params.update_step_size_on_initial_solution     = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -737,7 +737,7 @@ TEST(pdlp_class, initial_primal_weight_step_size_test)
 
   // Check setting an initial primal weight and step size
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer                             = timer_t(solver_settings.time_limit);
     constexpr double test_initial_step_size     = 1.0;
     constexpr double test_initial_primal_weight = 2.0;
@@ -755,7 +755,7 @@ TEST(pdlp_class, initial_primal_weight_step_size_test)
     // Launching without an inital step size / primal weight and query the value
     solver_settings.hyper_params.update_primal_weight_on_initial_solution = true;
     solver_settings.hyper_params.update_step_size_on_initial_solution     = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
     auto pdlp_timer = timer_t(solver_settings.time_limit);
     std::vector<double> initial_primal(op_problem.get_n_variables(), 1);
     auto d_initial_primal = device_copy(initial_primal, handle_.get_stream());
@@ -768,7 +768,7 @@ TEST(pdlp_class, initial_primal_weight_step_size_test)
     const double previous_primal_weight = solver.get_primal_weight_h(0);
 
     // Start again but with an initial and check the impact
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver2(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver2(problem, solver_settings);
     pdlp_timer                                  = timer_t(solver_settings.time_limit);
     constexpr double test_initial_step_size     = 1.0;
     constexpr double test_initial_primal_weight = 2.0;
@@ -784,7 +784,7 @@ TEST(pdlp_class, initial_primal_weight_step_size_test)
     EXPECT_NOT_NEAR(previous_primal_weight, sovler2_primal_weight, factor_tolerance);
 
     // Again but with an initial k which should change the step size only, not the primal weight
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver3(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver3(problem, solver_settings);
     pdlp_timer = timer_t(solver_settings.time_limit);
     solver3.set_initial_primal_weight(test_initial_primal_weight);
     solver3.set_initial_step_size(test_initial_step_size);
@@ -845,7 +845,7 @@ TEST(pdlp_class, per_constraint_test)
 
   // First solve without the per constraint and it should break
   {
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
 
     raft::copy(solver.pdhg_solver_.get_primal_solution().data(),
                d_initial_primal.data(),
@@ -869,7 +869,7 @@ TEST(pdlp_class, per_constraint_test)
   }
   {
     solver_settings.per_constraint_residual = true;
-    cuopt::linear_programming::detail::pdlp_solver_t<int, double> solver(problem, solver_settings);
+    cuopt::linear_programming::detail::single_gpu_solver_t<int, double> solver(problem, solver_settings);
 
     raft::copy(solver.pdhg_solver_.get_primal_solution().data(),
                d_initial_primal.data(),

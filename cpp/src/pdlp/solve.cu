@@ -647,9 +647,9 @@ static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
   fs.num_gpus                = settings.num_gpus;
   fs.concurrent_halt         = settings.concurrent_halt;
 
-  detail::pdlp_solver_t<i_t, float> solver(float_problem, fs, is_batch_mode);
-  if (settings.inside_mip) { solver.set_inside_mip(true); }
-  auto float_sol = solver.run_solver(timer);
+  auto solver = detail::make_pdlp_solver<i_t, float>(float_problem, fs);
+  if (settings.inside_mip) { solver->set_inside_mip(true); }
+  auto float_sol = solver->run_solver(timer);
 
   // Convert float solution back to double on GPU (gpu_cast defined in optimization_problem.cu)
   auto dev_primal  = gpu_cast<float, double>(float_sol.get_primal_solution(), stream);
@@ -716,9 +716,9 @@ static optimization_problem_solution_t<i_t, f_t> run_pdlp_solver(
     }
   }
 #endif
-  detail::pdlp_solver_t<i_t, f_t> solver(problem, settings, is_batch_mode);
-  if (settings.inside_mip) { solver.set_inside_mip(true); }
-  return solver.run_solver(timer);
+  auto solver = detail::make_pdlp_solver<i_t, f_t>(problem, settings);
+  if (settings.inside_mip) { solver->set_inside_mip(true); }
+  return solver->run_solver(timer);
 }
 
 template <typename i_t, typename f_t>
