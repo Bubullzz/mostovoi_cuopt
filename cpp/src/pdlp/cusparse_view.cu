@@ -503,9 +503,16 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
            const_cast<i_t*>(op_problem_scaled.variables.data()),
            const_cast<f_t*>(op_problem_scaled.coefficients.data()));
 
+  // A_T can have a different nnz than A in multi-GPU shards: each shard
+  // stores A_shard = OWNED_cstr rows of the global A (nnz = local_A_nnz) and
+  // A_T_shard = OWNED_var rows of the global A^T (nnz = local_A_t_nnz),
+  // which are different sub-slices of the global matrix. Use A_T_.size()
+  // (the value buffer's actual length) as the descriptor nnz so cuSPARSE
+  // reads the right number of indices/values. In single-GPU mode
+  // A_T_.size() == op_problem_scaled.nnz so this is a no-op.
   A_T.create(op_problem_scaled.n_variables,
              op_problem_scaled.n_constraints,
-             op_problem_scaled.nnz,
+             static_cast<int64_t>(A_T_.size()),
              const_cast<i_t*>(A_T_offsets_.data()),
              const_cast<i_t*>(A_T_indices_.data()),
              const_cast<f_t*>(A_T_.data()));
@@ -772,7 +779,9 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
       mixed_precision_enabled_ = true;
 
       A_float_.resize(op_problem_scaled.nnz, handle_ptr->get_stream());
-      A_T_float_.resize(op_problem_scaled.nnz, handle_ptr->get_stream());
+      // A_T may have a different nnz than A in multi-GPU shards; size the
+      // FP32 mirror to A_T_'s actual length, not A's nnz.
+      A_T_float_.resize(A_T_.size(), handle_ptr->get_stream());
 
       RAFT_CUDA_TRY(cub::DeviceTransform::Transform(op_problem_scaled.coefficients.data(),
                                                     A_float_.data(),
@@ -782,7 +791,7 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
 
       RAFT_CUDA_TRY(cub::DeviceTransform::Transform(A_T_.data(),
                                                     A_T_float_.data(),
-                                                    op_problem_scaled.nnz,
+                                                    A_T_.size(),
                                                     double_to_float_functor{},
                                                     handle_ptr->get_stream().value()));
 
@@ -795,7 +804,7 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
 
       A_T_mixed_.create(op_problem_scaled.n_variables,
                         op_problem_scaled.n_constraints,
-                        op_problem_scaled.nnz,
+                        static_cast<int64_t>(A_T_.size()),
                         const_cast<i_t*>(A_T_offsets_.data()),
                         const_cast<i_t*>(A_T_indices_.data()),
                         A_T_float_.data());
@@ -919,9 +928,12 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
            const_cast<i_t*>(op_problem.variables.data()),
            const_cast<f_t*>(op_problem.coefficients.data()));
 
+  // See comment in the other cusparse_view_t ctor: A_T_.size() (not
+  // op_problem.nnz) is the right descriptor nnz so multi-GPU shards work
+  // when A_shard and A_T_shard have different nnz counts.
   A_T.create(op_problem.n_variables,
              op_problem.n_constraints,
-             op_problem.nnz,
+             static_cast<int64_t>(A_T_.size()),
              const_cast<i_t*>(A_T_offsets_.data()),
              const_cast<i_t*>(A_T_indices_.data()),
              const_cast<f_t*>(A_T_.data()));
@@ -1136,9 +1148,11 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
            const_cast<i_t*>(A_indices_.data()),
            const_cast<f_t*>(A_.data()));
 
+  // See comment in the PDHG cusparse_view_t ctor: in multi-GPU shards
+  // A_T's nnz differs from A's nnz, so use the actual value-buffer length.
   A_T.create(op_problem.n_variables,
              op_problem.n_constraints,
-             op_problem.nnz,
+             static_cast<int64_t>(existing_cusparse_view.A_T_.size()),
              const_cast<i_t*>(existing_cusparse_view.A_T_offsets_.data()),
              const_cast<i_t*>(existing_cusparse_view.A_T_indices_.data()),
              const_cast<f_t*>(existing_cusparse_view.A_T_.data()));

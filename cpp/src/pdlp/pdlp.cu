@@ -15,6 +15,7 @@
 #include <pdlp/distributed_pdlp/partitioner.hpp>
 #include <pdlp/pdlp.cuh>
 #include <pdlp/swap_and_resize_helper.cuh>
+#include <pdlp/utilities/mgpu_trace.cuh>
 #include <pdlp/utils.cuh>
 
 #include <mip_heuristics/mip_constants.hpp>
@@ -386,9 +387,13 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
   if (num_gpus == 1) {
     std::cout << "CAREFUL: num_gpus == 1, running dummy version" << std::endl;
   }
-  cuopt_expects(num_gpus == settings.num_gpus /*&& settings.num_gpus > 1*/,
+  cuopt_expects(num_gpus == settings.distributed_pdlp_num_gpus,
                 error_type_t::ValidationError,
-                "This constructor should only be used for distributed PDLP (num_gpus > 1)");
+                "Distributed PDLP ctor: num_gpus argument must equal "
+                "settings.distributed_pdlp_num_gpus.");
+
+  CUOPT_LOG_INFO("Solving with distributed PDLP on %d GPU",
+                 num_gpus);
 
   // Distributed PDLP is currently double-only
   if constexpr (!std::is_same_v<f_t, double>) {
@@ -538,7 +543,7 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
                                                                 h_A_t_col_indices,
                                                                 h_A_t_values,
                                                                 h_A_t_values_scaled,
-                                                                settings.num_gpus,
+                                                                settings.distributed_pdlp_num_gpus,
                                                                 n_cstr,
                                                                 n_vars,
                                                                 nnz);
@@ -546,6 +551,7 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
     // 7. Build the per-shard PDLP settings:
     pdlp_solver_settings_t<i_t, f_t> sub_pdlp_settings                    = settings;
     sub_pdlp_settings.num_gpus                                            = 1;
+    sub_pdlp_settings.distributed_pdlp_num_gpus                           = 1;
     sub_pdlp_settings.multi_gpu_partition_file                            = "";
     sub_pdlp_settings.is_distributed_sub_pdlp                             = true;
     sub_pdlp_settings.hyper_params.default_l_inf_ruiz_iterations          = 0;
@@ -572,14 +578,35 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
                              op_problem_scaled_.presolve_data.objective_scaling_factor,
                              sub_pdlp_settings);
 
+    // Stage master's initial scalars through host. A direct master->shard
+    // cudaMemcpyAsync(..., cudaMemcpyDefault, ...) between two devices fails
+    // with cudaErrorInvalidValue unless peer access AND cudaMallocAsync
+    // mempool access are explicitly enabled for that device pair -- neither
+    // happens automatically (ncclCommInitAll only sets up NCCL-internal
+    // peer access, not general cudaMemcpyAsync). Host staging is bulletproof
+    // and these are 5 tiny scalars copied once at construction.
+    const std::size_t cs_n = climber_strategies_.size();
+    std::vector<f_t> h_step_size(cs_n);
+    std::vector<f_t> h_primal_weight(cs_n);
+    std::vector<f_t> h_best_primal_weight(cs_n);
+    std::vector<f_t> h_primal_step_size(cs_n);
+    std::vector<f_t> h_dual_step_size(cs_n);
+    raft::copy(h_step_size.data(), step_size_.data(), cs_n, stream_view_);
+    raft::copy(h_primal_weight.data(), primal_weight_.data(), cs_n, stream_view_);
+    raft::copy(h_best_primal_weight.data(), best_primal_weight_.data(), cs_n, stream_view_);
+    raft::copy(h_primal_step_size.data(), primal_step_size_.data(), cs_n, stream_view_);
+    raft::copy(h_dual_step_size.data(), dual_step_size_.data(), cs_n, stream_view_);
+    handle_ptr_->sync_stream(stream_view_);
+
     for (auto& shard : multi_gpu_engine->shards) {
       raft::device_setter guard(shard->device_id);
       auto& sub = *shard->sub_pdlp;
-      raft::copy(sub.step_size_.data(), step_size_.data(), 1, shard->stream);
-      raft::copy(sub.primal_weight_.data(), primal_weight_.data(), 1, shard->stream);
-      raft::copy(sub.best_primal_weight_.data(), best_primal_weight_.data(), 1, shard->stream);
-      raft::copy(sub.primal_step_size_.data(), primal_step_size_.data(), 1, shard->stream);
-      raft::copy(sub.dual_step_size_.data(), dual_step_size_.data(), 1, shard->stream);
+      raft::copy(sub.step_size_.data(), h_step_size.data(), cs_n, shard->stream);
+      raft::copy(sub.primal_weight_.data(), h_primal_weight.data(), cs_n, shard->stream);
+      raft::copy(
+        sub.best_primal_weight_.data(), h_best_primal_weight.data(), cs_n, shard->stream);
+      raft::copy(sub.primal_step_size_.data(), h_primal_step_size.data(), cs_n, shard->stream);
+      raft::copy(sub.dual_step_size_.data(), h_dual_step_size.data(), cs_n, shard->stream);
     }
 
     // Wire the engine into the master pdhg_solver_. Shards' pdhg_solver_ keep
@@ -934,6 +961,197 @@ void pdlp_solver_t<i_t, f_t>::print_termination_criteria(const timer_t& timer, b
     } else {
       current_termination_strategy_.print_termination_criteria(total_pdlp_iterations_, elapsed);
     }
+  }
+}
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::dump_mgpu_state_trace()
+{
+  if constexpr (!std::is_same_v<f_t, double>) {
+    return;  // multi_gpu_engine_t only instantiated for double
+  } else {
+    if (!mgpu_trace_enabled()) return;
+    if (!multi_gpu_engine.has_value()) return;
+
+    // Self-rate-limit so the dump can be safely hooked at LOOP top (called
+    // every iter) without flooding for long runs. Fine-grained early
+    // (iter < 50: every iter, lets us bisect first 10-iter divergence),
+    // then coarsen progressively. Skip the "every check_termination"
+    // gating since the dump is now driven from the iteration loop top.
+    {
+      const auto it = total_pdlp_iterations_;
+      const bool fire = (it < 50)
+                        || (it < 500 && (it % 10 == 0))
+                        || (it < 5000 && (it % 100 == 0))
+                        || (it % 1000 == 0);
+      if (!fire) return;
+    }
+
+    auto& engine = multi_gpu_engine.value();
+
+    // Pull master scalars (sync to make sure prior async writes have landed).
+    handle_ptr_->sync_stream(stream_view_);
+    f_t m_pw    = primal_weight_.element(0, stream_view_);
+    f_t m_bpw   = best_primal_weight_.element(0, stream_view_);
+    f_t m_ss    = step_size_.element(0, stream_view_);
+    f_t m_pss   = primal_step_size_.element(0, stream_view_);
+    f_t m_dss   = dual_step_size_.element(0, stream_view_);
+    handle_ptr_->sync_stream(stream_view_);
+    std::fprintf(stderr,
+                 "[mgpu-dump iter=%lld] master pw=%.6e bpw=%.6e ss=%.6e pss=%.6e dss=%.6e\n",
+                 (long long)total_pdlp_iterations_,
+                 m_pw,
+                 m_bpw,
+                 m_ss,
+                 m_pss,
+                 m_dss);
+
+    auto sqsum = [](const f_t* data, std::size_t n) {
+      f_t s{0};
+      for (std::size_t i = 0; i < n; ++i) s += data[i] * data[i];
+      return s;
+    };
+    auto absmax = [](const f_t* data, std::size_t n) {
+      f_t m{0};
+      for (std::size_t i = 0; i < n; ++i) {
+        f_t a = std::abs(data[i]);
+        if (a > m) m = a;
+      }
+      return m;
+    };
+
+    const int nb = static_cast<int>(engine.shards.size());
+    for (int r = 0; r < nb; ++r) {
+      auto& shard = *engine.shards[r];
+      raft::device_setter guard(shard.device_id);
+      auto& sub = *shard.sub_pdlp;
+      RAFT_CUDA_TRY(cudaStreamSynchronize(shard.stream.view().value()));
+
+      f_t s_pw  = sub.get_primal_weight().element(0, shard.stream.view());
+      f_t s_bpw = sub.get_best_primal_weight().element(0, shard.stream.view());
+      f_t s_pss = sub.get_primal_step_size().element(0, shard.stream.view());
+      f_t s_dss = sub.get_dual_step_size().element(0, shard.stream.view());
+
+      const std::size_t own_nv =
+        static_cast<std::size_t>(shard.rank_data.owned_var_size);
+      const std::size_t own_nc =
+        static_cast<std::size_t>(shard.rank_data.owned_cstr_size);
+
+      // Pull each buffer in full (owned + halo). Sizes are tiny here so this
+      // is fine; the dump is diagnostic-only and env-gated.
+      auto pull = [&](auto& devbuf) {
+        const std::size_t n = devbuf.size();
+        std::vector<f_t> h(n, f_t{0});
+        if (n > 0) {
+          RAFT_CUDA_TRY(cudaMemcpyAsync(h.data(),
+                                        devbuf.data(),
+                                        n * sizeof(f_t),
+                                        cudaMemcpyDeviceToHost,
+                                        shard.stream.view().value()));
+        }
+        return h;
+      };
+      auto& pdhg     = sub.pdhg_solver_;
+      auto& sp       = pdhg.get_saddle_point_state();
+      auto h_primal  = pull(pdhg.get_primal_solution());
+      auto h_dual    = pull(pdhg.get_dual_solution());
+      auto h_pnp     = pull(pdhg.get_potential_next_primal_solution());
+      auto h_pnd     = pull(pdhg.get_potential_next_dual_solution());
+      auto h_refl_p  = pull(pdhg.get_reflected_primal());
+      auto h_refl_d  = pull(pdhg.get_reflected_dual());
+      auto h_dgrad   = pull(sp.get_dual_gradient());
+      auto h_caty    = pull(sp.get_current_AtY());
+      RAFT_CUDA_TRY(cudaStreamSynchronize(shard.stream.view().value()));
+
+      // Report owned and halo separately for every buffer. own=[0, own_n),
+      // halo=[own_n, total_n). If a buffer has total == own then halo=0.
+      auto report = [&](const char* name,
+                        const std::vector<f_t>& v,
+                        std::size_t own_n) {
+        const std::size_t total_n = v.size();
+        const std::size_t halo_n  = total_n > own_n ? (total_n - own_n) : 0;
+        const f_t own_sq          = sqsum(v.data(), own_n);
+        const f_t halo_sq         = halo_n ? sqsum(v.data() + own_n, halo_n) : f_t{0};
+        const f_t own_mx          = absmax(v.data(), own_n);
+        const f_t halo_mx         = halo_n ? absmax(v.data() + own_n, halo_n) : f_t{0};
+        std::fprintf(
+          stderr,
+          "[mgpu-dump iter=%lld] shard=%d %-7s tot=%zu (own=%zu halo=%zu) "
+          "|own|2^2=%.6e |halo|2^2=%.6e own_max=%.6e halo_max=%.6e",
+          (long long)total_pdlp_iterations_,
+          r,
+          name,
+          total_n,
+          own_n,
+          halo_n,
+          own_sq,
+          halo_sq,
+          own_mx,
+          halo_mx);
+        // First 4 owned values + first 4 halo values, for cross-shard
+        // direct comparison ("shard 0's halo[k] should equal shard 1's
+        // owned[g_to_l(rank_data[1].var_send_per_peer[0][k])]" type checks).
+        std::fprintf(stderr, " own=[");
+        const std::size_t show_own = std::min<std::size_t>(own_n, 4);
+        for (std::size_t i = 0; i < show_own; ++i) {
+          std::fprintf(stderr, "%s%.4e", i ? "," : "", v[i]);
+        }
+        std::fprintf(stderr, "]");
+        if (halo_n > 0) {
+          std::fprintf(stderr, " halo=[");
+          const std::size_t show_halo = std::min<std::size_t>(halo_n, 4);
+          for (std::size_t i = 0; i < show_halo; ++i) {
+            std::fprintf(stderr, "%s%.4e", i ? "," : "", v[own_n + i]);
+          }
+          std::fprintf(stderr, "]");
+        }
+        std::fprintf(stderr, "\n");
+      };
+
+      std::fprintf(stderr,
+                   "[mgpu-dump iter=%lld] shard=%d (dev=%d) pw=%.6e bpw=%.6e pss=%.6e dss=%.6e\n",
+                   (long long)total_pdlp_iterations_,
+                   r,
+                   shard.device_id,
+                   s_pw,
+                   s_bpw,
+                   s_pss,
+                   s_dss);
+      report("primal",  h_primal,  own_nv);
+      report("dual",    h_dual,    own_nc);
+      report("pnp",     h_pnp,     own_nv);
+      report("pnd",     h_pnd,     own_nc);
+      report("refl_p",  h_refl_p,  own_nv);
+      report("refl_d",  h_refl_d,  own_nc);
+      report("AtY",     h_caty,    own_nv);   // result of A^T * y on this shard
+      report("Axrp",    h_dgrad,   own_nc);   // result of A * refl_p on this shard
+
+      // One-time dump of which global cstr/var each local slot corresponds
+      // to, so cross-shard / cross-mode comparison is unambiguous.
+      if (total_pdlp_iterations_ == 0) {
+        std::fprintf(stderr,
+                     "[mgpu-dump iter=0] shard=%d owned_cstr_indices(global)=[",
+                     r);
+        for (std::size_t i = 0; i < shard.rank_data.owned_cstr_indices.size(); ++i) {
+          std::fprintf(stderr,
+                       "%s%d",
+                       i ? "," : "",
+                       (int)shard.rank_data.owned_cstr_indices[i]);
+        }
+        std::fprintf(stderr, "]\n");
+        std::fprintf(stderr,
+                     "[mgpu-dump iter=0] shard=%d owned_var_indices(global)=[",
+                     r);
+        for (std::size_t i = 0; i < shard.rank_data.owned_var_indices.size(); ++i) {
+          std::fprintf(stderr,
+                       "%s%d",
+                       i ? "," : "",
+                       (int)shard.rank_data.owned_var_indices[i]);
+        }
+        std::fprintf(stderr, "]\n");
+      }
+    }
+    std::fflush(stderr);
   }
 }
 
@@ -2884,6 +3102,13 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 #ifdef CUPDLP_DEBUG_MODE
     printf("Step: %d\n", total_pdlp_iterations_);
 #endif
+    MGPU_TRACE_FMT("LOOP top total_pdlp=%lld internal=%lld",
+                   (long long)total_pdlp_iterations_,
+                   (long long)internal_solver_iterations_);
+    // CUOPT_MGPU_TRACE=1 only: dump master + per-shard scalars, owned and
+    // halo norms for primal/dual/refl_p/refl_d/pnp/pnd. Self-rate-limits
+    // inside (every iter for iter < 50, then 10/100/1000 buckets).
+    dump_mgpu_state_trace();
     bool is_major_iteration =
       (((total_pdlp_iterations_) % settings_.hyper_params.major_iteration == 0) &&
        (total_pdlp_iterations_ > 0)) ||
@@ -3013,7 +3238,10 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 #endif
 
       // Check for termination
+      MGPU_TRACE("check_termination ENTER");
       std::optional<optimization_problem_solution_t<i_t, f_t>> solution = check_termination(timer);
+      MGPU_TRACE_FMT("check_termination EXIT has_value=%d",
+                     (int)solution.has_value());
 
       if (solution.has_value()) { return std::move(solution.value()); }
 
@@ -3048,6 +3276,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
             static_cast<int>(
               detail::pdlp_restart_strategy_t<i_t, f_t>::restart_strategy_t::NO_RESTART) &&
           (is_major_iteration || artificial_restart_check_main_loop)) {
+        MGPU_TRACE("compute_restart ENTER");
         restart_strategy_.compute_restart(
           pdhg_solver_,
           unscaled_primal_avg_solution_,
@@ -3062,6 +3291,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
           best_primal_weight_,  // Needed for cuPDLP+ restart
           has_restarted         // Needed for cuPDLP+ restart
         );
+        MGPU_TRACE("compute_restart EXIT");
       }
 
       if (!settings_.hyper_params.rescale_for_restart) {
@@ -3100,8 +3330,11 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
     printf("Is Major %d\n",
            (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
 #endif
+    MGPU_TRACE_FMT("take_step ENTER total_pdlp=%lld",
+                   (long long)total_pdlp_iterations_);
     take_step(total_pdlp_iterations_,
               (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
+    MGPU_TRACE("take_step EXIT");
 
     if (settings_.hyper_params.use_reflected_primal_dual) {
       if (settings_.hyper_params.use_fixed_point_error &&
@@ -3139,7 +3372,9 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
         }
       }
       if (multi_gpu_engine) {
+        MGPU_TRACE("halpern_update (mgpu) ENTER");
         multi_gpu_engine->for_each_shard([&](auto& shard) { shard.sub_pdlp->halpern_update(); });
+        MGPU_TRACE("halpern_update (mgpu) EXIT");
       } else {
         halpern_update();
       }

@@ -426,10 +426,22 @@ int main(int argc, char* argv[])
   std::vector<rmm::mr::cuda_async_memory_resource> memory_resources;
 
   if (memory_backend == cuopt::linear_programming::memory_backend_t::GPU) {
-    const int num_gpus = settings.get_parameter<int>(CUOPT_NUM_GPUS);
+    // Pick the right "GPU count" to provision RMM pools for:
+    //  - distributed PDLP partitions the problem across N shards (one per GPU)
+    //    so we need N memory resources -> use CUOPT_DISTRIBUTED_PDLP_NUM_GPUS.
+    //  - everything else (concurrent PDLP+barrier, MIP, single-GPU) uses
+    //    CUOPT_NUM_GPUS (capped at 2).
+    const bool use_distributed_pdlp =
+      settings.get_parameter<bool>(CUOPT_USE_DISTRIBUTED_PDLP);
+    const int gpus_to_provision =
+      use_distributed_pdlp
+        ? settings.get_parameter<int>(CUOPT_DISTRIBUTED_PDLP_NUM_GPUS)
+        : settings.get_parameter<int>(CUOPT_NUM_GPUS);
 
-    memory_resources.reserve(std::min(raft::device_setter::get_device_count(), num_gpus));
-    for (int i = 0; i < std::min(raft::device_setter::get_device_count(), num_gpus); ++i) {
+    const int n_devices =
+      std::min(raft::device_setter::get_device_count(), gpus_to_provision);
+    memory_resources.reserve(n_devices);
+    for (int i = 0; i < n_devices; ++i) {
       RAFT_CUDA_TRY(cudaSetDevice(i));
       memory_resources.emplace_back();
       rmm::mr::set_per_device_resource(rmm::cuda_device_id{i}, memory_resources.back());

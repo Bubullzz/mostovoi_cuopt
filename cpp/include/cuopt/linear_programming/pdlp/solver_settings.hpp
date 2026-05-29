@@ -306,7 +306,17 @@ class pdlp_solver_settings_t {
   bool all_primal_feasible{false};
   presolver_t presolver{presolver_t::Default};
   bool dual_postsolve{true};
+  // Number of GPUs for the concurrent PDLP + barrier method. Capped at 2 in
+  // validation because that is the only configuration the concurrent dispatcher
+  // currently supports (one GPU for PDLP, one for the barrier solver). For the
+  // distributed PDLP partitioner (use_distributed_pdlp = true) use
+  // distributed_pdlp_num_gpus below instead.
   int num_gpus{1};
+  // Number of GPUs (= number of shards) for the distributed PDLP partitioner.
+  // Only consulted when hyper_params.use_distributed_pdlp = true. Independent
+  // of num_gpus so that the concurrent-mode max (=2) and the distributed-PDLP
+  // shard count (potentially many) cannot collide in validation.
+  int distributed_pdlp_num_gpus{1};
   std::string multi_gpu_partition_file{""};
   // Set to true inside the shards
   bool is_distributed_sub_pdlp{false};

@@ -13,6 +13,7 @@
 #include <pdlp/pdlp_climber_strategy.hpp>
 #include <pdlp/pdlp_constants.hpp>
 #include <pdlp/swap_and_resize_helper.cuh>
+#include <pdlp/utilities/mgpu_trace.cuh>
 #include <pdlp/utilities/ping_pong_graph.cuh>
 #include <pdlp/utils.cuh>
 
@@ -1245,11 +1246,21 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
 
   using f_t2 = typename type_2<f_t>::type;
 
-  if (mgpu_engine_ != nullptr) { mgpu_engine_->sync_await_shards(stream_view_); }
+  MGPU_TRACE_FMT("enter total_pdhg=%lld should_major=%d mgpu=%d",
+                 (long long)total_pdhg_iterations_,
+                 (int)should_major,
+                 mgpu_engine_ != nullptr ? 1 : 0);
+
+  if (mgpu_engine_ != nullptr) {
+    MGPU_TRACE("pre-graph sync_await_shards");
+    mgpu_engine_->sync_await_shards(stream_view_);
+    MGPU_TRACE("pre-graph sync_await_shards DONE");
+  }
 
   // Compute next primal solution reflected.
 
   if (should_major) {
+    MGPU_TRACE("major branch: graph_all.run BEGIN");
     graph_all.run(should_major, [&]() {
       // Multi-GPU: splice shard streams into the capture so their kernels and
       // NCCL collectives are recorded into the same graph. Without this, work
@@ -1258,17 +1269,23 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
       // empty (or broken) -- which produces the cycling/stall behavior we
       // observed on larger problems. Mirrors metis_tests bench.cu fork/join.
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("major: fork_to_shards");
         mgpu_engine_->graph_capture_fork_to_shards(stream_view_);
+        MGPU_TRACE("major: fork_to_shards DONE");
       }
 
+      MGPU_TRACE("major: compute_At_y");
       compute_At_y();
+      MGPU_TRACE("major: compute_At_y DONE");
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("major: primal_reflected_major_projection_transform per shard");
         for (auto& shard : mgpu_engine_->shards) {
           raft::device_setter guard(shard->device_id);
           auto& sub_pdlp = *shard->sub_pdlp;
           sub_pdlp.pdhg_solver_.primal_reflected_major_projection_transform(
             sub_pdlp.get_primal_step_size());
         }
+        MGPU_TRACE("major: primal_reflected_major_projection_transform DONE");
       } else if (!batch_mode_) {
         primal_reflected_major_projection_transform(primal_step_size);
       } else {
@@ -1327,15 +1344,19 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
 #endif
 
       // Compute next dual
+      MGPU_TRACE("major: compute_A_x");
       compute_A_x();
+      MGPU_TRACE("major: compute_A_x DONE");
 
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("major: dual_reflected_major_projection_transform per shard");
         for (auto& shard : mgpu_engine_->shards) {
           raft::device_setter guard(shard->device_id);
           auto& sub_pdlp = *shard->sub_pdlp;
           sub_pdlp.pdhg_solver_.dual_reflected_major_projection_transform(
             sub_pdlp.get_dual_step_size());
         }
+        MGPU_TRACE("major: dual_reflected_major_projection_transform DONE");
       } else if (!batch_mode_) {
         dual_reflected_major_projection_transform(dual_step_size);
       } else {
@@ -1363,18 +1384,26 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
       // the master stream so cudaStreamEndCapture sees a single graph
       // spanning all streams.
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("major: join_from_shards");
         mgpu_engine_->graph_capture_join_from_shards(stream_view_);
+        MGPU_TRACE("major: join_from_shards DONE");
       }
     });
+    MGPU_TRACE("major branch: graph_all.run END");
 
   } else {
+    MGPU_TRACE("non-major branch: graph_all.run BEGIN");
     graph_all.run(should_major, [&]() {
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("non-major: fork_to_shards");
         mgpu_engine_->graph_capture_fork_to_shards(stream_view_);
+        MGPU_TRACE("non-major: fork_to_shards DONE");
       }
 
       // Compute next primal
+      MGPU_TRACE("non-major: compute_At_y");
       compute_At_y();
+      MGPU_TRACE("non-major: compute_At_y DONE");
 
 #ifdef CUPDLP_DEBUG_MODE
       print("current_saddle_point_state_.get_primal_solution()",
@@ -1385,12 +1414,14 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
 #endif
 
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("non-major: primal_reflected_projection_transform per shard");
         for (auto& shard : mgpu_engine_->shards) {
           raft::device_setter guard(shard->device_id);
           auto& sub_pdlp = *shard->sub_pdlp;
           sub_pdlp.pdhg_solver_.primal_reflected_projection_transform(
             sub_pdlp.get_primal_step_size());
         }
+        MGPU_TRACE("non-major: primal_reflected_projection_transform DONE");
       } else if (!batch_mode_) {
         primal_reflected_projection_transform(primal_step_size);
       } else {
@@ -1450,14 +1481,18 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
 #endif
 
       // Compute next dual
+      MGPU_TRACE("non-major: compute_A_x");
       compute_A_x();
+      MGPU_TRACE("non-major: compute_A_x DONE");
 
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("non-major: dual_reflected_projection_transform per shard");
         for (auto& shard : mgpu_engine_->shards) {
           raft::device_setter guard(shard->device_id);
           auto& sub_pdlp = *shard->sub_pdlp;
           sub_pdlp.pdhg_solver_.dual_reflected_projection_transform(sub_pdlp.get_dual_step_size());
         }
+        MGPU_TRACE("non-major: dual_reflected_projection_transform DONE");
       } else if (!batch_mode_) {
         dual_reflected_projection_transform(dual_step_size);
       } else {
@@ -1479,13 +1514,21 @@ void pdhg_solver_t<i_t, f_t>::compute_next_primal_dual_solution_reflected(
 #endif
 
       if (mgpu_engine_ != nullptr) {
+        MGPU_TRACE("non-major: join_from_shards");
         mgpu_engine_->graph_capture_join_from_shards(stream_view_);
+        MGPU_TRACE("non-major: join_from_shards DONE");
       }
     });
+    MGPU_TRACE("non-major branch: graph_all.run END");
   }
 
   // sync to master stream after the graph is captured
-  if (mgpu_engine_ != nullptr) { mgpu_engine_->sync_await_master(stream_view_); }
+  if (mgpu_engine_ != nullptr) {
+    MGPU_TRACE("post-graph sync_await_master");
+    mgpu_engine_->sync_await_master(stream_view_);
+    MGPU_TRACE("post-graph sync_await_master DONE");
+  }
+  MGPU_TRACE("exit");
 }
 
 template <typename i_t, typename f_t>

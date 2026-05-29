@@ -117,8 +117,20 @@ class pdlp_solver_t {
   // call across all shards' pdhg_solver_t::*_transform methods.
   rmm::device_uvector<f_t>& get_primal_step_size() { return primal_step_size_; }
   rmm::device_uvector<f_t>& get_dual_step_size() { return dual_step_size_; }
+  // Multi-GPU restart broadcast needs to mirror master's primal_weight /
+  // best_primal_weight onto every shard after each cuPDLPx restart so that
+  // downstream shard-side restart machinery stays in sync with master.
+  rmm::device_uvector<f_t>& get_primal_weight() { return primal_weight_; }
+  rmm::device_uvector<f_t>& get_best_primal_weight() { return best_primal_weight_; }
 
  private:
+  // Diagnostic: when CUOPT_MGPU_TRACE=1 is set, dumps master and per-shard
+  // primal_weight / step_size scalars plus L2 norms of each shard's owned
+  // primal/dual slices to stderr. Called at the same cadence as the
+  // iteration print line so we can bisect where mGPU state diverges. No-op
+  // when the env var is unset or in single-GPU mode.
+  void dump_mgpu_state_trace();
+
   void print_termination_criteria(const timer_t& timer, bool is_average = false);
   void print_final_termination_criteria(
     const timer_t& timer,

@@ -12,6 +12,7 @@
 
 #include <rmm/cuda_stream_view.hpp>
 
+#include <cstdlib>
 #include <utility>
 
 namespace cuopt::linear_programming::detail {
@@ -50,6 +51,19 @@ class ping_pong_graph_t {
     work();
 #else
     if (is_legacy_batch_mode_) {
+      work();
+      return;
+    }
+    // Diagnostic knob: force eager execution (no CUDA graph capture). Used
+    // to A/B-test whether a hang/error is graph-capture-related. NCCL
+    // collectives issued from inside a captured region require specific
+    // communicator config; if a hang vanishes when CUOPT_MGPU_DISABLE_GRAPH=1
+    // is set, the captured-graph + NCCL interaction is the culprit.
+    static const bool s_disable_graph = []() {
+      const char* v = std::getenv("CUOPT_MGPU_DISABLE_GRAPH");
+      return v != nullptr && v[0] != '\0' && v[0] != '0';
+    }();
+    if (s_disable_graph) {
       work();
       return;
     }

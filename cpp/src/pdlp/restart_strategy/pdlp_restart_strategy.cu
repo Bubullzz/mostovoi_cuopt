@@ -1004,15 +1004,72 @@ void pdlp_restart_strategy_t<i_t, f_t>::cupdlpx_restart(
     best_primal_weight.set_element_async(0, best_primal_weight_value, stream_view_);
   }
 
-  // Broadcast the primal and dual step sizes to all shards
+  // Broadcast all primal-weight / step-size scalars updated by the cuPDLPx
+  // restart on the master to every shard. NOTE: shards' per-iteration PDHG
+  // kernels read primal_step_size / dual_step_size directly, but the
+  // restart-state machinery on each shard (fixed-point error, distance
+  // computation, downstream restart bookkeeping) also reads primal_weight /
+  // best_primal_weight, so all four must stay in sync with the master after
+  // every cuPDLPx restart.
+  //
+  // Direct device->device cudaMemcpyAsync between two different devices via
+  // cudaMemcpyDefault fails with cudaErrorInvalidValue unless peer access
+  // AND cudaMallocAsync mempool access are explicitly configured for the
+  // device pair; RMM does NOT do this. Host-stage instead. Heap-allocate the
+  // host vectors so even an aggressive optimizer cannot lose the buffers
+  // before the async H2D copies drain (defensive: pageable H2D is sync-ish
+  // in practice for cudaMemcpyAsync, but the shard streams sync at the end
+  // makes that an enforced invariant rather than a CUDA implementation
+  // assumption).
   if (auto* engine = pdhg_solver.get_mgpu_engine()) {
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_));
+
+    std::vector<f_t> h_primal_step_size(primal_step_size.size());
+    std::vector<f_t> h_dual_step_size(dual_step_size.size());
+    std::vector<f_t> h_primal_weight(primal_weight.size());
+    std::vector<f_t> h_best_primal_weight(best_primal_weight.size());
+
+    raft::copy(h_primal_step_size.data(),
+               primal_step_size.data(),
+               primal_step_size.size(),
+               stream_view_);
+    raft::copy(h_dual_step_size.data(),
+               dual_step_size.data(),
+               dual_step_size.size(),
+               stream_view_);
+    raft::copy(h_primal_weight.data(),
+               primal_weight.data(),
+               primal_weight.size(),
+               stream_view_);
+    raft::copy(h_best_primal_weight.data(),
+               best_primal_weight.data(),
+               best_primal_weight.size(),
+               stream_view_);
+    RAFT_CUDA_TRY(cudaStreamSynchronize(stream_view_));
+
     engine->for_each_shard([&](auto& shard) {
       auto& sub = *shard.sub_pdlp;
       raft::copy(sub.get_primal_step_size().data(),
-                 primal_step_size.data(), 1, shard.stream.view());
+                 h_primal_step_size.data(),
+                 h_primal_step_size.size(),
+                 shard.stream.view());
       raft::copy(sub.get_dual_step_size().data(),
-                 dual_step_size.data(), 1, shard.stream.view());
+                 h_dual_step_size.data(),
+                 h_dual_step_size.size(),
+                 shard.stream.view());
+      raft::copy(sub.get_primal_weight().data(),
+                 h_primal_weight.data(),
+                 h_primal_weight.size(),
+                 shard.stream.view());
+      raft::copy(sub.get_best_primal_weight().data(),
+                 h_best_primal_weight.data(),
+                 h_best_primal_weight.size(),
+                 shard.stream.view());
+    });
+    // Drain shard streams so the host vectors stay alive until the H2D
+    // copies actually consume them.
+    engine->for_each_shard([&](auto& shard) {
+      RAFT_CUDA_TRY(cudaStreamSynchronize(shard.stream.view().value()));
     });
   }
   // TODO later batch mode: remove if you have per climber restart

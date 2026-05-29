@@ -155,12 +155,46 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
 
   sub_pdlp->pdhg_solver_.set_is_multi_gpu(true);
 
-  // Inject master-scaled buffers inside sub_pdlp
+  // Inject master-scaled buffers inside sub_pdlp.
+  //
+  // CRITICAL (mGPU CSR alignment): problem_t's constructor calls
+  //   compute_transpose_of_problem() -> csrsort_cusparse(coefficients,
+  //   variables, offsets, ...)
+  // which sorts every row's column indices ascending and permutes the values
+  // in lockstep. The deep-copy into op_problem_scaled_ (sub_pdlp's scaled
+  // problem) therefore carries the *sorted* (variables, coefficients) pair.
+  //
+  // The master-side h_A_values_scaled is in the ORIGINAL partition-loader
+  // order (the same order in which h_A_col_indices was built). After the
+  // global->local var remap on a shard, halo vars get local indices that
+  // are >= owned_var_size, so any row that references both owned and halo
+  // vars is NO LONGER ascending and csrsort actually reorders it.
+  //
+  // Overwriting only scaled.coefficients with h_A_values_scaled (un-sorted)
+  // while leaving scaled.variables/offsets in the post-csrsort (sorted)
+  // permutation would mis-pair (variables[k], coefficients[k]) for those
+  // mixed rows, silently producing wrong A * x values. The symptom in real
+  // mGPU runs is a per-row underestimate/overestimate of dual_gradient on
+  // exactly the rows whose halo-var indices break sort order, which then
+  // diverges dual updates. Re-sync all three CSR arrays from rank_data so
+  // they share one consistent (un-sorted) layout.
   auto& scaled = sub_pdlp->get_op_problem_scaled();
+  raft::copy(scaled.offsets.data(),
+             rank_data.h_A_row_offsets.data(),
+             rank_data.h_A_row_offsets.size(),
+             stream_view);
+  raft::copy(scaled.variables.data(),
+             rank_data.h_A_col_indices.data(),
+             rank_data.h_A_col_indices.size(),
+             stream_view);
   raft::copy(scaled.coefficients.data(),
              rank_data.h_A_values_scaled.data(),
              rank_data.h_A_values_scaled.size(),
              stream_view);
+  // A_T side: all three arrays were already overridden together from
+  // rank_data on sub_problem (see step 4 above) and deep-copied into the
+  // scaled problem, so reverse_offsets / reverse_constraints already match
+  // h_A_t_values_scaled's order. Only the values need a SCALED swap-in.
   raft::copy(scaled.reverse_coefficients.data(),
              rank_data.h_A_t_values_scaled.data(),
              rank_data.h_A_t_values_scaled.size(),

@@ -771,16 +771,19 @@ static optimization_problem_solution_t<i_t, f_t> run_pdlp_solver(
   }
 #endif
   if (settings.hyper_params.use_distributed_pdlp) {
-    /*
-    cuopt_expects(settings.num_gpus > 1,
-                  error_type_t::ValidationError,
-                  "use_distributed_pdlp requires settings.num_gpus > 1"); */
-    if (settings.num_gpus == 1) {std::cout << "CAREFUL: use_distributed_pdlp requires settings.num_gpus > 1" << std::endl;}
+    // CUOPT_NUM_GPUS controls the concurrent PDLP+barrier method (capped at 2).
+    // Distributed PDLP uses its OWN knob (CUOPT_DISTRIBUTED_PDLP_NUM_GPUS) so
+    // the validator does not have to stretch num_gpus into 8/64/etc.
+    if (settings.distributed_pdlp_num_gpus == 1) {
+      std::cout << "CAREFUL: use_distributed_pdlp normally requires "
+                   "distributed_pdlp_num_gpus > 1; running single-part dummy."
+                << std::endl;
+    }
     cuopt_expects(!is_batch_mode,
                   error_type_t::ValidationError,
                   "Distributed PDLP does not support batch mode");
     // Multi-GPU ctor; dispatched by 3rd-arg TYPE (int num_gpus, not bool batch).
-    detail::pdlp_solver_t<i_t, f_t> solver(problem, settings, settings.num_gpus);
+    detail::pdlp_solver_t<i_t, f_t> solver(problem, settings, settings.distributed_pdlp_num_gpus);
     return solver.run_solver(timer);
   }
   detail::pdlp_solver_t<i_t, f_t> solver(problem, settings, is_batch_mode);

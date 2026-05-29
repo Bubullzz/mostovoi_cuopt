@@ -7,6 +7,7 @@
 #include <pdlp/distributed_pdlp/rank_data.hpp>
 #include <pdlp/distributed_pdlp/shard.hpp>
 #include <pdlp/pdhg.hpp>
+#include <pdlp/utilities/mgpu_trace.cuh>
 #include <utilities/cuda_helpers.cuh>
 #include <utilities/event_handler.cuh>
 
@@ -108,6 +109,7 @@ struct multi_gpu_engine_t {
   template <typename BufAccess>
   void halo_exchange_var(BufAccess&& buf_access)
   {
+    MGPU_TRACE("halo_exchange_var ENTER");
     const int nb = static_cast<int>(shards.size());
 
     // Step 1: gather owned values that each peer needs into per-peer staging.
@@ -125,6 +127,7 @@ struct multi_gpu_engine_t {
                        s.var_send_buf_d[peer].begin());
       }
     }
+    MGPU_TRACE("halo_exchange_var gather DONE; entering NCCL group");
 
     // Step 2: matched send / recv across the whole topology in one NCCL group.
     ncclGroupStart();
@@ -158,6 +161,7 @@ struct multi_gpu_engine_t {
       }
     }
     ncclGroupEnd();
+    MGPU_TRACE("halo_exchange_var NCCL group END");
   }
 
   // -------- Halo exchange (constraints / y) -------------------------------
@@ -166,6 +170,7 @@ struct multi_gpu_engine_t {
   template <typename BufAccess>
   void halo_exchange_cstr(BufAccess&& buf_access)
   {
+    MGPU_TRACE("halo_exchange_cstr ENTER");
     const int nb = static_cast<int>(shards.size());
 
     for (int r = 0; r < nb; ++r) {
@@ -182,6 +187,7 @@ struct multi_gpu_engine_t {
                        s.cstr_send_buf_d[peer].begin());
       }
     }
+    MGPU_TRACE("halo_exchange_cstr gather DONE; entering NCCL group");
 
     ncclGroupStart();
     for (int r = 0; r < nb; ++r) {
@@ -214,6 +220,7 @@ struct multi_gpu_engine_t {
       }
     }
     ncclGroupEnd();
+    MGPU_TRACE("halo_exchange_cstr NCCL group END");
   }
 
   // -------- NCCL allreduce (sum, in place) --------------------------------
@@ -225,6 +232,7 @@ struct multi_gpu_engine_t {
   template <typename PtrAccess>
   void allreduce_sum_inplace(PtrAccess&& ptr_access, size_t count = 1)
   {
+    MGPU_TRACE_FMT("allreduce_sum_inplace count=%zu ENTER", count);
     ncclGroupStart();
     for (auto& s : shards) {
       raft::device_setter guard(s->device_id);
@@ -232,6 +240,7 @@ struct multi_gpu_engine_t {
       ncclAllReduce(buf, buf, count, ncclFloat64, ncclSum, s->comm.get(), s->stream.view().value());
     }
     ncclGroupEnd();
+    MGPU_TRACE("allreduce_sum_inplace EXIT");
   }
 
   // -------- Distributed L2 norm ------------------------------------------
@@ -468,16 +477,19 @@ struct multi_gpu_engine_t {
   // Forks master stream to shards, so that the captured graph can see the work on the shards
   void graph_capture_fork_to_shards(rmm::cuda_stream_view master_stream)
   {
+    MGPU_TRACE("graph_capture_fork_to_shards ENTER");
     graph_master_ready_event_->record(master_stream);
     for (auto& s : shards) {
       raft::device_setter guard(s->device_id);
       graph_master_ready_event_->stream_wait(s->stream.view());
     }
+    MGPU_TRACE("graph_capture_fork_to_shards EXIT");
   }
 
   // Joins shards back to master stream for correct graph capture
   void graph_capture_join_from_shards(rmm::cuda_stream_view master_stream)
   {
+    MGPU_TRACE("graph_capture_join_from_shards ENTER");
     const int nb = static_cast<int>(shards.size());
     for (int r = 0; r < nb; ++r) {
       raft::device_setter guard(shards[r]->device_id);
@@ -486,23 +498,27 @@ struct multi_gpu_engine_t {
     for (auto& e : graph_shard_ready_events_) {
       e->stream_wait(master_stream);
     }
+    MGPU_TRACE("graph_capture_join_from_shards EXIT");
   }
 
   // Functionnaly same as graph_capture_fork_to_shards but on a different event to avoid race conditions
   // Can be used as a way to sync shards with master stream
   void sync_await_master(rmm::cuda_stream_view master_stream)
   {
+    MGPU_TRACE("sync_await_master ENTER");
     sync_master_ready_event_->record(master_stream);
     for (auto& s : shards) {
       raft::device_setter guard(s->device_id);
       sync_master_ready_event_->stream_wait(s->stream.view());
     }
+    MGPU_TRACE("sync_await_master EXIT");
   }
 
   // Same as sync_await_master
   // Can be used as a way to sync master stream with shards
   void sync_await_shards(rmm::cuda_stream_view master_stream)
   {
+    MGPU_TRACE("sync_await_shards ENTER");
     const int nb = static_cast<int>(shards.size());
     for (int r = 0; r < nb; ++r) {
       raft::device_setter guard(shards[r]->device_id);
@@ -511,6 +527,7 @@ struct multi_gpu_engine_t {
     for (auto& e : sync_shard_ready_events_) {
       e->stream_wait(master_stream);
     }
+    MGPU_TRACE("sync_await_shards EXIT");
   }
 };
 
