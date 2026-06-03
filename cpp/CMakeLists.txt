@@ -205,9 +205,11 @@ endif ()
 find_package(OpenMP REQUIRED)
 message(VERBOSE "cuOpt: OpenMP found in ${OpenMP_CXX_INCLUDE_DIRS}")
 
-# MPS/QPS parser supports compressed inputs via bzip2 and zlib
+# MPS/QPS parser supports compressed inputs via bzip2 and zlib; the experimental fast MPS parser
+# supports LZ4 via runtime-loaded liblz4.
 option(CUOPT_PARSER_WITH_BZIP2 "Build MPS parser with bzip2 decompression" ON)
 option(CUOPT_PARSER_WITH_ZLIB "Build MPS parser with zlib decompression" ON)
+option(CUOPT_PARSER_WITH_LZ4 "Build experimental fast MPS parser with LZ4 decompression" ON)
 if (CUOPT_PARSER_WITH_BZIP2)
     find_package(BZip2 REQUIRED)
     add_compile_definitions(MPS_PARSER_WITH_BZIP2)
@@ -215,6 +217,10 @@ endif ()
 if (CUOPT_PARSER_WITH_ZLIB)
     find_package(ZLIB REQUIRED)
     add_compile_definitions(MPS_PARSER_WITH_ZLIB)
+endif ()
+if (CUOPT_PARSER_WITH_LZ4)
+    # No headers or link target needed; the experimental reader loads one liblz4 symbol at runtime.
+    add_compile_definitions(MPS_PARSER_WITH_LZ4)
 endif ()
 
 # Debug options
@@ -251,6 +257,20 @@ else ()
     find_package(CCCL REQUIRED)
     find_package(RMM REQUIRED)
     find_package(RAFT REQUIRED)
+endif ()
+
+rapids_cpm_find(simde 0.8.2
+        CPM_ARGS
+        GIT_REPOSITORY https://github.com/simd-everywhere/simde.git
+        GIT_TAG v0.8.2
+        GIT_SHALLOW TRUE
+        DOWNLOAD_ONLY TRUE
+)
+
+if (NOT TARGET simde::simde)
+    add_library(simde::simde INTERFACE IMPORTED GLOBAL)
+    set_target_properties(simde::simde
+            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${simde_SOURCE_DIR}")
 endif ()
 
 FetchContent_Declare(
@@ -434,8 +454,28 @@ if (NOT SKIP_GRPC_BUILD)
         endif ()
     endif ()
 
-    # Generate C++ code from cuopt_remote.proto (base message definitions)
-    set(PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/cuopt_remote.proto")
+    # Proto search paths: manual protos in src/grpc, generated data proto in src/grpc/codegen/generated
+    set(PROTO_PATH_MANUAL "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc")
+    set(PROTO_PATH_GEN    "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/codegen/generated")
+
+    # Generate C++ code from cuopt_remote_data.proto (auto-generated data definitions)
+    set(DATA_PROTO_FILE "${PROTO_PATH_GEN}/cuopt_remote_data.proto")
+    set(DATA_PROTO_SRCS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote_data.pb.cc")
+    set(DATA_PROTO_HDRS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote_data.pb.h")
+
+    add_custom_command(
+            OUTPUT "${DATA_PROTO_SRCS}" "${DATA_PROTO_HDRS}"
+            COMMAND ${_PROTOBUF_PROTOC}
+            ARGS --cpp_out ${CMAKE_CURRENT_BINARY_DIR}
+            --proto_path ${PROTO_PATH_GEN}
+            ${DATA_PROTO_FILE}
+            DEPENDS ${DATA_PROTO_FILE}
+            COMMENT "Generating C++ code from cuopt_remote_data.proto"
+            VERBATIM
+    )
+
+    # Generate C++ code from cuopt_remote.proto (control/protocol messages, imports data proto)
+    set(PROTO_FILE "${PROTO_PATH_MANUAL}/cuopt_remote.proto")
     set(PROTO_SRCS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote.pb.cc")
     set(PROTO_HDRS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote.pb.h")
 
@@ -443,15 +483,16 @@ if (NOT SKIP_GRPC_BUILD)
             OUTPUT "${PROTO_SRCS}" "${PROTO_HDRS}"
             COMMAND ${_PROTOBUF_PROTOC}
             ARGS --cpp_out ${CMAKE_CURRENT_BINARY_DIR}
-            --proto_path ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc
+            --proto_path ${PROTO_PATH_MANUAL}
+            --proto_path ${PROTO_PATH_GEN}
             ${PROTO_FILE}
-            DEPENDS ${PROTO_FILE}
+            DEPENDS ${PROTO_FILE} ${DATA_PROTO_FILE}
             COMMENT "Generating C++ code from cuopt_remote.proto"
             VERBATIM
     )
 
     # Generate gRPC service code from cuopt_remote_service.proto
-    set(GRPC_PROTO_FILE "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/cuopt_remote_service.proto")
+    set(GRPC_PROTO_FILE "${PROTO_PATH_MANUAL}/cuopt_remote_service.proto")
     set(GRPC_PROTO_SRCS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote_service.pb.cc")
     set(GRPC_PROTO_HDRS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote_service.pb.h")
     set(GRPC_SERVICE_SRCS "${CMAKE_CURRENT_BINARY_DIR}/cuopt_remote_service.grpc.pb.cc")
@@ -463,9 +504,10 @@ if (NOT SKIP_GRPC_BUILD)
             ARGS --cpp_out ${CMAKE_CURRENT_BINARY_DIR}
             --grpc_out ${CMAKE_CURRENT_BINARY_DIR}
             --plugin=protoc-gen-grpc=${_GRPC_CPP_PLUGIN_EXECUTABLE}
-            --proto_path ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc
+            --proto_path ${PROTO_PATH_MANUAL}
+            --proto_path ${PROTO_PATH_GEN}
             ${GRPC_PROTO_FILE}
-            DEPENDS ${GRPC_PROTO_FILE} ${PROTO_FILE} ${PROTO_SRCS} ${PROTO_HDRS}
+            DEPENDS ${GRPC_PROTO_FILE} ${PROTO_FILE} ${DATA_PROTO_FILE}
             COMMENT "Generating gRPC C++ code from cuopt_remote_service.proto"
             VERBATIM
     )
@@ -481,9 +523,16 @@ if (BUILD_TESTS)
 endif ()
 
 set(CUOPT_SRC_FILES)
+set(MPS_FAST_SRC_FILES)
 add_subdirectory(src)
 if (HOST_LINEINFO)
     set_source_files_properties(${CUOPT_SRC_FILES} DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTIES COMPILE_OPTIONS "-g1")
+endif ()
+
+if (CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND
+        CMAKE_CXX_COMPILER_ID MATCHES "^(GNU|Clang|AppleClang)$")
+    set_property(SOURCE ${MPS_FAST_SRC_FILES} DIRECTORY ${CMAKE_SOURCE_DIR}
+            APPEND PROPERTY COMPILE_OPTIONS "-mavx2;-maes;-msse4.2")
 endif ()
 
 # Apply -UNDEBUG only to solver source files (not gRPC infrastructure).
@@ -497,6 +546,7 @@ endif ()
 if (NOT SKIP_GRPC_BUILD)
     # Add gRPC mapper files and generated protobuf sources
     set(GRPC_INFRA_FILES
+            ${DATA_PROTO_SRCS}
             ${PROTO_SRCS}
             ${GRPC_PROTO_SRCS}
             ${GRPC_SERVICE_SRCS}
@@ -574,6 +624,7 @@ target_include_directories(cuopt
         "${CMAKE_CURRENT_SOURCE_DIR}/src/io"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc"
         "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/client"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/codegen/generated"
         "${CMAKE_CURRENT_BINARY_DIR}"
         "${CUDSS_INCLUDE}"
         $<$<BOOL:${CUOPT_PARSER_WITH_BZIP2}>:${BZIP2_INCLUDE_DIRS}>
@@ -642,6 +693,7 @@ target_link_libraries(cuopt
         ${CUOPT_PRIVATE_CUDA_LIBS}
         nccl_external
         metis_external
+        simde::simde
         $<$<BOOL:${CUOPT_ENABLE_GRPC}>:protobuf::libprotobuf>
         $<$<BOOL:${CUOPT_ENABLE_GRPC}>:gRPC::grpc++>
 )
@@ -895,6 +947,7 @@ if (NOT SKIP_GRPC_BUILD)
             "${CMAKE_CURRENT_SOURCE_DIR}/src"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc"
             "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/server"
+            "${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/codegen/generated"
             "${CMAKE_CURRENT_SOURCE_DIR}/include"
             "${CMAKE_CURRENT_BINARY_DIR}"
             PUBLIC

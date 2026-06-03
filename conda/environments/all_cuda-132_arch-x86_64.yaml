@@ -19,8 +19,8 @@ dependencies:
 - cuda-python>=13.0.1,<14.0
 - cuda-sanitizer-api
 - cuda-version=13.2
-- cudf==26.8.*,>=0.0.0a0
-- cupy>=13.6.0
+- cudf==26.6.*,>=0.0.0a0
+- cupy>=13.6.0,!=14.0.0,!=14.1.0
 - cxx-compiler
 - cython>=3.0.3
 - doxygen=1.9.1
@@ -30,7 +30,7 @@ dependencies:
 - jsonref==1.1.0
 - libabseil
 - libboost-devel
-- libcudss-dev >=0.7
+- libcudss-dev >=0.7,<0.8
 - libcurand-dev
 - libcusolver-dev
 - libcusparse-dev
@@ -66,7 +66,8 @@ dependencies:
 - rapids-logger==0.2.*,>=0.0.0a0
 - re2
 - requests
-- rmm==26.8.*,>=0.0.0a0
+- rmm==26.6.*,>=0.0.0a0
+- ruamel.yaml>=0.18
 - scikit-build-core>=0.11.0
 - scipy>=1.14.1
 - sphinx
