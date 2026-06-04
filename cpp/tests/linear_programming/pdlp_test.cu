@@ -113,9 +113,9 @@ TEST(pdlp_class, distributed_partition_metis_export_import_roundtrip)
   const int n_cstr = static_cast<int>(mps.get_constraint_lower_bounds().size());
   const int nnz    = static_cast<int>(mps.get_constraint_matrix_values().size());
 
-  std::vector<int> h_A_row_offsets = mps.get_constraint_matrix_offsets();
-  std::vector<int> h_A_col_indices = mps.get_constraint_matrix_indices();
-  std::vector<double> h_A_values   = mps.get_constraint_matrix_values();
+  std::vector<int> h_A_row_offsets    = mps.get_constraint_matrix_offsets();
+  std::vector<int> h_A_col_indices    = mps.get_constraint_matrix_indices();
+  std::vector<double> h_A_values      = mps.get_constraint_matrix_values();
 
   // Transpose A -> A^T (CSR of A^T == CSC of A), mirroring solve_lp_distributed_from_mps.
   ds::csr_matrix_t<int, double> A_csr(n_cstr, n_vars, nnz);
