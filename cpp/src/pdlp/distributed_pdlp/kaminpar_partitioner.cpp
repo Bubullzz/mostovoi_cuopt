@@ -23,6 +23,37 @@
 
 namespace cuopt::linear_programming::detail {
 
+// Returns the id of the first block that owns zero constraints or zero
+// variables, or -1 if every block owns at least one of each.
+//
+// A degenerate block (all-constraints or all-variables) becomes a shard with a
+// zero-sized primal or dual axis and crashes downstream -- e.g. the Ruiz
+// initial-scaling kernel launches with 0 threads/blocks (cudaErrorInvalidValue).
+// KaMinPar is multi-threaded and non-deterministic, so we use this check to
+// reject such a partition and retry *before* paying for shard construction.
+template <typename i_t>
+static int first_degenerate_block(std::vector<i_t> const& parts,
+                                  i_t nb_cstr,
+                                  i_t nb_vars,
+                                  int nb_parts)
+{
+  std::vector<i_t> cstr_per_block(static_cast<std::size_t>(nb_parts), i_t{0});
+  std::vector<i_t> var_per_block(static_cast<std::size_t>(nb_parts), i_t{0});
+  for (i_t i = 0; i < nb_cstr; ++i) {
+    ++cstr_per_block[static_cast<std::size_t>(parts[i])];
+  }
+  for (i_t j = 0; j < nb_vars; ++j) {
+    ++var_per_block[static_cast<std::size_t>(parts[static_cast<std::size_t>(nb_cstr) + j])];
+  }
+  for (int b = 0; b < nb_parts; ++b) {
+    if (cstr_per_block[static_cast<std::size_t>(b)] == i_t{0} ||
+        var_per_block[static_cast<std::size_t>(b)] == i_t{0}) {
+      return b;
+    }
+  }
+  return -1;
+}
+
 // Builds the bipartite constraint/variable graph induced by A (identical layout
 // to metis_partitioner_t) and runs the multi-threaded KaMinPar k-way kernel.
 //   * nodes [0, nb_cstr)              : constraint nodes
@@ -109,26 +140,55 @@ std::vector<i_t> kaminpar_partitioner_t<i_t, f_t>::partition(
   // ~3% imbalance, matching METIS_PartGraphKway's default balance constraint.
   engine.set_uniform_max_block_weights(0.03);
 
-  auto t0 = std::chrono::high_resolution_clock::now();
-  const kaminpar::shm::EdgeWeight edge_cut =
-    engine.compute_partition(std::span<kaminpar::shm::BlockID>(block_of));
-  auto t1         = std::chrono::high_resolution_clock::now();
-  const double dt = std::chrono::duration<double>(t1 - t0).count();
-
-  CUOPT_LOG_INFO(
-    "KaMinPar partitioned bipartite graph: nvtx=%d nnz=%d nb_parts=%d nthreads=%d edge_cut=%lld "
-    "in %.3fs",
-    static_cast<int>(nvtx),
-    static_cast<int>(nnz),
-    static_cast<int>(input.nb_parts),
-    nthreads,
-    static_cast<long long>(edge_cut),
-    dt);
+  // KaMinPar is non-deterministic; a run can yield a degenerate block (only
+  // constraints or only variables) that would crash shard construction. Retry
+  // with a fresh seed until the partition is non-degenerate, capped at a small
+  // budget. The check is cheap (O(nvtx)) and happens before any shard is built.
+  constexpr int max_attempts = 5;
 
   std::vector<i_t> parts(static_cast<std::size_t>(nvtx));
-  for (i_t i = 0; i < nvtx; ++i) {
-    parts[i] = static_cast<i_t>(block_of[i]);
+  int degenerate_block = -1;
+
+  for (int attempt = 0; attempt < max_attempts; ++attempt) {
+    // Vary the global seed so each retry explores a different partition.
+    kaminpar::KaMinPar::reseed(attempt);
+
+    auto t0 = std::chrono::high_resolution_clock::now();
+    const kaminpar::shm::EdgeWeight edge_cut =
+      engine.compute_partition(std::span<kaminpar::shm::BlockID>(block_of));
+    auto t1         = std::chrono::high_resolution_clock::now();
+    const double dt = std::chrono::duration<double>(t1 - t0).count();
+
+    for (i_t i = 0; i < nvtx; ++i) {
+      parts[i] = static_cast<i_t>(block_of[i]);
+    }
+
+    degenerate_block = first_degenerate_block(parts, nb_cstr, nb_vars, input.nb_parts);
+
+    CUOPT_LOG_INFO(
+      "KaMinPar partitioned bipartite graph (attempt %d/%d, seed=%d): nvtx=%d nnz=%d nb_parts=%d "
+      "nthreads=%d edge_cut=%lld in %.3fs%s",
+      attempt + 1,
+      max_attempts,
+      attempt,
+      static_cast<int>(nvtx),
+      static_cast<int>(nnz),
+      static_cast<int>(input.nb_parts),
+      nthreads,
+      static_cast<long long>(edge_cut),
+      dt,
+      degenerate_block >= 0 ? "  [degenerate block -> retrying]" : "");
+
+    if (degenerate_block < 0) { break; }
   }
+
+  cuopt_expects(
+    degenerate_block < 0,
+    error_type_t::RuntimeError,
+    "kaminpar_partitioner: every attempt (%d) produced a degenerate partition (block %d owns no "
+    "constraints or no variables). Try a different partitioner or fewer GPUs.",
+    max_attempts,
+    degenerate_block);
 
   validate_partition(parts,
                      static_cast<int>(nb_cstr),
