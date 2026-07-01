@@ -12,6 +12,16 @@ function(find_and_configure_kaminpar)
     set(oneValueArgs VERSION PINNED_TAG)
     cmake_parse_arguments(PKG "" "${oneValueArgs}" "" ${ARGN})
 
+    # Silence the (many) warnings from KaMinPar and its bundled third-party
+    # dependencies (KaHyPar, KaGen, growt, ...). They are compiled from pinned
+    # upstream source we do not maintain, so their diagnostics only drown out
+    # cuOpt's own build output. Appending -w here is function-scoped: the CPM
+    # add_subdirectory below inherits these flags, but cuOpt's targets (compiled
+    # in the parent scope with -Wall -Werror) are unaffected. A system/conda
+    # install of KaMinPar builds nothing, so the flag is simply unused there.
+    string(APPEND CMAKE_C_FLAGS " -w")
+    string(APPEND CMAKE_CXX_FLAGS " -w")
+
     # NOTE: KaMinPar is intentionally NOT added to cuopt's BUILD/INSTALL export sets.
     # It is a from-source static dependency that is fully embedded into libcuopt.so and
     # never installed (INSTALL_KAMINPAR OFF below). Registering it in cuopt-exports would
@@ -31,6 +41,13 @@ function(find_and_configure_kaminpar)
             "KAMINPAR_BUILD_BENCHMARKS OFF"
             "KAMINPAR_BUILD_EXAMPLES OFF"
             "KAMINPAR_BUILD_DISTRIBUTED OFF"
+            # KaMinPar defaults this to ON, which injects `-march=native -mtune=native`
+            # (and propagates the same flag to its bundled KaHyPar / KaGen via
+            # KAHYPAR_ENABLE_ARCH_COMPILE_OPTIMIZATIONS / KAGEN_USE_MARCH_NATIVE).
+            # That bakes in whatever ISA the build host happens to support
+            # (e.g. AVX-512 on Sapphire Rapids), which then SIGILLs on any test
+            # host with a leaner CPU. Force generic codegen instead.
+            "KAMINPAR_BUILD_WITH_MTUNE_NATIVE OFF"
             # Timers use global state and force single-threaded use of the library
             # interface; disable so cuOpt can call the partitioner freely.
             "KAMINPAR_ENABLE_TIMERS OFF"

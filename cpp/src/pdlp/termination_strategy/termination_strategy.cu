@@ -16,20 +16,20 @@
 
 #include <mip_heuristics/mip_constants.hpp>
 
-#include <cuopt/linear_programming/pdlp/pdlp_hyper_params.cuh>
-#include <cuopt/linear_programming/pdlp/pdlp_warm_start_data.hpp>
-#include <cuopt/linear_programming/pdlp/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/pdlp/pdlp_hyper_params.cuh>
+#include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
+#include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 
 #include <raft/core/nvtx.hpp>
 #include <raft/util/cuda_utils.cuh>
 #include <raft/util/cudart_utils.hpp>
 
-namespace cuopt::linear_programming::detail {
+namespace cuopt::mathematical_optimization::pdlp {
 template <typename i_t, typename f_t>
 pdlp_termination_strategy_t<i_t, f_t>::pdlp_termination_strategy_t(
   raft::handle_t const* handle_ptr,
-  problem_t<i_t, f_t>& op_problem,
-  const problem_t<i_t, f_t>& scaled_op_problem,
+  mip::problem_t<i_t, f_t>& op_problem,
+  const mip::problem_t<i_t, f_t>& scaled_op_problem,
   cusparse_view_t<i_t, f_t>& cusparse_view,
   const cusparse_view_t<i_t, f_t>& scaled_cusparse_view,
   const i_t primal_size,
@@ -556,12 +556,16 @@ pdlp_termination_strategy_t<i_t, f_t>::fill_return_problem_solution(
   std::vector<pdlp_termination_status_t>&& termination_status,
   bool deep_copy)
 {
-  cuopt_assert(
-    primal_iterate.size() == current_pdhg_solver.get_primal_size() * termination_status.size(),
-    "Primal iterate size mismatch");
-  cuopt_assert(
-    dual_iterate.size() == current_pdhg_solver.get_dual_size() * termination_status.size(),
-    "Dual iterate size mismatch");
+  // Skip the size checks on the distributed master: its pdhg_solver_ is built from a
+  // shape-0 placeholder while termination_strategy is built from the full problem size
+  if (!current_pdhg_solver.is_distributed_master()) {
+    cuopt_assert(
+      primal_iterate.size() == current_pdhg_solver.get_primal_size() * termination_status.size(),
+      "Primal iterate size mismatch");
+    cuopt_assert(
+      dual_iterate.size() == current_pdhg_solver.get_dual_size() * termination_status.size(),
+      "Dual iterate size mismatch");
+  }
 
   // In distributed PDLP, gather solutions to master here
   if (!deep_copy) {
@@ -734,4 +738,4 @@ INSTANTIATE(double)
 
 #undef INSTANTIATE
 
-}  // namespace cuopt::linear_programming::detail
+}  // namespace cuopt::mathematical_optimization::pdlp

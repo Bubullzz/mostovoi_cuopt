@@ -18,7 +18,7 @@
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <cuopt/error.hpp>
-#include <cuopt/linear_programming/pdlp/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/core/nvtx.hpp>
@@ -37,11 +37,11 @@
 
 #include <cub/cub.cuh>
 
-namespace cuopt::linear_programming::detail {
+namespace cuopt::mathematical_optimization::pdlp {
 template <typename i_t, typename f_t>
 convergence_information_t<i_t, f_t>::convergence_information_t(
   raft::handle_t const* handle_ptr,
-  problem_t<i_t, f_t>& op_problem,
+  mip::problem_t<i_t, f_t>& op_problem,
   cusparse_view_t<i_t, f_t>& cusparse_view,
   i_t primal_size,
   i_t dual_size,
@@ -602,22 +602,29 @@ void convergence_information_t<i_t, f_t>::compute_convergence_information(
   const rmm::device_uvector<f_t>& objective_coefficients,
   const pdlp_solver_settings_t<i_t, f_t>& settings)
 {
-  cuopt_assert(
-    primal_residual_.size() == dual_size_h_ * climber_strategies_.size(),
-    "primal_residual_ size must be equal to primal_size_h_ * climber_strategies_.size()");
-  cuopt_assert(primal_iterate.size() == primal_size_h_ * climber_strategies_.size(),
-               "primal_iterate size must be equal to primal_size_h_ * climber_strategies_.size()");
-  cuopt_assert(dual_residual_.size() == primal_size_h_ * climber_strategies_.size(),
-               "dual_residual_ size must be equal to primal_size_h_ * climber_strategies_.size()");
-  cuopt_assert(dual_iterate.size() == dual_size_h_ * climber_strategies_.size(),
-               "dual_iterate size must be equal to dual_size_h_ * climber_strategies_.size()");
-  cuopt_assert(l2_primal_residual_.size() == climber_strategies_.size(),
-               "l2_primal_residual_ size must be equal to climber_strategies_.size()");
+  // Per-climber L2-norm scalars are uniform across single-GPU, master, and shards.
   cuopt_assert(l2_primal_residual_.size() == climber_strategies_.size(),
                "l2_primal_residual_ size must be equal to climber_strategies_.size()");
   cuopt_assert(l2_dual_residual_.size() == climber_strategies_.size(),
                "l2_dual_residual_ size must be equal to climber_strategies_.size()");
-
+  if (current_pdhg_solver.is_distributed_master()) {
+    cuopt_assert(primal_residual_.size() == 0,
+                 "master must not own a primal_residual_ buffer (shards compute it)");
+    cuopt_assert(dual_residual_.size() == 0,
+                 "master must not own a dual_residual_ buffer (shards compute it)");
+  } else {
+    cuopt_assert(
+      primal_iterate.size() == primal_size_h_ * climber_strategies_.size(),
+      "primal_iterate size must be equal to primal_size_h_ * climber_strategies_.size()");
+    cuopt_assert(dual_iterate.size() == dual_size_h_ * climber_strategies_.size(),
+                 "dual_iterate size must be equal to dual_size_h_ * climber_strategies_.size()");
+    cuopt_assert(
+      primal_residual_.size() == dual_size_h_ * climber_strategies_.size(),
+      "primal_residual_ size must be equal to dual_size_h_ * climber_strategies_.size()");
+    cuopt_assert(
+      dual_residual_.size() == primal_size_h_ * climber_strategies_.size(),
+      "dual_residual_ size must be equal to primal_size_h_ * climber_strategies_.size()");
+  }
   raft::common::nvtx::range fun_scope("compute_convergence_information");
 
 #ifdef CUPDLP_DEBUG_MODE
@@ -1336,4 +1343,4 @@ template __global__ void compute_remaining_stats_kernel<int, double>(
   int batch_size);
 #endif
 
-}  // namespace cuopt::linear_programming::detail
+}  // namespace cuopt::mathematical_optimization::pdlp

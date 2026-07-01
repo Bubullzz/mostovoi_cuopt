@@ -6,7 +6,7 @@
 /* clang-format on */
 
 #include <cuopt/error.hpp>
-#include <cuopt/linear_programming/solve_remote.hpp>
+#include <cuopt/mathematical_optimization/solve_remote.hpp>
 #include <pdlp/cusparse_view.hpp>
 #include <pdlp/optimal_batch_size_handler/optimal_batch_size_handler.hpp>
 #include <pdlp/pdlp.cuh>
@@ -19,23 +19,23 @@
 #include <pdlp/utils.cuh>
 #include <utilities/logger.hpp>
 
+#include <linear_algebra/sort_csr.cuh>
 #include <mip_heuristics/mip_constants.hpp>
 #include <mip_heuristics/presolve/third_party_presolve.hpp>
 #include <mip_heuristics/presolve/trivial_presolve.cuh>
 #include <mip_heuristics/solver.cuh>
-#include <mip_heuristics/utilities/sort_csr.cuh>
 
-#include <cuopt/linear_programming/backend_selection.hpp>
-#include <cuopt/linear_programming/cpu_optimization_problem.hpp>
-#include <cuopt/linear_programming/cpu_optimization_problem_solution.hpp>
-#include <cuopt/linear_programming/optimization_problem.hpp>
-#include <cuopt/linear_programming/optimization_problem_solution.hpp>
-#include <cuopt/linear_programming/optimization_problem_utils.hpp>
-#include <cuopt/linear_programming/pdlp/pdlp_hyper_params.cuh>
-#include <cuopt/linear_programming/pdlp/solver_settings.hpp>
-#include <cuopt/linear_programming/solve.hpp>
+#include <cuopt/mathematical_optimization/backend_selection.hpp>
+#include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/cpu_optimization_problem_solution.hpp>
+#include <cuopt/mathematical_optimization/optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/optimization_problem_solution.hpp>
+#include <cuopt/mathematical_optimization/optimization_problem_utils.hpp>
+#include <cuopt/mathematical_optimization/pdlp/pdlp_hyper_params.cuh>
+#include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/solve.hpp>
 
-#include <cuopt/linear_programming/io/mps_data_model.hpp>
+#include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
 #include <utilities/copy_helpers.hpp>
 #include <utilities/omp_helpers.hpp>
 #include <utilities/version_info.hpp>
@@ -44,7 +44,7 @@
 
 #include <dual_simplex/crossover.hpp>
 #include <dual_simplex/solve.hpp>
-#include <dual_simplex/tic_toc.hpp>
+#include <math_optimization/tic_toc.hpp>
 #include <pdlp/utilities/problem_checking.cuh>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
@@ -68,7 +68,7 @@
 #define CUOPT_LOG_CONDITIONAL_INFO(condition, ...) \
   if ((condition)) { CUOPT_LOG_INFO(__VA_ARGS__); }
 
-namespace cuopt::linear_programming {
+namespace cuopt::mathematical_optimization {
 
 template <typename From, typename To>
 extern rmm::device_uvector<To> gpu_cast(const rmm::device_uvector<From>& src,
@@ -86,7 +86,7 @@ static void init_handler(const raft::handle_t* handle_ptr)
 
 // Corresponds to the first good general settings we found
 // It's what was used for the GTC results
-static void set_Stable1(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
+static void set_Stable1(pdlp::pdlp_hyper_params_t& hyper_params)
 {
   hyper_params.initial_step_size_scaling                                  = 1.6;
   hyper_params.default_l_inf_ruiz_iterations                              = 1;
@@ -129,7 +129,7 @@ static void set_Stable1(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
 
 // Even better general setting due to proper primal gradient handling for KKT restart and initial
 // projection
-static void set_Stable2(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
+static void set_Stable2(pdlp::pdlp_hyper_params_t& hyper_params)
 {
   hyper_params.initial_step_size_scaling                                  = 1.0;
   hyper_params.default_l_inf_ruiz_iterations                              = 10;
@@ -186,7 +186,7 @@ static void set_Stable2(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
  *   year={2024}
  * }
  */
-static void set_Stable3(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
+static void set_Stable3(pdlp::pdlp_hyper_params_t& hyper_params)
 {
   hyper_params.initial_step_size_scaling                = 1.0;
   hyper_params.default_l_inf_ruiz_iterations            = 10;
@@ -229,7 +229,7 @@ static void set_Stable3(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
 }
 
 // Legacy/Original/Initial PDLP settings
-static void set_Methodical1(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
+static void set_Methodical1(pdlp::pdlp_hyper_params_t& hyper_params)
 {
   hyper_params.initial_step_size_scaling                                  = 1.0;
   hyper_params.default_l_inf_ruiz_iterations                              = 5;
@@ -272,7 +272,7 @@ static void set_Methodical1(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params
 
 // Can be extremly faster but usually leads to more divergence
 // Used for the blog post results
-static void set_Fast1(pdlp_hyper_params::pdlp_hyper_params_t& hyper_params)
+static void set_Fast1(pdlp::pdlp_hyper_params_t& hyper_params)
 {
   hyper_params.initial_step_size_scaling                                  = 0.8;
   hyper_params.default_l_inf_ruiz_iterations                              = 6;
@@ -354,30 +354,28 @@ void adjust_dual_solution_and_reduced_cost(rmm::device_uvector<f_t>& dual_soluti
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
-  const dual_simplex::lp_solution_t<i_t, f_t>& solution,
+  const simplex::lp_solution_t<i_t, f_t>& solution,
   raft::handle_t const* handle_ptr,
   std::string const& objective_name,
   std::vector<std::string> const& var_names,
   std::vector<std::string> const& row_names,
   bool maximize,
-  dual_simplex::lp_status_t status,
+  simplex::lp_status_t status,
   f_t duration,
   f_t norm_user_objective,
   f_t norm_rhs,
   method_t method)
 {
-  auto to_termination_status = [](dual_simplex::lp_status_t status) {
+  auto to_termination_status = [](simplex::lp_status_t status) {
     switch (status) {
-      case dual_simplex::lp_status_t::OPTIMAL: return pdlp_termination_status_t::Optimal;
-      case dual_simplex::lp_status_t::INFEASIBLE:
-        return pdlp_termination_status_t::PrimalInfeasible;
-      case dual_simplex::lp_status_t::UNBOUNDED: return pdlp_termination_status_t::DualInfeasible;
-      case dual_simplex::lp_status_t::TIME_LIMIT: return pdlp_termination_status_t::TimeLimit;
-      case dual_simplex::lp_status_t::ITERATION_LIMIT:
-        return pdlp_termination_status_t::IterationLimit;
-      case dual_simplex::lp_status_t::CONCURRENT_LIMIT:
+      case simplex::lp_status_t::OPTIMAL: return pdlp_termination_status_t::Optimal;
+      case simplex::lp_status_t::INFEASIBLE: return pdlp_termination_status_t::PrimalInfeasible;
+      case simplex::lp_status_t::UNBOUNDED: return pdlp_termination_status_t::DualInfeasible;
+      case simplex::lp_status_t::TIME_LIMIT: return pdlp_termination_status_t::TimeLimit;
+      case simplex::lp_status_t::ITERATION_LIMIT: return pdlp_termination_status_t::IterationLimit;
+      case simplex::lp_status_t::CONCURRENT_LIMIT:
         return pdlp_termination_status_t::ConcurrentLimit;
-      case dual_simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE:
+      case simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE:
         return pdlp_termination_status_t::UnboundedOrInfeasible;
       default: return pdlp_termination_status_t::NumericalError;
     }
@@ -443,9 +441,9 @@ optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
-  detail::problem_t<i_t, f_t>& problem,
-  const dual_simplex::lp_solution_t<i_t, f_t>& solution,
-  dual_simplex::lp_status_t status,
+  mip::problem_t<i_t, f_t>& problem,
+  const simplex::lp_solution_t<i_t, f_t>& solution,
+  simplex::lp_status_t status,
   f_t duration,
   f_t norm_user_objective,
   f_t norm_rhs,
@@ -467,8 +465,8 @@ optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
   optimization_problem_t<i_t, f_t>& op_problem,
-  const dual_simplex::lp_solution_t<i_t, f_t>& solution,
-  dual_simplex::lp_status_t status,
+  const simplex::lp_solution_t<i_t, f_t>& solution,
+  simplex::lp_status_t status,
   f_t duration,
   f_t norm_user_objective,
   f_t norm_rhs,
@@ -488,15 +486,15 @@ optimization_problem_solution_t<i_t, f_t> convert_dual_simplex_sol(
 }
 
 template <typename i_t, typename f_t>
-std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>
-run_barrier(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
-            pdlp_solver_settings_t<i_t, f_t> const& settings,
-            const timer_t& timer)
+std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t> run_barrier(
+  simplex::user_problem_t<i_t, f_t>& user_problem,
+  pdlp_solver_settings_t<i_t, f_t> const& settings,
+  const timer_t& timer)
 {
-  f_t norm_user_objective = dual_simplex::vector_norm2<i_t, f_t>(user_problem.objective);
-  f_t norm_rhs            = dual_simplex::vector_norm2<i_t, f_t>(user_problem.rhs);
+  f_t norm_user_objective = vector_norm2<i_t, f_t>(user_problem.objective);
+  f_t norm_rhs            = vector_norm2<i_t, f_t>(user_problem.rhs);
 
-  dual_simplex::simplex_solver_settings_t<i_t, f_t> barrier_settings;
+  simplex::simplex_solver_settings_t<i_t, f_t> barrier_settings;
   barrier_settings.num_gpus                        = settings.num_gpus;
   barrier_settings.time_limit                      = settings.time_limit;
   barrier_settings.iteration_limit                 = settings.iteration_limit;
@@ -521,20 +519,19 @@ run_barrier(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
     barrier_settings.log.log = false;
   }
 
-  dual_simplex::lp_solution_t<i_t, f_t> solution(user_problem.num_rows, user_problem.num_cols);
-  auto status = dual_simplex::solve_linear_program_with_barrier<i_t, f_t>(
+  simplex::lp_solution_t<i_t, f_t> solution(user_problem.num_rows, user_problem.num_cols);
+  auto status = simplex::solve_linear_program_with_barrier<i_t, f_t>(
     user_problem, barrier_settings, timer.get_tic_start(), solution);
 
-  detail::project_barrier_solution_to_model_variables(user_problem, solution);
+  barrier::project_barrier_solution_to_model_variables(user_problem, solution);
 
   CUOPT_LOG_CONDITIONAL_INFO(
     !settings.inside_mip, "Barrier finished in %.2f seconds", timer.elapsed_time());
 
   if (settings.concurrent_halt != nullptr &&
-      (status == dual_simplex::lp_status_t::OPTIMAL ||
-       status == dual_simplex::lp_status_t::UNBOUNDED ||
-       status == dual_simplex::lp_status_t::INFEASIBLE ||
-       status == dual_simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE)) {
+      (status == simplex::lp_status_t::OPTIMAL || status == simplex::lp_status_t::UNBOUNDED ||
+       status == simplex::lp_status_t::INFEASIBLE ||
+       status == simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE)) {
     // We finished. Tell PDLP to stop if it is still running.
     *settings.concurrent_halt = 1;
   }
@@ -544,12 +541,12 @@ run_barrier(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> run_barrier(
-  detail::problem_t<i_t, f_t>& problem,
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer)
 {
   // Convert data structures to dual simplex format and back
-  dual_simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
+  simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
     cuopt_problem_to_user_problem<i_t, f_t>(problem.handle_ptr, problem);
   auto sol_dual_simplex = run_barrier(dual_simplex_problem, settings, timer);
   return convert_dual_simplex_sol(problem,
@@ -563,16 +560,15 @@ optimization_problem_solution_t<i_t, f_t> run_barrier(
 
 template <typename i_t, typename f_t>
 void run_barrier_thread(
-  dual_simplex::user_problem_t<i_t, f_t>& problem,
+  simplex::user_problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   std::unique_ptr<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>&
-    sol_ptr,
+    std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>& sol_ptr,
   const timer_t& timer)
 {
   // We will return the solution from the thread as a unique_ptr
   sol_ptr = std::make_unique<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>(
+    std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>(
     run_barrier(problem, settings, timer));
 
   // Wait for barrier thread to finish
@@ -580,15 +576,15 @@ void run_barrier_thread(
 }
 
 template <typename i_t, typename f_t>
-std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>
-run_dual_simplex(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
-                 pdlp_solver_settings_t<i_t, f_t> const& settings,
-                 const timer_t& timer)
+std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t> run_dual_simplex(
+  simplex::user_problem_t<i_t, f_t>& user_problem,
+  pdlp_solver_settings_t<i_t, f_t> const& settings,
+  const timer_t& timer)
 {
-  f_t norm_user_objective = dual_simplex::vector_norm2<i_t, f_t>(user_problem.objective);
-  f_t norm_rhs            = dual_simplex::vector_norm2<i_t, f_t>(user_problem.rhs);
+  f_t norm_user_objective = vector_norm2<i_t, f_t>(user_problem.objective);
+  f_t norm_rhs            = vector_norm2<i_t, f_t>(user_problem.rhs);
 
-  dual_simplex::simplex_solver_settings_t<i_t, f_t> dual_simplex_settings;
+  simplex::simplex_solver_settings_t<i_t, f_t> dual_simplex_settings;
   dual_simplex_settings.time_limit      = settings.time_limit;
   dual_simplex_settings.iteration_limit = settings.iteration_limit;
   dual_simplex_settings.concurrent_halt = settings.concurrent_halt;
@@ -597,18 +593,17 @@ run_dual_simplex(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
     dual_simplex_settings.log.log = false;
   }
 
-  dual_simplex::lp_solution_t<i_t, f_t> solution(user_problem.num_rows, user_problem.num_cols);
-  auto status = dual_simplex::solve_linear_program<i_t, f_t>(
+  simplex::lp_solution_t<i_t, f_t> solution(user_problem.num_rows, user_problem.num_cols);
+  auto status = simplex::solve_linear_program<i_t, f_t>(
     user_problem, dual_simplex_settings, timer.get_tic_start(), solution);
 
   CUOPT_LOG_CONDITIONAL_INFO(
     !settings.inside_mip, "Dual simplex finished in %.2f seconds", timer.elapsed_time());
 
   if (settings.concurrent_halt != nullptr &&
-      (status == dual_simplex::lp_status_t::OPTIMAL ||
-       status == dual_simplex::lp_status_t::UNBOUNDED ||
-       status == dual_simplex::lp_status_t::INFEASIBLE ||
-       status == dual_simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE)) {
+      (status == simplex::lp_status_t::OPTIMAL || status == simplex::lp_status_t::UNBOUNDED ||
+       status == simplex::lp_status_t::INFEASIBLE ||
+       status == simplex::lp_status_t::UNBOUNDED_OR_INFEASIBLE)) {
     // We finished. Tell PDLP to stop if it is still running.
     *settings.concurrent_halt = 1;
   }
@@ -618,12 +613,12 @@ run_dual_simplex(dual_simplex::user_problem_t<i_t, f_t>& user_problem,
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> run_dual_simplex(
-  detail::problem_t<i_t, f_t>& problem,
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer)
 {
   // Convert data structures to dual simplex format and back
-  dual_simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
+  simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
     cuopt_problem_to_user_problem<i_t, f_t>(problem.handle_ptr, problem);
   auto sol_dual_simplex = run_dual_simplex(dual_simplex_problem, settings, timer);
   return convert_dual_simplex_sol(problem,
@@ -639,7 +634,7 @@ optimization_problem_solution_t<i_t, f_t> run_dual_simplex(
 
 template <typename i_t>
 static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
-  detail::problem_t<i_t, double>& problem,
+  mip::problem_t<i_t, double>& problem,
   pdlp_solver_settings_t<i_t, double> const& settings,
   const timer_t& timer,
   bool is_batch_mode)
@@ -653,7 +648,7 @@ static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
   float_op.set_objective_scaling_factor(
     static_cast<float>(problem.presolve_data.objective_scaling_factor));
 
-  detail::problem_t<i_t, float> float_problem(float_op);
+  mip::problem_t<i_t, float> float_problem(float_op);
 
   auto objective_name = problem.objective_name;
   auto var_names      = problem.var_names;
@@ -662,7 +657,7 @@ static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
   // When crossover is on, run_pdlp needs the problem data after we return.
   if (!settings.crossover) {
     {
-      [[maybe_unused]] auto discard = detail::problem_t<i_t, double>(std::move(problem));
+      [[maybe_unused]] auto discard = mip::problem_t<i_t, double>(std::move(problem));
     }
   }
 
@@ -706,7 +701,7 @@ static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
   fs.num_gpus                     = settings.num_gpus;
   fs.concurrent_halt              = settings.concurrent_halt;
 
-  detail::pdlp_solver_t<i_t, float> solver(float_problem, fs, is_batch_mode);
+  pdlp::pdlp_solver_t<i_t, float> solver(float_problem, fs, is_batch_mode);
   if (settings.inside_mip) { solver.set_inside_mip(true); }
   auto float_sol = solver.run_solver(timer);
 
@@ -756,18 +751,16 @@ static optimization_problem_solution_t<i_t, double> run_pdlp_solver_in_fp32(
 
 template <typename i_t, typename f_t>
 static optimization_problem_solution_t<i_t, f_t> run_pdlp_solver(
-  detail::problem_t<i_t, f_t>& problem,
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer,
   bool is_batch_mode)
 {
-  cuopt_expects(!settings.hyper_params.use_distributed_pdlp,
+  cuopt_expects(!settings.use_distributed_pdlp,
                 error_type_t::ValidationError,
                 "Distributed PDLP must be entered via solve_lp(mps_data_model, ...) "
                 "so the master GPU never materializes the full problem. Call sites "
                 "with a problem_t cannot dispatch to distributed mode.");
-  detail::pdlp_graph_disabled_flag().store(settings.hyper_params.pdlp_disable_graph,
-                                           std::memory_order_relaxed);
 
   if (problem.n_constraints == 0) {
     CUOPT_LOG_CONDITIONAL_INFO(
@@ -783,13 +776,13 @@ static optimization_problem_solution_t<i_t, f_t> run_pdlp_solver(
     }
   }
 #endif
-  detail::pdlp_solver_t<i_t, f_t> solver(problem, settings, is_batch_mode);
+  pdlp::pdlp_solver_t<i_t, f_t> solver(problem, settings, is_batch_mode);
   if (settings.inside_mip) { solver.set_inside_mip(true); }
   return solver.run_solver(timer);
 }
 
 template <typename i_t, typename f_t>
-optimization_problem_solution_t<i_t, f_t> run_pdlp(detail::problem_t<i_t, f_t>& problem,
+optimization_problem_solution_t<i_t, f_t> run_pdlp(mip::problem_t<i_t, f_t>& problem,
                                                    pdlp_solver_settings_t<i_t, f_t> const& settings,
                                                    const timer_t& timer,
                                                    bool is_batch_mode)
@@ -800,7 +793,7 @@ optimization_problem_solution_t<i_t, f_t> run_pdlp(detail::problem_t<i_t, f_t>& 
                   "PDLP batch mode is not supported for float precision. Use double precision.");
   }
   cuopt_expects(!(settings.pdlp_precision == pdlp_precision_t::MixedPrecision &&
-                  !detail::is_cusparse_runtime_mixed_precision_supported()),
+                  !pdlp::is_cusparse_runtime_mixed_precision_supported()),
                 error_type_t::ValidationError,
                 "Mixed-precision SpMV requires cuSPARSE runtime 12.5 or later.");
   cuopt_expects(
@@ -839,41 +832,39 @@ optimization_problem_solution_t<i_t, f_t> run_pdlp(detail::problem_t<i_t, f_t>& 
     if (do_crossover && sol.get_termination_status() == pdlp_termination_status_t::Optimal) {
       crossover_info = -1;
 
-      dual_simplex::lp_problem_t<i_t, f_t> lp(problem.handle_ptr, 1, 1, 1);
-      dual_simplex::lp_solution_t<i_t, f_t> initial_solution(1, 1);
+      simplex::lp_problem_t<i_t, f_t> lp(problem.handle_ptr, 1, 1, 1);
+      simplex::lp_solution_t<i_t, f_t> initial_solution(1, 1);
       translate_to_crossover_problem(problem, sol, lp, initial_solution);
-      dual_simplex::simplex_solver_settings_t<i_t, f_t> dual_simplex_settings;
+      simplex::simplex_solver_settings_t<i_t, f_t> dual_simplex_settings;
       dual_simplex_settings.time_limit      = settings.time_limit;
       dual_simplex_settings.iteration_limit = settings.iteration_limit;
       dual_simplex_settings.concurrent_halt = settings.concurrent_halt;
-      dual_simplex::lp_solution_t<i_t, f_t> vertex_solution(lp.num_rows, lp.num_cols);
-      std::vector<dual_simplex::variable_status_t> vstatus(lp.num_cols);
-      dual_simplex::crossover_status_t crossover_status =
-        dual_simplex::crossover(lp,
-                                dual_simplex_settings,
-                                initial_solution,
-                                timer.get_tic_start(),
-                                vertex_solution,
-                                vstatus);
+      simplex::lp_solution_t<i_t, f_t> vertex_solution(lp.num_rows, lp.num_cols);
+      std::vector<simplex::variable_status_t> vstatus(lp.num_cols);
+      simplex::crossover_status_t crossover_status = simplex::crossover(lp,
+                                                                        dual_simplex_settings,
+                                                                        initial_solution,
+                                                                        timer.get_tic_start(),
+                                                                        vertex_solution,
+                                                                        vstatus);
       pdlp_termination_status_t termination_status = pdlp_termination_status_t::TimeLimit;
-      auto to_termination_status                   = [](dual_simplex::crossover_status_t status) {
+      auto to_termination_status                   = [](simplex::crossover_status_t status) {
         switch (status) {
-          case dual_simplex::crossover_status_t::OPTIMAL: return pdlp_termination_status_t::Optimal;
-          case dual_simplex::crossover_status_t::PRIMAL_FEASIBLE:
+          case simplex::crossover_status_t::OPTIMAL: return pdlp_termination_status_t::Optimal;
+          case simplex::crossover_status_t::PRIMAL_FEASIBLE:
             return pdlp_termination_status_t::PrimalFeasible;
-          case dual_simplex::crossover_status_t::DUAL_FEASIBLE:
+          case simplex::crossover_status_t::DUAL_FEASIBLE:
             return pdlp_termination_status_t::NumericalError;
-          case dual_simplex::crossover_status_t::NUMERICAL_ISSUES:
+          case simplex::crossover_status_t::NUMERICAL_ISSUES:
             return pdlp_termination_status_t::NumericalError;
-          case dual_simplex::crossover_status_t::CONCURRENT_LIMIT:
+          case simplex::crossover_status_t::CONCURRENT_LIMIT:
             return pdlp_termination_status_t::ConcurrentLimit;
-          case dual_simplex::crossover_status_t::TIME_LIMIT:
-            return pdlp_termination_status_t::TimeLimit;
+          case simplex::crossover_status_t::TIME_LIMIT: return pdlp_termination_status_t::TimeLimit;
           default: return pdlp_termination_status_t::NumericalError;
         }
       };
       termination_status = to_termination_status(crossover_status);
-      if (crossover_status == dual_simplex::crossover_status_t::OPTIMAL) { crossover_info = 0; }
+      if (crossover_status == simplex::crossover_status_t::OPTIMAL) { crossover_info = 0; }
       rmm::device_uvector<f_t> final_primal_solution =
         cuopt::device_copy(vertex_solution.x, problem.handle_ptr->get_stream());
       rmm::device_uvector<f_t> final_dual_solution =
@@ -1024,7 +1015,7 @@ static void apply_batch_settings_overrides(
       return given_value == default_value ? override_value : given_value;
     };
 
-  batch_settings.method               = cuopt::linear_programming::method_t::PDLP;
+  batch_settings.method               = cuopt::mathematical_optimization::method_t::PDLP;
   batch_settings.presolver            = presolver_t::None;
   batch_settings.pdlp_solver_mode     = pdlp_solver_mode_t::Stable3;
   batch_settings.detect_infeasibility = false;
@@ -1335,7 +1326,7 @@ static optimization_problem_solution_t<i_t, f_t> run_batch_pdlp_splitting(
   }
 
   size_t optimal_batch_size = use_optimal_batch_size
-                                ? detail::optimal_batch_size_handler(problem, memory_max_batch_size)
+                                ? pdlp::optimal_batch_size_handler(problem, memory_max_batch_size)
                                 : max_batch_size;
   if (settings.fixed_batch_size > 0) { optimal_batch_size = settings.fixed_batch_size; }
   cuopt_assert(optimal_batch_size != 0 && optimal_batch_size <= max_batch_size,
@@ -1456,7 +1447,7 @@ size_t compute_optimal_batch_size(const optimization_problem_t<i_t, f_t>& proble
   // Now find the optimal batch size [0, memory_max_batch_size]
 
   const size_t optimal_batch_size = static_cast<size_t>(
-    detail::optimal_batch_size_handler(problem, static_cast<int>(memory_max_batch_size)));
+    pdlp::optimal_batch_size_handler(problem, static_cast<int>(memory_max_batch_size)));
 #ifdef BATCH_VERBOSE_MODE
   std::cout << "Optimal batch size: " << optimal_batch_size << std::endl;
 #endif
@@ -1466,7 +1457,7 @@ size_t compute_optimal_batch_size(const optimization_problem_t<i_t, f_t>& proble
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> batch_pdlp_solve(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& mps_model,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& mps_model,
   const std::vector<i_t>& fractional,
   const std::vector<f_t>& root_soln_x,
   pdlp_solver_settings_t<i_t, f_t> const& settings_const)
@@ -1504,22 +1495,21 @@ optimization_problem_solution_t<i_t, f_t> batch_pdlp_solve(
 
 template <typename i_t, typename f_t>
 void run_dual_simplex_thread(
-  dual_simplex::user_problem_t<i_t, f_t>& problem,
+  simplex::user_problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   std::unique_ptr<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>&
-    sol_ptr,
+    std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>& sol_ptr,
   const timer_t& timer)
 {
   // We will return the solution from the thread as a unique_ptr
   sol_ptr = std::make_unique<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>(
+    std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>(
     run_dual_simplex(problem, settings, timer));
 }
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> run_concurrent(
-  detail::problem_t<i_t, f_t>& problem,
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer,
   bool is_batch_mode)
@@ -1558,11 +1548,10 @@ optimization_problem_solution_t<i_t, f_t> run_concurrent(
   // Initialize the dual simplex structures before we run PDLP.
   // Otherwise, CUDA API calls to the problem stream may occur in both threads and throw graph
   // capture off
-  dual_simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
+  simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
     cuopt_problem_to_user_problem<i_t, f_t>(problem.handle_ptr, problem);
   // Dual simplex / barrier results — written by tasks, read after the taskgroup barrier.
-  std::unique_ptr<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>
+  std::unique_ptr<std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>
     sol_dual_simplex_ptr;
   std::exception_ptr dual_simplex_exception;
   auto request_concurrent_halt = [&settings_pdlp]() {
@@ -1584,8 +1573,7 @@ optimization_problem_solution_t<i_t, f_t> run_concurrent(
   // Dispatch barrier + dual simplex as OMP tasks (not std::threads) so they consume slots from
   // the upstream MIP OMP team and respect num_cpu_threads. PDLP runs synchronously on the
   // dispatching thread; the taskgroup implicit barrier joins the tasks.
-  std::unique_ptr<
-    std::tuple<dual_simplex::lp_solution_t<i_t, f_t>, dual_simplex::lp_status_t, f_t, f_t, f_t>>
+  std::unique_ptr<std::tuple<simplex::lp_solution_t<i_t, f_t>, simplex::lp_status_t, f_t, f_t, f_t>>
     sol_barrier_ptr;
   std::exception_ptr barrier_exception;
   std::exception_ptr pdlp_exception;
@@ -1764,7 +1752,7 @@ optimization_problem_solution_t<i_t, f_t> run_concurrent(
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> solve_lp_with_method(
-  detail::problem_t<i_t, f_t>& problem,
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer,
   bool is_batch_mode)
@@ -1840,7 +1828,7 @@ optimization_problem_solution_t<i_t, f_t> solve_qcqp(
       op_problem.write_to_mps(settings.user_problem_file);
     }
     // Convert data structures to dual simplex format and back
-    dual_simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
+    simplex::user_problem_t<i_t, f_t> dual_simplex_problem =
       cuopt_optimization_problem_to_user_problem<i_t, f_t>(op_problem.get_handle_ptr(), op_problem);
     auto sol_dual_simplex = run_barrier(dual_simplex_problem, settings, qcqp_timer);
     auto solution         = convert_dual_simplex_sol(op_problem,
@@ -1935,7 +1923,7 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
     validate_new_bounds(op_problem, settings);
 
     auto lp_timer = cuopt::timer_t(settings.time_limit);
-    detail::problem_t<i_t, f_t> problem(op_problem);
+    mip::problem_t<i_t, f_t> problem(op_problem);
     // handle default presolve
     if (settings.presolver == presolver_t::Default) {
       constexpr i_t presolve_nnz_threshold = 8000;
@@ -1956,39 +1944,40 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
     }
 
     [[maybe_unused]] double presolve_time = 0.0;
-    std::unique_ptr<detail::third_party_presolve_t<i_t, f_t>> presolver;
+    std::unique_ptr<mip::third_party_presolve_t<i_t, f_t>> presolver;
     auto run_presolve = settings.presolver != presolver_t::None;
     run_presolve = run_presolve && settings.get_pdlp_warm_start_data().total_pdlp_iterations_ == -1;
 
     // Declare result at outer scope so that result.reduced_problem (which may be
     // referenced by problem.original_problem_ptr) remains alive through the solve.
-    std::optional<detail::third_party_presolve_result_t<i_t, f_t>> result;
+    std::optional<mip::third_party_presolve_device_result_t<i_t, f_t>> result;
 
     if (run_presolve) {
-      detail::sort_csr(op_problem);
+      sort_csr(op_problem);
       // allocate no more than 10% of the time limit to presolve.
       // Note that this is not the presolve time, but the time limit for presolve.
       // But no less than 1 second, to avoid early timeout triggering known crashes
       const double presolve_time_limit =
         std::max(1.0, std::min(0.1 * lp_timer.remaining_time(), 60.0));
-      presolver = std::make_unique<detail::third_party_presolve_t<i_t, f_t>>();
-      result    = presolver->apply(op_problem,
-                                cuopt::linear_programming::problem_category_t::LP,
-                                settings.presolver,
-                                settings.dual_postsolve,
-                                settings.tolerances.absolute_primal_tolerance,
-                                settings.tolerances.relative_primal_tolerance,
-                                presolve_time_limit);
-      if (result->status == detail::third_party_presolve_status_t::INFEASIBLE) {
+      presolver = std::make_unique<mip::third_party_presolve_t<i_t, f_t>>();
+      result    = presolver->apply_presolve_from_op_problem(
+        op_problem,
+        cuopt::mathematical_optimization::problem_category_t::LP,
+        settings.presolver,
+        settings.dual_postsolve,
+        settings.tolerances.absolute_primal_tolerance,
+        settings.tolerances.relative_primal_tolerance,
+        presolve_time_limit);
+      if (result->status == mip::third_party_presolve_status_t::INFEASIBLE) {
         return optimization_problem_solution_t<i_t, f_t>(
           pdlp_termination_status_t::PrimalInfeasible, op_problem.get_handle_ptr()->get_stream());
       }
-      if (result->status == detail::third_party_presolve_status_t::UNBNDORINFEAS) {
+      if (result->status == mip::third_party_presolve_status_t::UNBNDORINFEAS) {
         return optimization_problem_solution_t<i_t, f_t>(
           pdlp_termination_status_t::UnboundedOrInfeasible,
           op_problem.get_handle_ptr()->get_stream());
       }
-      if (result->status == detail::third_party_presolve_status_t::UNBOUNDED) {
+      if (result->status == mip::third_party_presolve_status_t::UNBOUNDED) {
         return optimization_problem_solution_t<i_t, f_t>(pdlp_termination_status_t::DualInfeasible,
                                                          op_problem.get_handle_ptr()->get_stream());
       }
@@ -2012,7 +2001,7 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
         presolver->undo(empty_primal,
                         empty_dual,
                         empty_reduced_costs,
-                        cuopt::linear_programming::problem_category_t::LP,
+                        cuopt::mathematical_optimization::problem_category_t::LP,
                         false,  // status_to_skip
                         settings.dual_postsolve,
                         op_problem.get_handle_ptr()->get_stream());
@@ -2044,7 +2033,7 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
                                                          std::move(status_vec));
       }
 
-      problem       = detail::problem_t<i_t, f_t>(result->reduced_problem);
+      problem       = mip::problem_t<i_t, f_t>(result->reduced_problem);
       presolve_time = lp_timer.elapsed_time();
       CUOPT_LOG_INFO("%s presolve time: %.2fs",
                      settings.presolver == presolver_t::PSLP ? "PSLP" : "Papilo",
@@ -2083,7 +2072,7 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
       presolver->undo(primal_solution,
                       dual_solution,
                       reduced_costs,
-                      cuopt::linear_programming::problem_category_t::LP,
+                      cuopt::mathematical_optimization::problem_category_t::LP,
                       status_to_skip,
                       settings.dual_postsolve,
                       op_problem.get_handle_ptr()->get_stream());
@@ -2124,14 +2113,15 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
 }
 
 template <typename i_t, typename f_t>
-cuopt::linear_programming::optimization_problem_t<i_t, f_t> mps_data_model_to_optimization_problem(
+cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t>
+mps_data_model_to_optimization_problem(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& data_model)
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& data_model)
 {
   cuopt_expects(handle_ptr != nullptr,
                 error_type_t::ValidationError,
                 "handle_ptr must not be null for GPU-backed problem construction");
-  cuopt::linear_programming::optimization_problem_t<i_t, f_t> op_problem(handle_ptr);
+  cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t> op_problem(handle_ptr);
   op_problem.set_maximize(data_model.get_sense());
 
   if (data_model.get_constraint_matrix_values().size() != 0) {
@@ -2170,7 +2160,7 @@ cuopt::linear_programming::optimization_problem_t<i_t, f_t> mps_data_model_to_op
     std::transform(data_model.get_variable_types().cbegin(),
                    data_model.get_variable_types().cend(),
                    enum_variable_types.begin(),
-                   detail::char_to_var_type);
+                   char_to_var_type);
     op_problem.set_variable_types(enum_variable_types.data(), enum_variable_types.size());
   }
 
@@ -2210,18 +2200,129 @@ cuopt::linear_programming::optimization_problem_t<i_t, f_t> mps_data_model_to_op
                                               Q_offsets.size());
   }
 
+  // Preserve quadratic constraints.
+  if (data_model.has_quadratic_constraints()) {
+    static_cast<cuopt::mathematical_optimization::optimization_problem_interface_t<i_t, f_t>&>(
+      op_problem)
+      .set_quadratic_constraints(data_model.get_quadratic_constraints());
+  }
+
   return op_problem;
+}
+
+template <typename i_t, typename f_t>
+cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t> op_problem_to_mps_data_model(
+  const optimization_problem_t<i_t, f_t>& op_problem)
+{
+  raft::common::nvtx::range fun_scope("op_problem -> mps_data_model (D->H)");
+  cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t> mps;
+
+  mps.set_maximize(op_problem.get_sense());
+  mps.set_objective_scaling_factor(op_problem.get_objective_scaling_factor());
+  mps.set_objective_offset(op_problem.get_objective_offset());
+
+  if (!op_problem.get_problem_name().empty()) {
+    mps.set_problem_name(op_problem.get_problem_name());
+  }
+  if (!op_problem.get_objective_name().empty()) {
+    mps.set_objective_name(op_problem.get_objective_name());
+  }
+  if (!op_problem.get_variable_names().empty()) {
+    mps.set_variable_names(op_problem.get_variable_names());
+  }
+  if (!op_problem.get_row_names().empty()) { mps.set_row_names(op_problem.get_row_names()); }
+
+  const auto& d_coefficients = op_problem.get_constraint_matrix_values();
+  const auto& d_offsets      = op_problem.get_constraint_matrix_offsets();
+  const auto& d_indices      = op_problem.get_constraint_matrix_indices();
+  const auto& d_obj_coeffs   = op_problem.get_objective_coefficients();
+  const auto& d_var_lb       = op_problem.get_variable_lower_bounds();
+  const auto& d_var_ub       = op_problem.get_variable_upper_bounds();
+  const auto& d_bounds       = op_problem.get_constraint_bounds();
+  const auto& d_row_types    = op_problem.get_row_types();
+  const auto& d_constr_lb    = op_problem.get_constraint_lower_bounds();
+  const auto& d_constr_ub    = op_problem.get_constraint_upper_bounds();
+  const auto& d_var_types    = op_problem.get_variable_types();
+
+  std::vector<f_t> h_coefficients(d_coefficients.size());
+  std::vector<i_t> h_offsets(d_offsets.size());
+  std::vector<i_t> h_indices(d_indices.size());
+  std::vector<f_t> h_obj_coeffs(d_obj_coeffs.size());
+  std::vector<f_t> h_var_lb(d_var_lb.size());
+  std::vector<f_t> h_var_ub(d_var_ub.size());
+  std::vector<f_t> h_bounds(d_bounds.size());
+  std::vector<char> h_row_types(d_row_types.size());
+  std::vector<f_t> h_constr_lb(d_constr_lb.size());
+  std::vector<f_t> h_constr_ub(d_constr_ub.size());
+  std::vector<var_t> h_var_types_enum(d_var_types.size());
+
+  auto stream = op_problem.get_handle_ptr()->get_stream();
+  raft::copy(h_coefficients.data(), d_coefficients.data(), d_coefficients.size(), stream);
+  raft::copy(h_offsets.data(), d_offsets.data(), d_offsets.size(), stream);
+  raft::copy(h_indices.data(), d_indices.data(), d_indices.size(), stream);
+  raft::copy(h_obj_coeffs.data(), d_obj_coeffs.data(), d_obj_coeffs.size(), stream);
+  raft::copy(h_var_lb.data(), d_var_lb.data(), d_var_lb.size(), stream);
+  raft::copy(h_var_ub.data(), d_var_ub.data(), d_var_ub.size(), stream);
+  raft::copy(h_bounds.data(), d_bounds.data(), d_bounds.size(), stream);
+  raft::copy(h_row_types.data(), d_row_types.data(), d_row_types.size(), stream);
+  raft::copy(h_constr_lb.data(), d_constr_lb.data(), d_constr_lb.size(), stream);
+  raft::copy(h_constr_ub.data(), d_constr_ub.data(), d_constr_ub.size(), stream);
+  raft::copy(h_var_types_enum.data(), d_var_types.data(), d_var_types.size(), stream);
+  stream.synchronize();
+
+  if (!h_offsets.empty()) {
+    mps.set_csr_constraint_matrix(
+      std::span<const f_t>(h_coefficients.data(), h_coefficients.size()),
+      std::span<const i_t>(h_indices.data(), h_indices.size()),
+      std::span<const i_t>(h_offsets.data(), h_offsets.size()));
+  } else {
+    // set_csr_constraint_matrix rejects empty offsets — synthesize the [0]
+    // sentinel that downstream consumers expect for a zero-row problem.
+    std::vector<i_t> empty_offsets{0};
+    mps.set_csr_constraint_matrix(
+      {}, {}, std::span<const i_t>(empty_offsets.data(), empty_offsets.size()));
+  }
+
+  if (!h_obj_coeffs.empty()) {
+    mps.set_objective_coefficients(std::span<const f_t>(h_obj_coeffs.data(), h_obj_coeffs.size()));
+  }
+  if (!h_var_lb.empty()) {
+    mps.set_variable_lower_bounds(std::span<const f_t>(h_var_lb.data(), h_var_lb.size()));
+  }
+  if (!h_var_ub.empty()) {
+    mps.set_variable_upper_bounds(std::span<const f_t>(h_var_ub.data(), h_var_ub.size()));
+  }
+  if (!h_bounds.empty()) {
+    mps.set_constraint_bounds(std::span<const f_t>(h_bounds.data(), h_bounds.size()));
+  }
+  if (!h_row_types.empty()) {
+    mps.set_row_types(std::span<const char>(h_row_types.data(), h_row_types.size()));
+  }
+  if (!h_constr_lb.empty()) {
+    mps.set_constraint_lower_bounds(std::span<const f_t>(h_constr_lb.data(), h_constr_lb.size()));
+  }
+  if (!h_constr_ub.empty()) {
+    mps.set_constraint_upper_bounds(std::span<const f_t>(h_constr_ub.data(), h_constr_ub.size()));
+  }
+  if (!h_var_types_enum.empty()) {
+    std::vector<char> h_var_types_char(h_var_types_enum.size());
+    std::transform(
+      h_var_types_enum.begin(), h_var_types_enum.end(), h_var_types_char.begin(), var_type_to_char);
+    mps.set_variable_types(h_var_types_char);
+  }
+
+  return mps;
 }
 
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> solve_lp(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& mps_data_model,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& mps_data_model,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   bool problem_checking,
   bool use_pdlp_solver_mode)
 {
-  if (settings.hyper_params.use_distributed_pdlp) {
+  if (settings.use_distributed_pdlp) {
     return solve_lp_distributed_from_mps(
       handle_ptr, mps_data_model, settings, problem_checking, use_pdlp_solver_mode);
   }
@@ -2232,7 +2333,7 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> solve_lp_distributed_from_mps(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& mps_data_model,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& mps_data_model,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   bool problem_checking,
   bool use_pdlp_solver_mode)
@@ -2240,23 +2341,15 @@ optimization_problem_solution_t<i_t, f_t> solve_lp_distributed_from_mps(
   cuopt_expects(handle_ptr != nullptr,
                 error_type_t::ValidationError,
                 "solve_lp_distributed_from_mps: handle_ptr must not be null");
-  cuopt_expects(settings.hyper_params.use_distributed_pdlp,
+  cuopt_expects(settings.use_distributed_pdlp,
                 error_type_t::ValidationError,
-                "solve_lp_distributed_from_mps: settings.hyper_params.use_distributed_pdlp "
-                "must be true");
-  cuopt_expects(settings.presolver == cuopt::linear_programming::presolver_t::None,
-                error_type_t::ValidationError,
-                "solve_lp_distributed_from_mps: presolve is not yet supported with "
-                "use_distributed_pdlp; please set settings.presolver = presolver_t::None");
+                "solve_lp_distributed_from_mps: settings.use_distributed_pdlp must be true");
 
   pdlp_solver_settings_t<i_t, f_t> settings_resolved = settings;
   cuopt_expects(settings_resolved.method == method_t::PDLP,
                 error_type_t::ValidationError,
                 "Distributed MPS solve currently supports only method_t::PDLP");
   if (use_pdlp_solver_mode) { set_pdlp_solver_mode(settings_resolved); }
-
-  detail::pdlp_graph_disabled_flag().store(settings_resolved.hyper_params.pdlp_disable_graph,
-                                           std::memory_order_relaxed);
 
   if (settings_resolved.distributed_pdlp_num_gpus == -1) {
     settings_resolved.distributed_pdlp_num_gpus = raft::device_setter::get_device_count();
@@ -2298,26 +2391,161 @@ optimization_problem_solution_t<i_t, f_t> solve_lp_distributed_from_mps(
 
   auto lp_timer = cuopt::timer_t(settings_resolved.time_limit);
 
+  if (settings_resolved.presolver == presolver_t::Default) {
+    settings_resolved.presolver = presolver_t::PSLP;
+    CUOPT_LOG_INFO("Using PSLP presolver");
+  }
+  const bool run_presolve = settings_resolved.presolver != presolver_t::None;
+
+  std::unique_ptr<mip::third_party_presolve_t<i_t, f_t>> presolver_ptr;
+  std::optional<mip::third_party_presolve_host_result_t<i_t, f_t>> host_res;
+  [[maybe_unused]] double presolve_time = 0.0;
+
+  if (run_presolve) {
+    // mirroring single-GPU solve.cu
+    const double presolve_time_limit =
+      std::max(1.0, std::min(0.1 * lp_timer.remaining_time(), 60.0));
+
+    presolver_ptr = std::make_unique<mip::third_party_presolve_t<i_t, f_t>>();
+    host_res      = presolver_ptr->apply_presolve_from_mps_data(
+      mps_data_model,
+      cuopt::mathematical_optimization::problem_category_t::LP,
+      settings_resolved.presolver,
+      settings_resolved.dual_postsolve,
+      settings_resolved.tolerances.absolute_primal_tolerance,
+      settings_resolved.tolerances.relative_primal_tolerance,
+      presolve_time_limit);
+
+    if (host_res->status == mip::third_party_presolve_status_t::INFEASIBLE) {
+      return optimization_problem_solution_t<i_t, f_t>(pdlp_termination_status_t::PrimalInfeasible,
+                                                       handle_ptr->get_stream());
+    }
+    if (host_res->status == mip::third_party_presolve_status_t::UNBNDORINFEAS) {
+      return optimization_problem_solution_t<i_t, f_t>(
+        pdlp_termination_status_t::UnboundedOrInfeasible, handle_ptr->get_stream());
+    }
+    if (host_res->status == mip::third_party_presolve_status_t::UNBOUNDED) {
+      return optimization_problem_solution_t<i_t, f_t>(pdlp_termination_status_t::DualInfeasible,
+                                                       handle_ptr->get_stream());
+    }
+
+    // Presolve completely solved the problem. Mirroring single-GPU solve
+    if (host_res->reduced_problem.get_n_variables() == 0 &&
+        host_res->reduced_problem.get_n_constraints() == 0) {
+      CUOPT_LOG_INFO("Presolve completely solved the problem");
+      presolve_time = lp_timer.elapsed_time();
+      CUOPT_LOG_INFO("%s presolve time: %.2fs",
+                     settings_resolved.presolver == presolver_t::PSLP ? "PSLP" : "Papilo",
+                     presolve_time);
+
+      std::vector<f_t> h_primal, h_dual, h_rc;
+      presolver_ptr->undo_host(h_primal,
+                               h_dual,
+                               h_rc,
+                               cuopt::mathematical_optimization::problem_category_t::LP,
+                               /*status_to_skip=*/false,
+                               settings_resolved.dual_postsolve);
+
+      auto primal_uv = cuopt::device_copy(h_primal, handle_ptr->get_stream());
+      auto dual_uv   = cuopt::device_copy(h_dual, handle_ptr->get_stream());
+      auto rc_uv     = cuopt::device_copy(h_rc, handle_ptr->get_stream());
+      handle_ptr->sync_stream();
+
+      typename optimization_problem_solution_t<i_t, f_t>::additional_termination_information_t
+        term_info;
+      term_info.primal_objective      = host_res->reduced_problem.get_objective_offset();
+      term_info.dual_objective        = host_res->reduced_problem.get_objective_offset();
+      term_info.number_of_steps_taken = 0;
+      term_info.solve_time            = presolve_time;
+      term_info.l2_primal_residual    = 0.0;
+      term_info.l2_dual_residual      = 0.0;
+      term_info.gap                   = 0.0;
+
+      std::vector<
+        typename optimization_problem_solution_t<i_t, f_t>::additional_termination_information_t>
+        term_vec{term_info};
+      std::vector<pdlp_termination_status_t> status_vec{pdlp_termination_status_t::Optimal};
+
+      CUOPT_LOG_INFO("Status: Optimal  Objective: %f", term_info.primal_objective);
+      return optimization_problem_solution_t<i_t, f_t>(primal_uv,
+                                                       dual_uv,
+                                                       rc_uv,
+                                                       mps_data_model.get_objective_name(),
+                                                       mps_data_model.get_variable_names(),
+                                                       mps_data_model.get_row_names(),
+                                                       std::move(term_vec),
+                                                       std::move(status_vec));
+    }
+
+    presolve_time = lp_timer.elapsed_time();
+    CUOPT_LOG_INFO("%s presolve time: %.2fs",
+                   settings_resolved.presolver == presolver_t::PSLP ? "PSLP" : "Papilo",
+                   presolve_time);
+    CUOPT_LOG_INFO("Distributed-solving reduced problem: %d constraints, %d variables, %d nonzeros",
+                   host_res->reduced_problem.get_n_constraints(),
+                   host_res->reduced_problem.get_n_variables(),
+                   host_res->reduced_problem.get_nnz());
+  }
+
+  // mps_for_solver is what the distributed solver actually sees.
+  // the reduced
+  // problem when we ran presolve, the original otherwise. No data transits through device
+  const auto& mps_for_solver = run_presolve ? host_res->reduced_problem : mps_data_model;
+
+  // -------------------------- DISTRIBUTED SOLVE --------------------------
   // Shape-0 placeholder: needed to build an empty pdlp_solver
-  cuopt::linear_programming::optimization_problem_t<i_t, f_t> placeholder_op(handle_ptr);
+  cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t> placeholder_op(handle_ptr);
   {
     std::vector<i_t> empty_offsets = {0};
     placeholder_op.set_csr_constraint_matrix(
       nullptr, 0, nullptr, 0, empty_offsets.data(), static_cast<i_t>(empty_offsets.size()));
   }
-  detail::problem_t<i_t, f_t> placeholder_problem(placeholder_op);
+  mip::problem_t<i_t, f_t> placeholder_problem(placeholder_op);
 
-  detail::pdlp_solver_t<i_t, f_t> solver(placeholder_problem, mps_data_model, settings_resolved);
+  pdlp::pdlp_solver_t<i_t, f_t> solver(placeholder_problem, mps_for_solver, settings_resolved);
 
   auto sol = solver.run_solver(lp_timer);
 
-  // Maximization post-processing (matches run_pdlp at solve.cu:835-839):
+  // Maximization post-processing (matches run_pdlp):
   // PDLP internally solves the negated objective, so flip dual / reduced
   // cost signs on the gathered solution before returning.
-  if (mps_data_model.get_sense()) {
+  if (mps_for_solver.get_sense()) {
     adjust_dual_solution_and_reduced_cost(
       sol.get_dual_solution(), sol.get_reduced_cost(), handle_ptr->get_stream());
     handle_ptr->sync_stream();
+  }
+
+  // postsolve
+  if (run_presolve) {
+    auto h_primal = cuopt::host_copy(sol.get_primal_solution(), handle_ptr->get_stream());
+    auto h_dual   = cuopt::host_copy(sol.get_dual_solution(), handle_ptr->get_stream());
+    auto h_rc     = cuopt::host_copy(sol.get_reduced_cost(), handle_ptr->get_stream());
+    handle_ptr->sync_stream();
+
+    presolver_ptr->undo_host(h_primal,
+                             h_dual,
+                             h_rc,
+                             cuopt::mathematical_optimization::problem_category_t::LP,
+                             /*status_to_skip=*/false,
+                             settings_resolved.dual_postsolve);
+
+    auto primal_uv = cuopt::device_copy(h_primal, handle_ptr->get_stream());
+    auto dual_uv   = cuopt::device_copy(h_dual, handle_ptr->get_stream());
+    auto rc_uv     = cuopt::device_copy(h_rc, handle_ptr->get_stream());
+    handle_ptr->sync_stream();
+
+    auto term_vec   = sol.get_additional_termination_informations();
+    auto status_vec = sol.get_terminations_status();
+
+    sol = optimization_problem_solution_t<i_t, f_t>(primal_uv,
+                                                    dual_uv,
+                                                    rc_uv,
+                                                    std::move(sol.get_pdlp_warm_start_data()),
+                                                    mps_data_model.get_objective_name(),
+                                                    mps_data_model.get_variable_names(),
+                                                    mps_data_model.get_row_names(),
+                                                    std::move(term_vec),
+                                                    std::move(status_vec));
   }
 
   sol.set_solve_time(lp_timer.elapsed_time());
@@ -2434,7 +2662,7 @@ std::unique_ptr<lp_solution_interface_t<i_t, f_t>> solve_lp(
                                                                                                  \
   template optimization_problem_solution_t<int, F_TYPE> solve_lp(                                \
     raft::handle_t const* handle_ptr,                                                            \
-    const cuopt::linear_programming::io::mps_data_model_t<int, F_TYPE>& mps_data_model,          \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>& mps_data_model,   \
     pdlp_solver_settings_t<int, F_TYPE> const& settings,                                         \
     bool problem_checking,                                                                       \
     bool use_pdlp_solver_mode);                                                                  \
@@ -2454,14 +2682,14 @@ std::unique_ptr<lp_solution_interface_t<i_t, f_t>> solve_lp(
     bool);                                                                                       \
                                                                                                  \
   template optimization_problem_solution_t<int, F_TYPE> solve_lp_with_method(                    \
-    detail::problem_t<int, F_TYPE>& problem,                                                     \
+    mip::problem_t<int, F_TYPE>& problem,                                                        \
     pdlp_solver_settings_t<int, F_TYPE> const& settings,                                         \
     const timer_t& timer,                                                                        \
     bool is_batch_mode);                                                                         \
                                                                                                  \
   template optimization_problem_solution_t<int, F_TYPE> batch_pdlp_solve(                        \
     raft::handle_t const* handle_ptr,                                                            \
-    const cuopt::linear_programming::io::mps_data_model_t<int, F_TYPE>& mps_data_model,          \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>& mps_data_model,   \
     const std::vector<int>& fractional,                                                          \
     const std::vector<F_TYPE>& root_soln_x,                                                      \
     pdlp_solver_settings_t<int, F_TYPE> const& settings);                                        \
@@ -2477,11 +2705,14 @@ std::unique_ptr<lp_solution_interface_t<i_t, f_t>> solve_lp(
                                                                                                  \
   template optimization_problem_t<int, F_TYPE> mps_data_model_to_optimization_problem(           \
     raft::handle_t const* handle_ptr,                                                            \
-    const cuopt::linear_programming::io::mps_data_model_t<int, F_TYPE>& data_model);             \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>& data_model);      \
+                                                                                                 \
+  template cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>                   \
+  op_problem_to_mps_data_model(const optimization_problem_t<int, F_TYPE>& op_problem);           \
                                                                                                  \
   template optimization_problem_solution_t<int, F_TYPE> solve_lp_distributed_from_mps(           \
     raft::handle_t const* handle_ptr,                                                            \
-    const cuopt::linear_programming::io::mps_data_model_t<int, F_TYPE>& mps_data_model,          \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>& mps_data_model,   \
     pdlp_solver_settings_t<int, F_TYPE> const& settings,                                         \
     bool problem_checking,                                                                       \
     bool use_pdlp_solver_mode);                                                                  \
@@ -2496,4 +2727,18 @@ INSTANTIATE(float)
 INSTANTIATE(double)
 #endif
 
-}  // namespace cuopt::linear_programming
+// third_party_presolve_t<int, float> (in mip_heuristics/presolve/) is built
+// whenever PDLP_INSTANTIATE_FLOAT is on and depends on the float overloads of
+// mps_data_model_to_optimization_problem and op_problem_to_mps_data_model.
+// Make sure both symbols exist in PDLP-only float builds where
+// MIP_INSTANTIATE_FLOAT is off.
+#if PDLP_INSTANTIATE_FLOAT && !MIP_INSTANTIATE_FLOAT
+template optimization_problem_t<int, float> mps_data_model_to_optimization_problem(
+  raft::handle_t const* handle_ptr,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<int, float>& data_model);
+
+template cuopt::mathematical_optimization::io::mps_data_model_t<int, float>
+op_problem_to_mps_data_model(const optimization_problem_t<int, float>& op_problem);
+#endif
+
+}  // namespace cuopt::mathematical_optimization

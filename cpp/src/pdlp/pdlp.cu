@@ -6,9 +6,9 @@
 /* clang-format on */
 
 #include <cuopt/error.hpp>
-#include <cuopt/linear_programming/pdlp/pdlp_hyper_params.cuh>
-#include <cuopt/linear_programming/pdlp/pdlp_warm_start_data.hpp>
-#include <cuopt/linear_programming/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/pdlp/pdlp_hyper_params.cuh>
+#include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
+#include <cuopt/mathematical_optimization/solver_settings.hpp>
 
 #include <pdlp/cusparse_view.hpp>
 #include <pdlp/distributed_pdlp/partition_loader.hpp>
@@ -17,9 +17,9 @@
 #include <pdlp/swap_and_resize_helper.cuh>
 #include <pdlp/utils.cuh>
 
-#include <dual_simplex/sparse_matrix.hpp>
+#include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/mip_constants.hpp>
-#include "cuopt/linear_programming/pdlp/solver_solution.hpp"
+#include "cuopt/mathematical_optimization/pdlp/solver_solution.hpp"
 #include "distributed_pdlp/distributed_algorithms.hpp"
 #include "distributed_pdlp/multi_gpu_engine.hpp"
 
@@ -52,7 +52,7 @@
 #include <type_traits>
 #include <unordered_set>
 
-namespace cuopt::linear_programming::detail {
+namespace cuopt::mathematical_optimization::pdlp {
 
 // Templated wrapper for cuBLAS geam function
 // cublasSgeam for float, cublasDgeam for double
@@ -160,7 +160,7 @@ static size_t batch_size_handler(const pdlp_solver_settings_t<i_t, f_t>& setting
 }
 
 template <typename i_t, typename f_t>
-pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
+pdlp_solver_t<i_t, f_t>::pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
                                        pdlp_solver_settings_t<i_t, f_t> const& settings,
                                        bool is_legacy_batch_mode)
   : original_batch_size_(batch_size_handler(settings)),
@@ -386,8 +386,8 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(problem_t<i_t, f_t>& op_problem,
 // builds the engine from the mps_data_model
 template <typename i_t, typename f_t>
 pdlp_solver_t<i_t, f_t>::pdlp_solver_t(
-  problem_t<i_t, f_t>& placeholder_problem,
-  cuopt::linear_programming::io::mps_data_model_t<i_t, f_t> const& mps,
+  mip::problem_t<i_t, f_t>& placeholder_problem,
+  cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t> const& mps,
   pdlp_solver_settings_t<i_t, f_t> const& settings)
   // Makes all inner feilds of master 0 size
   : pdlp_solver_t(placeholder_problem, settings, /*is_legacy_batch_mode=*/false)
@@ -443,9 +443,9 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(
 
   // ----- 2. Transpose A -> A^T on the host (one-shot CSR transpose) -----
   // CSC(A) and CSR(A^T) share the same memory layout, so the CSC produced
-  // by dual_simplex::csr_matrix_t::to_compressed_col IS the CSR of A^T.
+  // by csr_matrix_t::to_compressed_col IS the CSR of A^T.
   // O(nnz + n_vars) counting sort, same as problem_t::compute_transpose.
-  namespace ds = cuopt::linear_programming::dual_simplex;
+  namespace ds = cuopt::mathematical_optimization;
   ds::csr_matrix_t<i_t, f_t> A_csr(n_cstr, n_vars, nnz);
   A_csr.row_start = h_A_row_offsets;
   A_csr.j         = h_A_col_indices;
@@ -899,8 +899,8 @@ void pdlp_solver_t<i_t, f_t>::set_inside_mip(bool inside_mip)
 
 template <typename i_t, typename f_t>
 void pdlp_solver_t<i_t, f_t>::record_best_primal_so_far(
-  const detail::pdlp_termination_strategy_t<i_t, f_t>& current,
-  const detail::pdlp_termination_strategy_t<i_t, f_t>& average,
+  const pdlp::pdlp_termination_strategy_t<i_t, f_t>& current,
+  const pdlp::pdlp_termination_strategy_t<i_t, f_t>& average,
   const pdlp_termination_status_t& termination_current,
   const pdlp_termination_status_t& termination_average)
 {
@@ -940,7 +940,7 @@ void pdlp_solver_t<i_t, f_t>::record_best_primal_so_far(
 
     rmm::device_uvector<f_t>* primal_to_set;
     rmm::device_uvector<f_t>* dual_to_set;
-    detail::pdlp_termination_strategy_t<i_t, f_t>* termination_strategy_to_use;
+    pdlp::pdlp_termination_strategy_t<i_t, f_t>* termination_strategy_to_use;
     std::string_view debug_string;
 
     if (best_overall == current_quality) {
@@ -2331,23 +2331,40 @@ void pdlp_solver_t<i_t, f_t>::compute_fixed_error(std::vector<int>& has_restarte
 #ifdef CUPDLP_DEBUG_MODE
   printf("Computing compute_fixed_point_error \n");
 #endif
-  cuopt_assert(
-    pdhg_solver_.get_reflected_primal().size() == primal_size_h_ * climber_strategies_.size(),
-    "reflected_primal_ size mismatch");
-  cuopt_assert(
-    pdhg_solver_.get_reflected_dual().size() == dual_size_h_ * climber_strategies_.size(),
-    "reflected_dual_ size mismatch");
-  cuopt_assert(
-    pdhg_solver_.get_primal_solution().size() == primal_size_h_ * climber_strategies_.size(),
-    "primal_solution_ size mismatch");
-  cuopt_assert(pdhg_solver_.get_dual_solution().size() == dual_size_h_ * climber_strategies_.size(),
-               "dual_solution_ size mismatch");
-  cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_primal().size() ==
-                 primal_size_h_ * climber_strategies_.size(),
-               "delta_primal_ size mismatch");
-  cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_dual().size() ==
-                 dual_size_h_ * climber_strategies_.size(),
-               "delta_dual_ size mismatch");
+  if (is_distributed_master()) {
+    // The master's own pdhg_solver_ buffers are built from a shape-0 placeholder and must be empty
+    cuopt_assert(pdhg_solver_.get_reflected_primal().size() == 0,
+                 "master must not own a reflected_primal_ buffer (shards compute it)");
+    cuopt_assert(pdhg_solver_.get_reflected_dual().size() == 0,
+                 "master must not own a reflected_dual_ buffer (shards compute it)");
+    cuopt_assert(pdhg_solver_.get_primal_solution().size() == 0,
+                 "master must not own a primal_solution_ buffer (shards compute it)");
+    cuopt_assert(pdhg_solver_.get_dual_solution().size() == 0,
+                 "master must not own a dual_solution_ buffer (shards compute it)");
+    cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_primal().size() == 0,
+                 "master must not own a delta_primal_ buffer (shards compute it)");
+    cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_dual().size() == 0,
+                 "master must not own a delta_dual_ buffer (shards compute it)");
+  } else {
+    cuopt_assert(
+      pdhg_solver_.get_reflected_primal().size() == primal_size_h_ * climber_strategies_.size(),
+      "reflected_primal_ size mismatch");
+    cuopt_assert(
+      pdhg_solver_.get_reflected_dual().size() == dual_size_h_ * climber_strategies_.size(),
+      "reflected_dual_ size mismatch");
+    cuopt_assert(
+      pdhg_solver_.get_primal_solution().size() == primal_size_h_ * climber_strategies_.size(),
+      "primal_solution_ size mismatch");
+    cuopt_assert(
+      pdhg_solver_.get_dual_solution().size() == dual_size_h_ * climber_strategies_.size(),
+      "dual_solution_ size mismatch");
+    cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_primal().size() ==
+                   primal_size_h_ * climber_strategies_.size(),
+                 "delta_primal_ size mismatch");
+    cuopt_assert(pdhg_solver_.get_saddle_point_state().get_delta_dual().size() ==
+                   dual_size_h_ * climber_strategies_.size(),
+                 "delta_dual_ size mismatch");
+  }
 
   // Computing the deltas (delta = reflected - current)
   // TODO batch mdoe: this only works if everyone restarts
@@ -2708,7 +2725,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   bool warm_start_was_given = settings_.get_pdlp_warm_start_data().is_populated();
 
   // In distributed mode, skip all setup, it is already done
-  if (!settings_.hyper_params.use_distributed_pdlp) {
+  if (!settings_.use_distributed_pdlp) {
     // TODO handle that properly
     if (settings_.hyper_params.compute_initial_step_size_before_scaling &&
         !settings_.get_initial_step_size().has_value())
@@ -3113,7 +3130,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 
       if (settings_.hyper_params.restart_strategy !=
             static_cast<int>(
-              detail::pdlp_restart_strategy_t<i_t, f_t>::restart_strategy_t::NO_RESTART) &&
+              pdlp::pdlp_restart_strategy_t<i_t, f_t>::restart_strategy_t::NO_RESTART) &&
           (is_major_iteration || artificial_restart_check_main_loop)) {
         restart_strategy_.compute_restart(
           pdhg_solver_,
@@ -3372,7 +3389,7 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
     void* d_temp_storage      = NULL;
     size_t temp_storage_bytes = 0;
 
-    detail::max_abs_value<f_t> red_op;
+    pdlp::max_abs_value<f_t> red_op;
     cub::DeviceReduce::Reduce(d_temp_storage,
                               temp_storage_bytes,
                               op_problem_scaled_.coefficients.data(),
@@ -3523,7 +3540,7 @@ __global__ void compute_weights_initial_primal_weight_from_squared_norms(
   raft::device_span<f_t> primal_weight,
   raft::device_span<f_t> best_primal_weight,
   int batch_size,
-  const pdlp_hyper_params::pdlp_hyper_params_t hyper_params)
+  const pdlp::pdlp_hyper_params_t hyper_params)
 {
   const int id = threadIdx.x + blockIdx.x * blockDim.x;
   if (id >= batch_size) { return; }
@@ -3556,21 +3573,20 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_primal_weight()
 
   // Here we use the combined bounds of the op_problem_scaled which may or may not be scaled yet
   // based on pdlp config
-  detail::combine_constraint_bounds<i_t, f_t>(op_problem_scaled_,
-                                              op_problem_scaled_.combined_bounds);
+  pdlp::combine_constraint_bounds<i_t, f_t>(op_problem_scaled_, op_problem_scaled_.combined_bounds);
   rmm::device_scalar<f_t> c_vec_norm{0.0, stream_view_};
-  detail::my_l2_weighted_norm<i_t, f_t>(op_problem_scaled_.objective_coefficients,
-                                        settings_.hyper_params.initial_primal_weight_c_scaling,
-                                        c_vec_norm,
-                                        stream_view_);
+  pdlp::my_l2_weighted_norm<i_t, f_t>(op_problem_scaled_.objective_coefficients,
+                                      settings_.hyper_params.initial_primal_weight_c_scaling,
+                                      c_vec_norm,
+                                      stream_view_);
 
   rmm::device_scalar<f_t> b_vec_norm{0.0, stream_view_};
   if (settings_.hyper_params.initial_primal_weight_combined_bounds) {
     // => same as sqrt(dot(b,b))
-    detail::my_l2_weighted_norm<i_t, f_t>(op_problem_scaled_.combined_bounds,
-                                          settings_.hyper_params.initial_primal_weight_b_scaling,
-                                          b_vec_norm,
-                                          stream_view_);
+    pdlp::my_l2_weighted_norm<i_t, f_t>(op_problem_scaled_.combined_bounds,
+                                        settings_.hyper_params.initial_primal_weight_b_scaling,
+                                        b_vec_norm,
+                                        stream_view_);
 
   } else {
     if (settings_.hyper_params.bound_objective_rescaling) {
@@ -3629,7 +3645,7 @@ i_t pdlp_solver_t<i_t, f_t>::get_total_pdhg_iterations() const
 }
 
 template <typename i_t, typename f_t>
-detail::pdlp_termination_strategy_t<i_t, f_t>&
+pdlp::pdlp_termination_strategy_t<i_t, f_t>&
 pdlp_solver_t<i_t, f_t>::get_current_termination_strategy()
 {
   return current_termination_strategy_;
@@ -3644,7 +3660,7 @@ template __global__ void compute_weights_initial_primal_weight_from_squared_norm
   raft::device_span<float> primal_weight,
   raft::device_span<float> best_primal_weight,
   int batch_size,
-  const pdlp_hyper_params::pdlp_hyper_params_t hyper_params);
+  const pdlp::pdlp_hyper_params_t hyper_params);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
@@ -3656,7 +3672,7 @@ template __global__ void compute_weights_initial_primal_weight_from_squared_norm
   raft::device_span<double> primal_weight,
   raft::device_span<double> best_primal_weight,
   int batch_size,
-  const pdlp_hyper_params::pdlp_hyper_params_t hyper_params);
+  const pdlp::pdlp_hyper_params_t hyper_params);
 #endif
 
-}  // namespace cuopt::linear_programming::detail
+}  // namespace cuopt::mathematical_optimization::pdlp

@@ -7,27 +7,28 @@
 
 #pragma once
 
-#include <cuopt/linear_programming/optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/optimization_problem.hpp>
 
-#include <cuopt/linear_programming/io/mps_data_model.hpp>
+#include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
 
 #include <raft/core/handle.hpp>
 
-namespace cuopt::linear_programming {
+namespace cuopt::mathematical_optimization {
 
-namespace detail {
+namespace mip {
 template <typename i_t, typename f_t>
 class problem_t;
-}  // namespace detail
+}  // namespace mip
 
 template <typename i_t, typename f_t>
-cuopt::linear_programming::optimization_problem_t<i_t, f_t> mps_data_model_to_optimization_problem(
+cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t>
+mps_data_model_to_optimization_problem(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& data_model);
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& data_model);
 
 template <typename i_t, typename f_t>
-cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> solve_lp_with_method(
-  detail::problem_t<i_t, f_t>& problem,
+cuopt::mathematical_optimization::optimization_problem_solution_t<i_t, f_t> solve_lp_with_method(
+  mip::problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   const timer_t& timer,
   bool is_batch_mode = false);
@@ -49,8 +50,8 @@ cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> solve_lp_wi
  * and returns the gathered solution.
  *
  * Resolves the `distributed_pdlp_num_gpus == -1` sentinel against the
- * visible-device count and propagates `pdlp_disable_graph` to the CUDA-graph
- * flag. Several configurations are rejected up front (see @pre).
+ * visible-device count. Several configurations are rejected up front
+ * (see @pre).
  *
  * @param handle_ptr  Master raft handle (its stream owns the gather buffers and
  *                    any master-side aggregator allocations). Must be non-null.
@@ -63,14 +64,15 @@ cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> solve_lp_wi
  * @param use_pdlp_solver_mode  When true, applies set_pdlp_solver_mode() to the
  *                    resolved settings before solving.
  *
- * @pre `settings.hyper_params.use_distributed_pdlp == true`, `method == PDLP`,
- *      `presolver == None`, `pdlp_precision == DefaultPrecision`, not inside
- *      MIP, and no initial primal/dual or warm-start data.
+ * @pre `settings.use_distributed_pdlp == true`, `method == PDLP`,
+ *      `pdlp_precision == DefaultPrecision`, not inside MIP, and no initial
+ *      primal/dual or warm-start data.
  */
 template <typename i_t, typename f_t>
-cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> solve_lp_distributed_from_mps(
+cuopt::mathematical_optimization::optimization_problem_solution_t<i_t, f_t>
+solve_lp_distributed_from_mps(
   raft::handle_t const* handle_ptr,
-  const cuopt::linear_programming::io::mps_data_model_t<i_t, f_t>& mps_data_model,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& mps_data_model,
   pdlp_solver_settings_t<i_t, f_t> const& settings,
   bool problem_checking,
   bool use_pdlp_solver_mode);
@@ -125,8 +127,8 @@ cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> solve_lp_di
  * @endcode
  */
 template <typename i_t, typename f_t>
-cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> run_batch_pdlp(
-  cuopt::linear_programming::optimization_problem_t<i_t, f_t>& problem,
+cuopt::mathematical_optimization::optimization_problem_solution_t<i_t, f_t> run_batch_pdlp(
+  cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t>& problem,
   pdlp_solver_settings_t<i_t, f_t> const& settings);
 
 /**
@@ -144,7 +146,7 @@ cuopt::linear_programming::optimization_problem_solution_t<i_t, f_t> run_batch_p
 */
 template <typename i_t, typename f_t>
 size_t compute_optimal_batch_size(
-  const cuopt::linear_programming::optimization_problem_t<i_t, f_t>& problem,
+  const cuopt::mathematical_optimization::optimization_problem_t<i_t, f_t>& problem,
   bool per_climber_objectives,
   bool per_climber_constraint_bounds,
   bool collect_solutions = false);  // Only for testing
@@ -152,4 +154,4 @@ size_t compute_optimal_batch_size(
 template <typename i_t, typename f_t>
 void set_pdlp_solver_mode(pdlp_solver_settings_t<i_t, f_t>& settings);
 
-}  // namespace cuopt::linear_programming
+}  // namespace cuopt::mathematical_optimization
