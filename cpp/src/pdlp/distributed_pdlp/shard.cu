@@ -35,7 +35,9 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
     rank_data(std::move(rd)),
     opt_problem(&handle),
     sub_problem(std::nullopt),
-    sub_pdlp(nullptr)
+    sub_pdlp(nullptr),
+    A_split(stream.view()),
+    A_T_split(stream.view())
 {
   assert(raft::device_setter::get_current_device() == device_id &&
          "Right device must be set before building the shard");
@@ -157,7 +159,165 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   build_send_plan(rank_data.var_send_per_peer, var_send_indices_d, var_send_buf_d);
   build_send_plan(rank_data.cstr_send_per_peer, cstr_send_indices_d, cstr_send_buf_d);
 
+  // Reusable events for the SpMV compute/comm overlap driven by
+  // multi_gpu_engine_t::distributed_spmv_A/At. Cheap (opaque handles) so we
+  // create them upfront on the right device rather than on-demand.
+  spmv_input_ready_event = std::make_unique<cuopt::event_handler_t>();
+  spmv_halo_ready_event  = std::make_unique<cuopt::event_handler_t>();
+
+  // ---- 7. Mirror the column-ownership split of the local host CSRs to device.
+  // A_split.own / A_split.halo together carry the same nnz as opt_problem's A;
+  // same for A_T_split relative to sub_problem->reverse_*. Consumed by
+  // multi_gpu_engine_t::distributed_spmv_A/At via the cusparse descriptors
+  // constructed in cusparse_view_t.
+  auto upload_csr = [&](std::vector<i_t> const& h_row_offsets,
+                        std::vector<i_t> const& h_col_indices,
+                        std::vector<f_t> const& h_values,
+                        typename pdlp_shard_t<i_t, f_t>::local_csr_t& d_csr) {
+    d_csr.row_offsets.resize(h_row_offsets.size(), stream_view);
+    d_csr.col_indices.resize(h_col_indices.size(), stream_view);
+    d_csr.values.resize(h_values.size(), stream_view);
+    if (!h_row_offsets.empty()) {
+      raft::copy(
+        d_csr.row_offsets.data(), h_row_offsets.data(), h_row_offsets.size(), stream_view);
+    }
+    if (!h_col_indices.empty()) {
+      raft::copy(
+        d_csr.col_indices.data(), h_col_indices.data(), h_col_indices.size(), stream_view);
+    }
+    if (!h_values.empty()) {
+      raft::copy(d_csr.values.data(), h_values.data(), h_values.size(), stream_view);
+    }
+  };
+  upload_csr(rank_data.h_A_own_row_offsets,
+             rank_data.h_A_own_col_indices,
+             rank_data.h_A_own_values,
+             A_split.own);
+  upload_csr(rank_data.h_A_halo_row_offsets,
+             rank_data.h_A_halo_col_indices,
+             rank_data.h_A_halo_values,
+             A_split.halo);
+  upload_csr(rank_data.h_A_t_own_row_offsets,
+             rank_data.h_A_t_own_col_indices,
+             rank_data.h_A_t_own_values,
+             A_T_split.own);
+  upload_csr(rank_data.h_A_t_halo_row_offsets,
+             rank_data.h_A_t_halo_col_indices,
+             rank_data.h_A_t_halo_values,
+             A_T_split.halo);
+
+  // ---- 8. Hand the split matrices to sub_pdlp's cusparse_view so cuSPARSE
+  //         has descriptors + SpMV workspaces ready for the compute/comm
+  //         overlap path in multi_gpu_engine_t::distributed_spmv_A/At.
+  //         The parent A / A_T shape is (total_cstr x total_var) / (total_var
+  //         x total_cstr); both halves share it (halo cols kept absolute).
+  auto& cv = sub_pdlp->get_cusparse_view();
+  cv.init_distributed_split(
+    /* rows_A     */ rank_data.total_cstr_size,
+    /* cols_A     */ rank_data.total_var_size,
+    /* nnz_A_own  */ static_cast<int64_t>(A_split.own.values.size()),
+    A_split.own.row_offsets.data(),
+    A_split.own.col_indices.data(),
+    A_split.own.values.data(),
+    /* nnz_A_halo */ static_cast<int64_t>(A_split.halo.values.size()),
+    A_split.halo.row_offsets.data(),
+    A_split.halo.col_indices.data(),
+    A_split.halo.values.data(),
+    /* rows_A_T     */ rank_data.total_var_size,
+    /* cols_A_T     */ rank_data.total_cstr_size,
+    /* nnz_A_T_own  */ static_cast<int64_t>(A_T_split.own.values.size()),
+    A_T_split.own.row_offsets.data(),
+    A_T_split.own.col_indices.data(),
+    A_T_split.own.values.data(),
+    /* nnz_A_T_halo */ static_cast<int64_t>(A_T_split.halo.values.size()),
+    A_T_split.halo.row_offsets.data(),
+    A_T_split.halo.col_indices.data(),
+    A_T_split.halo.values.data());
+
   handle.sync_stream(stream_view);
+}
+
+// Per-row kernel: walk parent CSR row and dispatch each nnz value into the
+// own-half or halo-half output arrays, using the col-ownership boundary. The
+// per-row destination base offsets (own_offsets / halo_offsets) were built at
+// construction by the host splitter (see create_rank_data_from_parts), and the
+// walking order here must match that splitter so the resulting {own,halo}.values
+// stay aligned with the pre-built {own,halo}.col_indices. One thread per row is
+// enough here: this runs once per solve (after the scaling pass), never in the
+// inner PDHG loop.
+template <typename i_t, typename f_t>
+__global__ void split_csr_values_from_parent_kernel(i_t const* __restrict__ parent_offsets,
+                                                    i_t const* __restrict__ parent_col_indices,
+                                                    f_t const* __restrict__ parent_values,
+                                                    i_t const* __restrict__ own_offsets,
+                                                    i_t const* __restrict__ halo_offsets,
+                                                    f_t* __restrict__ own_values,
+                                                    f_t* __restrict__ halo_values,
+                                                    i_t owned_col_boundary,
+                                                    i_t n_rows)
+{
+  const i_t row = blockIdx.x * blockDim.x + threadIdx.x;
+  if (row >= n_rows) return;
+
+  const i_t p_begin = parent_offsets[row];
+  const i_t p_end   = parent_offsets[row + 1];
+  i_t o_idx         = own_offsets[row];
+  i_t h_idx         = halo_offsets[row];
+  for (i_t k = p_begin; k < p_end; ++k) {
+    const i_t c = parent_col_indices[k];
+    const f_t v = parent_values[k];
+    if (c < owned_col_boundary) {
+      own_values[o_idx++] = v;
+    } else {
+      halo_values[h_idx++] = v;
+    }
+  }
+}
+
+template <typename i_t, typename f_t>
+void pdlp_shard_t<i_t, f_t>::sync_split_values_from_parent()
+{
+  auto stream_view = handle.get_stream();
+
+  auto sync_one = [&](auto const& parent_offsets,
+                      auto const& parent_col_indices,
+                      auto const& parent_values,
+                      typename pdlp_shard_t<i_t, f_t>::split_matrix_t& split,
+                      i_t owned_col_boundary,
+                      i_t n_rows) {
+    if (n_rows == 0) return;
+    constexpr i_t block = 128;
+    const i_t grid      = (n_rows + block - 1) / block;
+    split_csr_values_from_parent_kernel<i_t, f_t><<<grid, block, 0, stream_view.value()>>>(
+      parent_offsets.data(),
+      parent_col_indices.data(),
+      parent_values.data(),
+      split.own.row_offsets.data(),
+      split.halo.row_offsets.data(),
+      split.own.values.data(),
+      split.halo.values.data(),
+      owned_col_boundary,
+      n_rows);
+    RAFT_CUDA_TRY(cudaPeekAtLastError());
+  };
+
+  // A on this shard is (total_cstr x total_var); nnz in sub_problem->{offsets,
+  // variables, coefficients}. A_T is (total_var x total_cstr) in
+  // sub_problem->reverse_{offsets, constraints, coefficients} -- we overrode
+  // it in the ctor to be the true per-shard local A_T (not the local A's
+  // in-place transpose). See shard.cu step 4.
+  sync_one(sub_problem->offsets,
+           sub_problem->variables,
+           sub_problem->coefficients,
+           A_split,
+           rank_data.owned_var_size,
+           rank_data.total_cstr_size);
+  sync_one(sub_problem->reverse_offsets,
+           sub_problem->reverse_constraints,
+           sub_problem->reverse_coefficients,
+           A_T_split,
+           rank_data.owned_cstr_size,
+           rank_data.total_var_size);
 }
 
 template struct pdlp_shard_t<int, double>;

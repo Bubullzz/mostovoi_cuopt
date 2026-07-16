@@ -6,6 +6,7 @@
 
 #include <pdlp/distributed_pdlp/nccl_helpers.hpp>
 #include <pdlp/distributed_pdlp/rank_data.hpp>
+#include <utilities/event_handler.cuh>
 #include <utilities/macros.cuh>
 
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
@@ -63,12 +64,64 @@ struct pdlp_shard_t {
 
   int device_id{-1};
   rmm::cuda_stream stream;
+  // Secondary stream used exclusively by multi_gpu_engine_t's
+  // distributed_spmv_A/At to run the halo gather+NCCL exchange in parallel
+  // with the own-half SpMV on `stream`. Independent from `stream`; sync is
+  // done through the spmv_{input,halo}_ready_event pair below.
+  rmm::cuda_stream comm_stream;
+  // Reusable events for the SpMV compute/comm overlap.
+  //   spmv_input_ready_event: recorded on `stream` at overlap-SpMV entry;
+  //                           `comm_stream` waits on it before gathering (so
+  //                           the caller-produced input is visible).
+  //   spmv_halo_ready_event : recorded on `comm_stream` after ncclRecv;
+  //                           `stream` waits on it before spmv_halo_into (so
+  //                           the halo tail of the input vec is visible).
+  // Both are default-created (auto flag == cudaEventDefault) in shard.cu; no
+  // per-call allocation.
+  std::unique_ptr<cuopt::event_handler_t> spmv_input_ready_event;
+  std::unique_ptr<cuopt::event_handler_t> spmv_halo_ready_event;
   raft::handle_t handle;
   nccl_comm_unique_ptr_t comm;
   rank_data_t<i_t, f_t> rank_data;
   optimization_problem_t<i_t, f_t> opt_problem;
   std::optional<mip::problem_t<i_t, f_t>> sub_problem;
   std::unique_ptr<pdlp_solver_t<i_t, f_t>> sub_pdlp;
+
+  // Device-side column-ownership split of the local A / A_T matrices, used by
+  // multi_gpu_engine_t::distributed_spmv_A/At for the comm/comp overlap:
+  //   own :  cols in [0, owned_*_size)  -- input already valid, run pre-exchange
+  //   halo:  cols in [owned_*_size, total_*_size) -- run post-exchange with beta=1
+  // Populated in the ctor from rank_data.h_A{,_t}_{own,halo}_*. See rank_data_t
+  // comment for the split invariant.
+  struct local_csr_t {
+    rmm::device_uvector<i_t> row_offsets;
+    rmm::device_uvector<i_t> col_indices;
+    rmm::device_uvector<f_t> values;
+
+    explicit local_csr_t(rmm::cuda_stream_view s)
+      : row_offsets(0, s), col_indices(0, s), values(0, s)
+    {
+    }
+  };
+  struct split_matrix_t {
+    local_csr_t own;
+    local_csr_t halo;
+
+    explicit split_matrix_t(rmm::cuda_stream_view s) : own(s), halo(s) {}
+  };
+  split_matrix_t A_split;
+  split_matrix_t A_T_split;
+
+  // Refresh A_split.{own,halo}.values and A_T_split.{own,halo}.values from
+  // the current sub_problem A / A_T on device. Structure (row_offsets and
+  // col_indices) is fixed at construction and doesn't change with scaling,
+  // so only value arrays need to be re-derived. MUST be called after any
+  // in-place mutation of sub_problem's A / A_T values -- notably after
+  // multi_gpu_engine_t::distributed_scaling's apply_cummulative_scaling_to_
+  // problem, which scales A and A_T on device while leaving our split
+  // copies stale (this is the entire bug fixed by wiring this method into
+  // distributed_scaling's step 2).
+  void sync_split_values_from_parent();
 
   // var_send_indices_d[peer] : local indices into primal vector to gather and ncclSend
   // var_send_buf_d    [peer] : staging buffer for outgoing variable values

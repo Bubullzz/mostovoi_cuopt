@@ -655,6 +655,84 @@ void pdhg_solver_t<i_t, f_t>::spmv_A_into(cusparseDnVecDescr_t in_desc,
                                        stream_view_));
 }
 
+// Column-split SpMVs on this shard's local A / A^T for the distributed
+// compute/comm overlap path (see pdhg.hpp for the contract). The own halves
+// zero out y (beta=0), the halo halves accumulate into y (beta=1).
+template <typename i_t, typename f_t>
+void pdhg_solver_t<i_t, f_t>::spmv_A_own_into(cusparseDnVecDescr_t in_desc,
+                                              cusparseDnVecDescr_t out_desc)
+{
+  RAFT_CUSPARSE_TRY(
+    raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
+                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                       reusable_device_scalar_value_1_.data(),
+                                       cusparse_view_.A_own,
+                                       in_desc,
+                                       reusable_device_scalar_value_0_.data(),
+                                       out_desc,
+                                       CUSPARSE_SPMV_CSR_ALG2,
+                                       (f_t*)cusparse_view_.buffer_non_transpose_own.data(),
+                                       stream_view_));
+}
+
+template <typename i_t, typename f_t>
+void pdhg_solver_t<i_t, f_t>::spmv_A_halo_into(cusparseDnVecDescr_t in_desc,
+                                               cusparseDnVecDescr_t out_desc)
+{
+  // Empty halo means "nothing to accumulate"; y already holds the own-half
+  // result from spmv_A_own_into. Calling cusparsespmv on a 0-nnz CSR is
+  // suspected to corrupt y in this cuSPARSE version even with beta=1, so
+  // just skip. Semantically identical: y = beta*y + alpha*(empty*x) = y.
+  if (cusparse_view_.nnz_A_halo_ == 0) return;
+  RAFT_CUSPARSE_TRY(
+    raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
+                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                       reusable_device_scalar_value_1_.data(),
+                                       cusparse_view_.A_halo,
+                                       in_desc,
+                                       reusable_device_scalar_value_1_.data(),
+                                       out_desc,
+                                       CUSPARSE_SPMV_CSR_ALG2,
+                                       (f_t*)cusparse_view_.buffer_non_transpose_halo.data(),
+                                       stream_view_));
+}
+
+template <typename i_t, typename f_t>
+void pdhg_solver_t<i_t, f_t>::spmv_A_T_own_into(cusparseDnVecDescr_t in_desc,
+                                                cusparseDnVecDescr_t out_desc)
+{
+  RAFT_CUSPARSE_TRY(
+    raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
+                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                       reusable_device_scalar_value_1_.data(),
+                                       cusparse_view_.A_T_own,
+                                       in_desc,
+                                       reusable_device_scalar_value_0_.data(),
+                                       out_desc,
+                                       CUSPARSE_SPMV_CSR_ALG2,
+                                       (f_t*)cusparse_view_.buffer_transpose_own.data(),
+                                       stream_view_));
+}
+
+template <typename i_t, typename f_t>
+void pdhg_solver_t<i_t, f_t>::spmv_A_T_halo_into(cusparseDnVecDescr_t in_desc,
+                                                 cusparseDnVecDescr_t out_desc)
+{
+  // See spmv_A_halo_into for the empty-halo skip rationale.
+  if (cusparse_view_.nnz_A_T_halo_ == 0) return;
+  RAFT_CUSPARSE_TRY(
+    raft::sparse::detail::cusparsespmv(handle_ptr_->get_cusparse_handle(),
+                                       CUSPARSE_OPERATION_NON_TRANSPOSE,
+                                       reusable_device_scalar_value_1_.data(),
+                                       cusparse_view_.A_T_halo,
+                                       in_desc,
+                                       reusable_device_scalar_value_1_.data(),
+                                       out_desc,
+                                       CUSPARSE_SPMV_CSR_ALG2,
+                                       (f_t*)cusparse_view_.buffer_transpose_halo.data(),
+                                       stream_view_));
+}
+
 template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::compute_primal_projection_with_gradient(
   rmm::device_uvector<f_t>& primal_step_size)

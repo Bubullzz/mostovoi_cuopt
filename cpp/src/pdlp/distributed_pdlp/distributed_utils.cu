@@ -244,6 +244,79 @@ std::vector<rank_data_t<i_t, f_t>> create_rank_data_from_parts(
       v = rd.global_to_local_cstr.at(v);
   }
 
+  // 5. Build column-ownership split of the local host CSRs.
+  //    Each nnz goes to `_own` if its (already-local) col index is in the
+  //    owned prefix, else to `_halo`. Row offsets for both halves have the
+  //    same length as the parent's (total_*_size + 1); owned rows carry the
+  //    partitioned nnz, halo rows stay empty (last-nnz padding preserved).
+  //    See rank_data_t comment for the invariant this preserves.
+#pragma omp parallel for
+  for (i_t rank = 0; rank < nb_parts; rank++) {
+    auto& rd = rank_data[rank];
+
+    auto split_csr = [](const std::vector<i_t>& row_offsets,
+                        const std::vector<i_t>& col_indices,
+                        const std::vector<f_t>& values,
+                        i_t owned_col_boundary,
+                        i_t total_rows,
+                        std::vector<i_t>& own_row_offsets,
+                        std::vector<i_t>& own_col_indices,
+                        std::vector<f_t>& own_values,
+                        std::vector<i_t>& halo_row_offsets,
+                        std::vector<i_t>& halo_col_indices,
+                        std::vector<f_t>& halo_values) {
+      own_row_offsets.assign(total_rows + 1, i_t{0});
+      halo_row_offsets.assign(total_rows + 1, i_t{0});
+      // Reserve a common upper bound; final sizes are the actual per-row nnz sums.
+      own_col_indices.reserve(col_indices.size());
+      own_values.reserve(values.size());
+      halo_col_indices.reserve(col_indices.size());
+      halo_values.reserve(values.size());
+      for (i_t row = 0; row < total_rows; ++row) {
+        const i_t begin = row_offsets[row];
+        const i_t end   = row_offsets[row + 1];
+        for (i_t k = begin; k < end; ++k) {
+          const i_t c = col_indices[k];
+          const f_t v = values[k];
+          if (c < owned_col_boundary) {
+            own_col_indices.push_back(c);
+            own_values.push_back(v);
+          } else {
+            halo_col_indices.push_back(c);
+            halo_values.push_back(v);
+          }
+        }
+        own_row_offsets[row + 1]  = static_cast<i_t>(own_col_indices.size());
+        halo_row_offsets[row + 1] = static_cast<i_t>(halo_col_indices.size());
+      }
+    };
+
+    // A: rows = total_cstr, cols split by variable ownership boundary.
+    split_csr(rd.h_A_row_offsets,
+              rd.h_A_col_indices,
+              rd.h_A_values,
+              rd.owned_var_size,
+              rd.total_cstr_size,
+              rd.h_A_own_row_offsets,
+              rd.h_A_own_col_indices,
+              rd.h_A_own_values,
+              rd.h_A_halo_row_offsets,
+              rd.h_A_halo_col_indices,
+              rd.h_A_halo_values);
+    // A_T: rows = total_var, cols split by constraint ownership boundary.
+    split_csr(rd.h_A_t_row_offsets,
+              rd.h_A_t_col_indices,
+              rd.h_A_t_values,
+              rd.owned_cstr_size,
+              rd.total_var_size,
+              rd.h_A_t_own_row_offsets,
+              rd.h_A_t_own_col_indices,
+              rd.h_A_t_own_values,
+              rd.h_A_t_halo_row_offsets,
+              rd.h_A_t_halo_col_indices,
+              rd.h_A_t_halo_values);
+  }
+
   return rank_data;
 }
 

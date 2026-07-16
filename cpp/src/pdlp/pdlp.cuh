@@ -124,6 +124,10 @@ class pdlp_solver_t {
   // call across all shards' pdhg_solver_t::*_transform methods.
   rmm::device_uvector<f_t>& get_primal_step_size() { return primal_step_size_; }
   rmm::device_uvector<f_t>& get_dual_step_size() { return dual_step_size_; }
+  // pdlp_shard_t installs the split-A/A_T cuSPARSE descriptors (for the SpMV
+  // comm/comp overlap in multi_gpu_engine_t::distributed_spmv_A/At) onto this
+  // shard's sub-pdlp cusparse_view. See cusparse_view_t::init_distributed_split.
+  cusparse_view_t<i_t, f_t>& get_cusparse_view() { return pdhg_solver_.get_cusparse_view(); }
   // Multi-GPU restart broadcast needs to mirror master's primal_weight /
   // best_primal_weight onto every shard after each cuPDLPx restart so that
   // downstream shard-side restart machinery stays in sync with master.

@@ -99,6 +99,21 @@ class pdhg_solver_t {
   void spmv_At_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
   void spmv_A_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
 
+  // Column-split SpMVs on the local A / A^T for the distributed compute/comm
+  // overlap. Semantically equivalent to running spmv_A_into once (as
+  // spmv_A_own_into then spmv_A_halo_into), but the two halves can be split
+  // across streams because A_own reads only owned input cols and A_halo reads
+  // only halo input cols. Requires cusparse_view_.init_distributed_split() to
+  // have run.
+  //   _own_into  : y = A_{own,halo}   @ in    (beta = 0, writes y)
+  //   _halo_into : y = A_{own,halo}   @ in + y (beta = 1, accumulates)
+  // Same shape/pattern for A_T_{own,halo}_into. The halo variant expects `y`
+  // to already hold the own-half's result before it runs.
+  void spmv_A_own_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
+  void spmv_A_halo_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
+  void spmv_A_T_own_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
+  void spmv_A_T_halo_into(cusparseDnVecDescr_t in_desc, cusparseDnVecDescr_t out_desc);
+
   // Pure cub-transform extractions. Allows for clearer containment of the calls and ensures
   // the single-GPU vs distributed-GPU uses the same calls
   void primal_reflected_major_projection_transform(rmm::device_uvector<f_t>& primal_step_size);

@@ -1248,6 +1248,73 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(
 {
 }
 
+// Distributed-only: create cusparse descriptors for the column-ownership split
+// of the local A / A_T matrices and size their SpMV workspaces. Requires the
+// parent A / A_T descriptors and the c / dual_solution probe vec descriptors
+// to already be initialized (i.e. constructed via the primary cusparse_view_t
+// ctor). Called from pdlp_shard_t after sub_pdlp is built and A_split /
+// A_T_split are uploaded. See pdlp_shard_t::split_matrix_t.
+template <typename i_t, typename f_t>
+void cusparse_view_t<i_t, f_t>::init_distributed_split(int64_t rows_A,
+                                                       int64_t cols_A,
+                                                       int64_t nnz_A_own,
+                                                       i_t* A_own_off,
+                                                       i_t* A_own_idx,
+                                                       f_t* A_own_val,
+                                                       int64_t nnz_A_halo,
+                                                       i_t* A_halo_off,
+                                                       i_t* A_halo_idx,
+                                                       f_t* A_halo_val,
+                                                       int64_t rows_A_T,
+                                                       int64_t cols_A_T,
+                                                       int64_t nnz_A_T_own,
+                                                       i_t* A_T_own_off,
+                                                       i_t* A_T_own_idx,
+                                                       f_t* A_T_own_val,
+                                                       int64_t nnz_A_T_halo,
+                                                       i_t* A_T_halo_off,
+                                                       i_t* A_T_halo_idx,
+                                                       f_t* A_T_halo_val)
+{
+  A_own.create(rows_A, cols_A, nnz_A_own, A_own_off, A_own_idx, A_own_val);
+  A_halo.create(rows_A, cols_A, nnz_A_halo, A_halo_off, A_halo_idx, A_halo_val);
+  A_T_own.create(rows_A_T, cols_A_T, nnz_A_T_own, A_T_own_off, A_T_own_idx, A_T_own_val);
+  A_T_halo.create(rows_A_T, cols_A_T, nnz_A_T_halo, A_T_halo_off, A_T_halo_idx, A_T_halo_val);
+  nnz_A_own_    = nnz_A_own;
+  nnz_A_halo_   = nnz_A_halo;
+  nnz_A_T_own_  = nnz_A_T_own;
+  nnz_A_T_halo_ = nnz_A_T_halo;
+
+  rmm::device_uvector<f_t> alpha(1, handle_ptr_->get_stream());
+  rmm::device_uvector<f_t> beta(1, handle_ptr_->get_stream());
+
+  auto probe = [&](cusparseSpMatDescr_t mat,
+                   cusparseDnVecDescr_t in_desc,
+                   cusparseDnVecDescr_t out_desc,
+                   rmm::device_uvector<uint8_t>& buf) {
+    size_t bytes = 0;
+    RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsespmv_buffersize(
+      handle_ptr_->get_cusparse_handle(),
+      CUSPARSE_OPERATION_NON_TRANSPOSE,
+      alpha.data(),
+      mat,
+      in_desc,
+      beta.data(),
+      out_desc,
+      CUSPARSE_SPMV_CSR_ALG2,
+      &bytes,
+      handle_ptr_->get_stream()));
+    buf.resize(bytes, handle_ptr_->get_stream());
+  };
+
+  // A_{own,halo}:  in = c (total_var-sized), out = dual_solution (total_cstr-sized)
+  probe(A_own, c, dual_solution, buffer_non_transpose_own);
+  probe(A_halo, c, dual_solution, buffer_non_transpose_halo);
+  // A_T_{own,halo}: in = dual_solution, out = c
+  probe(A_T_own, dual_solution, c, buffer_transpose_own);
+  probe(A_T_halo, dual_solution, c, buffer_transpose_halo);
+}
+
 // Update FP32 matrix copies after scaling (must be called after scale_problem())
 template <typename i_t, typename f_t>
 void cusparse_view_t<i_t, f_t>::update_mixed_precision_matrices()

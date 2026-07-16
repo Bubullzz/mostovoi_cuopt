@@ -58,5 +58,34 @@ struct rank_data_t {
   std::vector<i_t> h_A_t_row_offsets;
   std::vector<i_t> h_A_t_col_indices;
   std::vector<f_t> h_A_t_values;
+
+  // === Column-ownership split of the local host CSR matrices ===
+  // `_own`  : cols in [0, owned_var_size)  for A   /  [0, owned_cstr_size)  for A_t
+  //           -- SpMV on this half depends only on owned input entries, so it
+  //           can run in parallel with the halo NCCL exchange.
+  // `_halo` : cols in [owned_var_size, total_var_size)  /  [owned_cstr_size, total_cstr_size)
+  //           -- SpMV on this half needs the halo tail of the input vector, so
+  //           it must wait for halo_exchange to complete.
+  //
+  // Column indices in `_halo` remain absolute local indices (NOT remapped to
+  // [0, halo_size)) so both SpMVs can share the same total-sized input vector.
+  // Both matrices retain the same row count as the parent (total_cstr_size /
+  // total_var_size) with owned-rows populated and halo-rows empty; owned+halo
+  // nnz per row sums to the parent's row nnz.
+  //
+  // A_own / A_halo
+  std::vector<i_t> h_A_own_row_offsets;
+  std::vector<i_t> h_A_own_col_indices;
+  std::vector<f_t> h_A_own_values;
+  std::vector<i_t> h_A_halo_row_offsets;
+  std::vector<i_t> h_A_halo_col_indices;
+  std::vector<f_t> h_A_halo_values;
+  // A_t_own / A_t_halo
+  std::vector<i_t> h_A_t_own_row_offsets;
+  std::vector<i_t> h_A_t_own_col_indices;
+  std::vector<f_t> h_A_t_own_values;
+  std::vector<i_t> h_A_t_halo_row_offsets;
+  std::vector<i_t> h_A_t_halo_col_indices;
+  std::vector<f_t> h_A_t_halo_values;
 };
 }  // namespace cuopt::mathematical_optimization::pdlp

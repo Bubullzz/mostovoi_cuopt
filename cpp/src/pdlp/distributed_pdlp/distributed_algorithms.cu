@@ -180,8 +180,14 @@ void multi_gpu_engine_t<i_t, f_t>::distributed_scaling(pdlp_hyper_params_t const
   // 2) Per-shard apply of the accumulated scaling to A, c, variable and
   //    constraint bounds. This is scale_problem() minus its local
   //    bound/objective rescaling; the equivalent global step happens in (3).
+  //    apply_cummulative_scaling_to_problem mutates sub_problem's A / A_T
+  //    values in place; the shard's A_split / A_T_split are separate device
+  //    buffers derived from the pre-scaled values at construction, so they
+  //    become stale here. Refresh them from the just-scaled parent before
+  //    distributed_spmv_A/At starts consuming the split matrices.
   for_each_shard([](auto& shard) {
     shard.sub_pdlp->get_initial_scaling_strategy().apply_cummulative_scaling_to_problem();
+    shard.sync_split_values_from_parent();
   });
   synchronize_shards();
 

@@ -193,6 +193,32 @@ class cusparse_view_t {
                   const rmm::device_uvector<i_t>&,               // Empty just to init the const&
                   const std::vector<pdlp_climber_strategy_t>&);  // Empty just to init the const&
 
+  // Distributed-only: build cusparse descriptors + SpMV workspaces for the
+  // column-ownership split of A and A_T. Row/col shapes and nnz splits must
+  // match the parent A / A_T; column indices in the halo halves stay absolute
+  // local (not remapped to [0, halo_size)) so both halves consume the same
+  // total-sized input vector. See rank_data_t / pdlp_shard_t::split_matrix_t.
+  void init_distributed_split(int64_t rows_A,
+                              int64_t cols_A,
+                              int64_t nnz_A_own,
+                              i_t* A_own_off,
+                              i_t* A_own_idx,
+                              f_t* A_own_val,
+                              int64_t nnz_A_halo,
+                              i_t* A_halo_off,
+                              i_t* A_halo_idx,
+                              f_t* A_halo_val,
+                              int64_t rows_A_T,
+                              int64_t cols_A_T,
+                              int64_t nnz_A_T_own,
+                              i_t* A_T_own_off,
+                              i_t* A_T_own_idx,
+                              f_t* A_T_own_val,
+                              int64_t nnz_A_T_halo,
+                              i_t* A_T_halo_off,
+                              i_t* A_T_halo_idx,
+                              f_t* A_T_halo_val);
+
   const bool batch_mode_{false};
 
   raft::handle_t const* handle_ptr_{nullptr};
@@ -201,6 +227,25 @@ class cusparse_view_t {
   cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A;
   cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A_T;
   cusparse_dn_vec_descr_wrapper_t<f_t> c;
+
+  // Column-ownership split of A / A_T, for distributed PDLP's compute/comm
+  // overlap. Non-null only after init_distributed_split() is called from
+  // pdlp_shard_t. Both halves share the parent's row/col shape; nnz_own +
+  // nnz_halo == parent nnz. See pdlp_shard_t::split_matrix_t.
+  cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A_own;
+  cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A_halo;
+  cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A_T_own;
+  cusparse_sp_mat_descr_wrapper_t<i_t, f_t> A_T_halo;
+
+  // Cached nnz for the split matrices. Consumed by pdhg_solver_t's
+  // spmv_{A,A_T}_{own,halo}_into so they can no-op when nnz == 0 -- calling
+  // cuSPARSE spmv on an empty CSR turns out to be flaky in practice
+  // (numerical corruption of y even with beta=1), so we skip it. Populated
+  // by init_distributed_split alongside the descriptors.
+  int64_t nnz_A_own_{0};
+  int64_t nnz_A_halo_{0};
+  int64_t nnz_A_T_own_{0};
+  int64_t nnz_A_T_halo_{0};
 
   // cusparse view of solutions
   cusparse_dn_vec_descr_wrapper_t<f_t> primal_solution;
@@ -244,6 +289,13 @@ class cusparse_view_t {
   // reuse buffers for cusparse spmv
   rmm::device_uvector<uint8_t> buffer_non_transpose;
   rmm::device_uvector<uint8_t> buffer_transpose;
+
+  // SpMV buffers for the column-split A / A_T (own / halo halves). Sized in
+  // init_distributed_split(); zero-length otherwise.
+  rmm::device_uvector<uint8_t> buffer_non_transpose_own{0, handle_ptr_->get_stream()};
+  rmm::device_uvector<uint8_t> buffer_non_transpose_halo{0, handle_ptr_->get_stream()};
+  rmm::device_uvector<uint8_t> buffer_transpose_own{0, handle_ptr_->get_stream()};
+  rmm::device_uvector<uint8_t> buffer_transpose_halo{0, handle_ptr_->get_stream()};
 
   // SpMVOp buffers for A and A_T
   rmm::device_uvector<uint8_t> buffer_non_transpose_spmvop{0, handle_ptr_->get_stream()};

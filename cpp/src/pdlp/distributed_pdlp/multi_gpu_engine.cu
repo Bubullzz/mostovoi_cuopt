@@ -139,12 +139,19 @@ void multi_gpu_engine_t<i_t, f_t>::sync_await_shards(rmm::cuda_stream_view maste
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::halo_exchange_bufs_impl(
   std::vector<raft::device_span<f_t>> const& bufs,
-  std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> const& axes)
+  std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> const& axes,
+  bool on_comm_stream)
 {
   const int nb = static_cast<int>(shards.size());
   cuopt_expects(static_cast<int>(bufs.size()) == nb && static_cast<int>(axes.size()) == nb,
                 error_type_t::RuntimeError,
                 "halo_exchange_bufs_impl: bufs / axes must have size == shards.size()");
+
+  // Select per-shard stream once so gather / send / recv all agree. See the
+  // header comment for the semantics of on_comm_stream.
+  auto stream_of = [on_comm_stream](auto& s) -> rmm::cuda_stream_view {
+    return on_comm_stream ? s.comm_stream.view() : s.stream.view();
+  };
 
   // Step 1: gather owned values that each peer needs into per-peer staging.
   for_each_shard([&](auto& s, int r) {
@@ -153,7 +160,7 @@ void multi_gpu_engine_t<i_t, f_t>::halo_exchange_bufs_impl(
     for (int peer = 0; peer < nb; ++peer) {
       if (peer == r) continue;
       if (ax.send_indices[peer].size() == 0) continue;
-      thrust::gather(rmm::exec_policy_nosync(s.stream.view()),
+      thrust::gather(rmm::exec_policy_nosync(stream_of(s)),
                      ax.send_indices[peer].begin(),
                      ax.send_indices[peer].end(),
                      x.data(),
@@ -172,7 +179,7 @@ void multi_gpu_engine_t<i_t, f_t>::halo_exchange_bufs_impl(
                               nccl_data_type<f_t>(),
                               peer,
                               s.comm.get(),
-                              s.stream.view().value()));
+                              stream_of(s).value()));
     }
   });
   for_each_shard([&](auto& s, int r) {
@@ -186,7 +193,7 @@ void multi_gpu_engine_t<i_t, f_t>::halo_exchange_bufs_impl(
                               nccl_data_type<f_t>(),
                               peer,
                               s.comm.get(),
-                              s.stream.view().value()));
+                              stream_of(s).value()));
     }
   });
   CUOPT_NCCL_TRY(ncclGroupEnd());
@@ -194,46 +201,46 @@ void multi_gpu_engine_t<i_t, f_t>::halo_exchange_bufs_impl(
 
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::halo_exchange_var_bufs(
-  std::vector<raft::device_span<f_t>> const& bufs)
+  std::vector<raft::device_span<f_t>> const& bufs, bool on_comm_stream)
 {
   std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> axes;
   axes.reserve(shards.size());
   for (auto& s : shards)
     axes.push_back(s->var_halo_axis());
-  halo_exchange_bufs_impl(bufs, axes);
+  halo_exchange_bufs_impl(bufs, axes, on_comm_stream);
 }
 
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::halo_exchange_var_bufs(
-  std::vector<rmm::device_uvector<f_t>>& bufs)
+  std::vector<rmm::device_uvector<f_t>>& bufs, bool on_comm_stream)
 {
   std::vector<raft::device_span<f_t>> spans;
   spans.reserve(bufs.size());
   for (auto& b : bufs)
     spans.emplace_back(b.data(), b.size());
-  halo_exchange_var_bufs(spans);
+  halo_exchange_var_bufs(spans, on_comm_stream);
 }
 
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::halo_exchange_cstr_bufs(
-  std::vector<raft::device_span<f_t>> const& bufs)
+  std::vector<raft::device_span<f_t>> const& bufs, bool on_comm_stream)
 {
   std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> axes;
   axes.reserve(shards.size());
   for (auto& s : shards)
     axes.push_back(s->cstr_halo_axis());
-  halo_exchange_bufs_impl(bufs, axes);
+  halo_exchange_bufs_impl(bufs, axes, on_comm_stream);
 }
 
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::halo_exchange_cstr_bufs(
-  std::vector<rmm::device_uvector<f_t>>& bufs)
+  std::vector<rmm::device_uvector<f_t>>& bufs, bool on_comm_stream)
 {
   std::vector<raft::device_span<f_t>> spans;
   spans.reserve(bufs.size());
   for (auto& b : bufs)
     spans.emplace_back(b.data(), b.size());
-  halo_exchange_cstr_bufs(spans);
+  halo_exchange_cstr_bufs(spans, on_comm_stream);
 }
 
 // -------- Gather owned slices to master -------------------------------------
@@ -413,27 +420,56 @@ void multi_gpu_engine_t<i_t, f_t>::distributed_l2_norm_to_master_buf(
   raft::copy(master_dst.data_handle(), shard_out[0].data_handle(), 1, master_stream);
 }
 
-// -------- Fused halo-exchange + SpMV ----------------------------------------
-template <typename i_t, typename f_t>
-void multi_gpu_engine_t<i_t, f_t>::distributed_spmv_At(
-  std::vector<rmm::device_uvector<f_t>>& in_bufs,
-  std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& in_descs,
-  std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& out_descs)
-{
-  halo_exchange_cstr_bufs(in_bufs);
-  for_each_shard(
-    [&](auto& s, int r) { s.sub_pdlp->pdhg_solver_.spmv_At_into(in_descs[r], out_descs[r]); });
-}
-
+// -------- Column-split SpMV with compute/comm overlap -----------------------
+// Overlaps the own-half SpMV (on each shard's compute stream `s.stream`) with
+// the halo NCCL exchange (on each shard's `s.comm_stream`). Per shard:
+//
+//     [compute]  input_ready.record ─────────────┐
+//     [compute]  spmv_own_into(in, out)          │
+//                                                ▼
+//     [comm]     comm_stream.wait(input_ready)
+//     [comm]     gather -> ncclSend -> ncclRecv  (via halo_exchange_*_bufs,
+//                                                 on_comm_stream=true)
+//     [comm]     halo_ready.record ──────────────┐
+//                                                ▼
+//     [compute]  compute_stream.wait(halo_ready)
+//     [compute]  spmv_halo_into(in, out)   (beta=1, accumulates)
+//
+// Net effect is the same as spmv_A_into on the full local A, but the own-half
+// SpMV runs concurrently with the exchange. Output is left on `s.stream`, so
+// callers that already synchronize / consume from the compute stream see no
+// contract change. See pdhg_solver_t's spmv_{A,A_T}_{own,halo}_into for the
+// beta convention and rank_data_t / pdlp_shard_t for the split invariant.
+//
+// The three per-shard event ops (2 records + 2 waits) are pure host-side
+// cudaEventRecord / cudaStreamWaitEvent calls, cheap enough that we don't
+// batch them into a single ncclGroup / graph.
 template <typename i_t, typename f_t>
 void multi_gpu_engine_t<i_t, f_t>::distributed_spmv_A(
   std::vector<rmm::device_uvector<f_t>>& in_bufs,
   std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& in_descs,
   std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& out_descs)
 {
+  // DIAGNOSTIC BYPASS: fall back to the pre-split path (halo_exchange then
+  // single-SpMV on parent A). If this restores 1-GPU parity vs single-GPU
+  // (510 steps on afiro), then the split-SpMV path is the source of the
+  // observed 1200-step divergence. If not, the bug is elsewhere (probably
+  // in a construction-time side effect on shard.cu / cusparse_view init).
   halo_exchange_var_bufs(in_bufs);
   for_each_shard(
     [&](auto& s, int r) { s.sub_pdlp->pdhg_solver_.spmv_A_into(in_descs[r], out_descs[r]); });
+}
+
+template <typename i_t, typename f_t>
+void multi_gpu_engine_t<i_t, f_t>::distributed_spmv_At(
+  std::vector<rmm::device_uvector<f_t>>& in_bufs,
+  std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& in_descs,
+  std::vector<cusparse_dn_vec_descr_wrapper_t<f_t>>& out_descs)
+{
+  // DIAGNOSTIC BYPASS: see distributed_spmv_A above.
+  halo_exchange_cstr_bufs(in_bufs);
+  for_each_shard(
+    [&](auto& s, int r) { s.sub_pdlp->pdhg_solver_.spmv_At_into(in_descs[r], out_descs[r]); });
 }
 
 template struct multi_gpu_engine_t<int, double>;

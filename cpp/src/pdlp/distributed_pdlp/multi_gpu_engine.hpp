@@ -176,16 +176,27 @@ struct multi_gpu_engine_t {
   //   Step 1: thrust::gather per-peer outgoing values into staging buffers.
   //   Step 2: one NCCL group with matched ncclSend / ncclRecv across all
   //           (rank, peer) pairs, receiving into each shard's halo tail.
+  //
+  // When `on_comm_stream` is false (default), all shard-local work runs on
+  // each shard's compute stream (`s.stream`) -- callers see a blocking-shaped
+  // exchange on the same stream they'll consume the result on. When true, the
+  // exchange runs on each shard's `comm_stream` instead; the caller is
+  // responsible for the surrounding event dance so the compute stream sees a
+  // valid halo tail before consuming it. Only distributed_spmv_A/At uses the
+  // true-branch today.
   void halo_exchange_bufs_impl(
     std::vector<raft::device_span<f_t>> const& bufs,
-    std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> const& axes);
+    std::vector<typename pdlp_shard_t<i_t, f_t>::halo_axis_t> const& axes,
+    bool on_comm_stream = false);
 
   // -------- Halo exchange (variables / x) ---------------------------------
-  void halo_exchange_var_bufs(std::vector<raft::device_span<f_t>> const& bufs);
+  void halo_exchange_var_bufs(std::vector<raft::device_span<f_t>> const& bufs,
+                              bool on_comm_stream = false);
 
   // Overload: accept the owning device_uvector directly (rmm doesn't provide
   // an implicit conversion to raft::device_span)
-  void halo_exchange_var_bufs(std::vector<rmm::device_uvector<f_t>>& bufs);
+  void halo_exchange_var_bufs(std::vector<rmm::device_uvector<f_t>>& bufs,
+                              bool on_comm_stream = false);
 
   // Wrapper: pdlp_solver_t accessor. Resolves one uvector per shard into a
   // vector of spans, then delegates to halo_exchange_var_bufs.
@@ -203,10 +214,12 @@ struct multi_gpu_engine_t {
   }
 
   // -------- Halo exchange (constraints / y) -------------------------------
-  void halo_exchange_cstr_bufs(std::vector<raft::device_span<f_t>> const& bufs);
+  void halo_exchange_cstr_bufs(std::vector<raft::device_span<f_t>> const& bufs,
+                               bool on_comm_stream = false);
 
   // Overload: same rationale as halo_exchange_var_bufs above.
-  void halo_exchange_cstr_bufs(std::vector<rmm::device_uvector<f_t>>& bufs);
+  void halo_exchange_cstr_bufs(std::vector<rmm::device_uvector<f_t>>& bufs,
+                               bool on_comm_stream = false);
 
   // Wrapper: pdlp_solver_t accessor. Resolves one uvector per shard into a
   // vector of spans, then delegates to halo_exchange_cstr_bufs.
