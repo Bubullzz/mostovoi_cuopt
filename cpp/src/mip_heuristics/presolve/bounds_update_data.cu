@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -81,11 +82,11 @@ void bounds_update_data_t<i_t, f_t>::prepare_for_next_iteration(const raft::hand
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class bounds_update_data_t<int, float>;
+template class bounds_update_data_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class bounds_update_data_t<int, double>;
+template class bounds_update_data_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

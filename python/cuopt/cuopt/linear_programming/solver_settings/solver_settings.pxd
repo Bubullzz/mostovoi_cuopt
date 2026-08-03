@@ -11,6 +11,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from ..cuopt_index cimport cuopt_int_t
 
 cdef extern from "cuopt/mathematical_optimization/utilities/internals.hpp" namespace "cuopt::internals": # noqa
     cdef cppclass base_solution_callback_t
@@ -92,7 +93,7 @@ cdef extern from "cuopt/mathematical_optimization/solver_settings.hpp" namespace
 
 
 cdef class SolverSettings:
-    cdef unique_ptr[solver_settings_t[int, double]] c_solver_settings
+    cdef unique_ptr[solver_settings_t[cuopt_int_t, double]] c_solver_settings
     cdef public dict settings_dict
     cdef public object pdlp_warm_start_data
     cdef public list mip_callbacks

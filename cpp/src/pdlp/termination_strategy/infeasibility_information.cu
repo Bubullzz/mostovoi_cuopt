@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/initial_scaling_strategy/initial_scaling.cuh>
 #include <pdlp/pdlp_constants.hpp>
 #include <pdlp/restart_strategy/pdlp_restart_strategy.cuh>
@@ -756,17 +757,17 @@ typename infeasibility_information_t<i_t, f_t>::view_t infeasibility_information
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class infeasibility_information_t<int, float>;
+template class infeasibility_information_t<cuopt_int_t, float>;
 
-template __global__ void compute_remaining_stats_kernel<int, float>(
-  typename infeasibility_information_t<int, float>::view_t infeasibility_information_view);
+template __global__ void compute_remaining_stats_kernel<cuopt_int_t, float>(
+  typename infeasibility_information_t<cuopt_int_t, float>::view_t infeasibility_information_view);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class infeasibility_information_t<int, double>;
+template class infeasibility_information_t<cuopt_int_t, double>;
 
-template __global__ void compute_remaining_stats_kernel<int, double>(
-  typename infeasibility_information_t<int, double>::view_t infeasibility_information_view);
+template __global__ void compute_remaining_stats_kernel<cuopt_int_t, double>(
+  typename infeasibility_information_t<cuopt_int_t, double>::view_t infeasibility_information_view);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/csr_kkt_build.cuh>
 #include <barrier/device_sparse_matrix.cuh>
 #include <barrier/second_order_cone_kernels.cuh>
@@ -23,7 +24,7 @@ namespace cuopt::mathematical_optimization::barrier::test {
 namespace {
 
 // Packed Hs_diag reference: eta^2 on every entry, head scaled by rank-2 corner d.
-std::vector<double> expected_Hs_diag(const cone_data_t<int, double>& cones,
+std::vector<double> expected_Hs_diag(const cone_data_t<cuopt_int_t, double>& cones,
                                      rmm::cuda_stream_view stream)
 {
   const int E                    = static_cast<int>(cones.n_sparse_cone_entries);
@@ -55,7 +56,7 @@ TEST(sparse_augmented_kkt, cone_counts_and_expansion_size)
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
   EXPECT_EQ(cones.n_sparse_cones, 2);
@@ -74,7 +75,7 @@ TEST(sparse_augmented_kkt, scatter_sparse_hessian_into_augmented)
   rmm::device_uvector<double> x(11, stream);
   rmm::device_uvector<double> z(11, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
   ASSERT_EQ(cones.n_sparse_cones, 2);
@@ -183,7 +184,7 @@ TEST(sparse_augmented_kkt, sparse_augmented_matvec)
   rmm::device_uvector<double> x(6, stream);
   rmm::device_uvector<double> z(6, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
   ASSERT_EQ(cones.n_sparse_cones, 1);
@@ -262,7 +263,7 @@ TEST(sparse_augmented_kkt, update_scaling_sparse_dim_1000)
   rmm::device_uvector<double> x(1000, stream);
   rmm::device_uvector<double> z(1000, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/5);
 
   ASSERT_EQ(cones.n_sparse_cones, 1);
@@ -355,10 +356,10 @@ TEST(sparse_augmented_kkt, gpu_augmented_csr_metadata_matches_host)
   std::vector<int> cone_dimensions{3, 6, 5};
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
-  cone_kkt_data_t<int, double> metadata(stream);
+  cone_kkt_data_t<cuopt_int_t, double> metadata(stream);
   build_augmented_csr_metadata(cones, metadata, stream);
 
   auto sparse_idx_host    = cuopt::host_copy(metadata.sparse_ids_by_cone, stream);

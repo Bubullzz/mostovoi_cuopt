@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -22,6 +23,8 @@
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform_reduce.h>
 #include <thrust/tuple.h>
+
+#include <cuopt/utilities/cusparse_index_types.hpp>
 
 #include "conditional_bound_strengthening.cuh"
 
@@ -104,6 +107,8 @@ void spgemm_cusparse([[maybe_unused]] rmm::device_uvector<i_t>& offsetsA,
   cusparseOperation_t opB  = CUSPARSE_OPERATION_NON_TRANSPOSE;
   cudaDataType computeType = CUDA_R_32F;
 
+  const auto cusparse_index = cuopt::utilities::cusparse_index_type<i_t>();
+
   check_cusparse_status(cusparseCreateCsr(&matA,
                                           m,
                                           n,
@@ -111,8 +116,8 @@ void spgemm_cusparse([[maybe_unused]] rmm::device_uvector<i_t>& offsetsA,
                                           offsetsA.data(),
                                           colsA.data(),
                                           valsA.data(),
-                                          CUSPARSE_INDEX_32I,
-                                          CUSPARSE_INDEX_32I,
+                                          cusparse_index,
+                                          cusparse_index,
                                           CUSPARSE_INDEX_BASE_ZERO,
                                           CUDA_R_32F));
   check_cusparse_status(cusparseCreateCsr(&matB,
@@ -122,8 +127,8 @@ void spgemm_cusparse([[maybe_unused]] rmm::device_uvector<i_t>& offsetsA,
                                           offsetsB.data(),
                                           colsB.data(),
                                           valsB.data(),
-                                          CUSPARSE_INDEX_32I,
-                                          CUSPARSE_INDEX_32I,
+                                          cusparse_index,
+                                          cusparse_index,
                                           CUSPARSE_INDEX_BASE_ZERO,
                                           CUDA_R_32F));
   check_cusparse_status(cusparseCreateCsr(&matC,
@@ -133,8 +138,8 @@ void spgemm_cusparse([[maybe_unused]] rmm::device_uvector<i_t>& offsetsA,
                                           offsetsC.data(),
                                           NULL,
                                           NULL,
-                                          CUSPARSE_INDEX_32I,
-                                          CUSPARSE_INDEX_32I,
+                                          cusparse_index,
+                                          cusparse_index,
                                           CUSPARSE_INDEX_BASE_ZERO,
                                           CUDA_R_32F));
 
@@ -717,10 +722,10 @@ void conditional_bound_strengthening_t<i_t, f_t>::solve(problem_t<i_t, f_t>& pro
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class conditional_bound_strengthening_t<int, float>;
+template class conditional_bound_strengthening_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class conditional_bound_strengthening_t<int, double>;
+template class conditional_bound_strengthening_t<cuopt_int_t, double>;
 #endif
 }  // namespace cuopt::mathematical_optimization::mip

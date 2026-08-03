@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "fast_parser.hpp"
 #include "fast_parse_primitives.hpp"
 #include "file_reader.hpp"
@@ -907,8 +908,10 @@ static bool parse_rows_section_parallel_impl(parse_state_t<i_t, f_t>& state,
   }
 
   size_t total_rows = offsets[(size_t)num_threads];
-  if (UNLIKELY(total_rows > (size_t)INT_MAX)) {
-    state.cursor.error("fast MPS parser requires <= INT_MAX rows, got %zu", total_rows);
+  if (UNLIKELY(total_rows > (size_t)std::numeric_limits<i_t>::max())) {
+    state.cursor.error("fast MPS parser requires <= %zu rows for index type, got %zu",
+                       (size_t)std::numeric_limits<i_t>::max(),
+                       total_rows);
   }
   {
     scoped_timer_t timer("rows_resize_outputs");
@@ -1050,8 +1053,9 @@ static void parse_rows_section_serial_impl(parse_state_t<i_t, f_t>& state, const
     }
     expect_eol(state.cursor);
   }
-  if (UNLIKELY(state.row_names_sv.size() > (size_t)INT_MAX)) {
-    state.cursor.error("fast MPS parser requires <= INT_MAX rows, got %zu",
+  if (UNLIKELY(state.row_names_sv.size() > (size_t)std::numeric_limits<i_t>::max())) {
+    state.cursor.error("fast MPS parser requires <= %zu rows for index type, got %zu",
+                       (size_t)std::numeric_limits<i_t>::max(),
                        state.row_names_sv.size());
   }
 }
@@ -1306,8 +1310,10 @@ static chunk_result_t parse_columns_chunk(const char* chunk_start,
   size_t chunk_size     = (size_t)(chunk_end - chunk_start);
   size_t estimated_nnz  = chunk_size / 100;
   size_t estimated_cols = estimated_nnz / 10;
-  if (UNLIKELY(state.problem.n_constraints_ > (i_t)std::numeric_limits<int32_t>::max())) {
-    state.cursor.error("fast COLUMNS path requires <= INT32_MAX rows for chunk row indices");
+  if constexpr (sizeof(i_t) <= sizeof(int32_t)) {
+    if (UNLIKELY(state.problem.n_constraints_ > (i_t)std::numeric_limits<int32_t>::max())) {
+      state.cursor.error("fast COLUMNS path requires <= INT32_MAX rows for chunk row indices");
+    }
   }
   result.values.reserve(estimated_nnz);
   result.row_indices.reserve(estimated_nnz);
@@ -3212,13 +3218,15 @@ mps_data_model_t<i_t, f_t> parse_mps_fast_file(const std::string& path, FileRead
   __builtin_unreachable();
 }
 
-template mps_data_model_t<int, float> parse_mps_fast_file(const std::string& path,
+template mps_data_model_t<cuopt_int_t, float> parse_mps_fast_file(const std::string& path,
                                                           FileReadMethod read_method);
-template mps_data_model_t<int, double> parse_mps_fast_file(const std::string& path,
+template mps_data_model_t<cuopt_int_t, double> parse_mps_fast_file(const std::string& path,
                                                            FileReadMethod read_method);
+#if !CUOPT_INSTANTIATE_INT64
 template mps_data_model_t<int64_t, float> parse_mps_fast_file(const std::string& path,
                                                               FileReadMethod read_method);
 template mps_data_model_t<int64_t, double> parse_mps_fast_file(const std::string& path,
                                                                FileReadMethod read_method);
+#endif
 
 }  // namespace cuopt::mathematical_optimization::io::detail

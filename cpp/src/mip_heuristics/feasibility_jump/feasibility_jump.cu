@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 
 #include "feasibility_jump.cuh"
@@ -1149,11 +1150,11 @@ i_t fj_t<i_t, f_t>::solve(solution_t<i_t, f_t>& solution)
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class fj_t<int, float>;
+template class fj_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class fj_t<int, double>;
+template class fj_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

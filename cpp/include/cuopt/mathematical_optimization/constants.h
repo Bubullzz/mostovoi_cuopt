@@ -10,14 +10,46 @@
 
 #ifdef __cplusplus
 #include <limits>
+#include <cstdint>
 #else
 #include <math.h>
+#include <stdint.h>
 #endif
 
-#define CUOPT_INSTANTIATE_FLOAT  0
+/* Index / float instantiation switches.
+ * CMake may override these via -DCUOPT_INSTANTIATE_INT64=1 (and INT32=0) before
+ * this header is included; the #ifndef guards keep the defaults for stock builds.
+ */
+#ifndef CUOPT_INSTANTIATE_FLOAT
+#define CUOPT_INSTANTIATE_FLOAT 0
+#endif
+#ifndef CUOPT_INSTANTIATE_DOUBLE
 #define CUOPT_INSTANTIATE_DOUBLE 1
-#define CUOPT_INSTANTIATE_INT32  1
-#define CUOPT_INSTANTIATE_INT64  0
+#endif
+#ifndef CUOPT_INSTANTIATE_INT32
+#define CUOPT_INSTANTIATE_INT32 1
+#endif
+#ifndef CUOPT_INSTANTIATE_INT64
+#define CUOPT_INSTANTIATE_INT64 0
+#endif
+
+#if CUOPT_INSTANTIATE_INT32 && CUOPT_INSTANTIATE_INT64
+#error "CUOPT_INSTANTIATE_INT32 and CUOPT_INSTANTIATE_INT64 are mutually exclusive"
+#endif
+#if !CUOPT_INSTANTIATE_INT32 && !CUOPT_INSTANTIATE_INT64
+#error "One of CUOPT_INSTANTIATE_INT32 or CUOPT_INSTANTIATE_INT64 must be enabled"
+#endif
+
+/**
+ * @brief Integer index type for sparse matrix offsets/indices and problem sizes.
+ * Matches ``cuopt_int_t`` in the C API. Override at configure time with
+ * ``-DCUOPT_INDEX_64BIT=ON`` (sets INT64=1, INT32=0).
+ */
+#if CUOPT_INSTANTIATE_INT64
+typedef int64_t cuopt_int_t;
+#else
+typedef int32_t cuopt_int_t;
+#endif
 
 /* @brief LP/MIP parameter string constants */
 #define CUOPT_ABSOLUTE_DUAL_TOLERANCE              "absolute_dual_tolerance"

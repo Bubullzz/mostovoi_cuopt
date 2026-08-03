@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mps_parser_internal.hpp>
 
 #include <file_to_string.hpp>
@@ -1707,34 +1708,38 @@ void mps_parser_t<i_t, f_t>::read_bound_and_value(std::string_view line,
 }
 
 // NOTE: Explicitly instantiate all types here in order to avoid linker error
-template class mps_parser_t<int, float>;
+template class mps_parser_t<cuopt_int_t, float>;
 
-template class mps_parser_t<int, double>;
+template class mps_parser_t<cuopt_int_t, double>;
 
-template void check_symmetric_offdiagonal_pairs<int, float>(const std::vector<int>&,
-                                                            const std::vector<int>&,
+template void check_symmetric_offdiagonal_pairs<cuopt_int_t, float>(const std::vector<cuopt_int_t>&,
+                                                            const std::vector<cuopt_int_t>&,
                                                             const std::vector<float>&);
-template void check_symmetric_offdiagonal_pairs<int, double>(const std::vector<int>&,
-                                                             const std::vector<int>&,
+template void check_symmetric_offdiagonal_pairs<cuopt_int_t, double>(const std::vector<cuopt_int_t>&,
+                                                             const std::vector<cuopt_int_t>&,
                                                              const std::vector<double>&);
+#if !CUOPT_INSTANTIATE_INT64
 template void check_symmetric_offdiagonal_pairs<int64_t, float>(const std::vector<int64_t>&,
                                                                 const std::vector<int64_t>&,
                                                                 const std::vector<float>&);
 template void check_symmetric_offdiagonal_pairs<int64_t, double>(const std::vector<int64_t>&,
                                                                  const std::vector<int64_t>&,
                                                                  const std::vector<double>&);
+#endif
 
-template void canonicalize_coo_matrix<int, float>(std::vector<int>&,
-                                                  std::vector<int>&,
+template void canonicalize_coo_matrix<cuopt_int_t, float>(std::vector<cuopt_int_t>&,
+                                                  std::vector<cuopt_int_t>&,
                                                   std::vector<float>&);
-template void canonicalize_coo_matrix<int, double>(std::vector<int>&,
-                                                   std::vector<int>&,
+template void canonicalize_coo_matrix<cuopt_int_t, double>(std::vector<cuopt_int_t>&,
+                                                   std::vector<cuopt_int_t>&,
                                                    std::vector<double>&);
+#if !CUOPT_INSTANTIATE_INT64
 template void canonicalize_coo_matrix<int64_t, float>(std::vector<int64_t>&,
                                                       std::vector<int64_t>&,
                                                       std::vector<float>&);
 template void canonicalize_coo_matrix<int64_t, double>(std::vector<int64_t>&,
                                                        std::vector<int64_t>&,
                                                        std::vector<double>&);
+#endif
 
 }  // namespace cuopt::mathematical_optimization::io

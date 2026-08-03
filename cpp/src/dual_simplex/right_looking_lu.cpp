@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/right_looking_lu.hpp>
 #include <math_optimization/tic_toc.hpp>
 #include <utilities/memory_instrumentation.hpp>
@@ -1789,31 +1790,31 @@ i_t right_looking_ldlt(const csc_matrix_t<i_t, f_t>& A,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int right_looking_lu<int, double>(const csc_matrix_t<int, double>& A,
-                                           const simplex_solver_settings_t<int, double>& settings,
+template int right_looking_lu<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                           const simplex_solver_settings_t<cuopt_int_t, double>& settings,
                                            double tol,
-                                           const std::vector<int>& column_list,
+                                           const std::vector<cuopt_int_t>& column_list,
                                            double start_time,
-                                           std::vector<int>& q,
-                                           csc_matrix_t<int, double>& L,
-                                           csc_matrix_t<int, double>& U,
-                                           std::vector<int>& pinv,
+                                           std::vector<cuopt_int_t>& q,
+                                           csc_matrix_t<cuopt_int_t, double>& L,
+                                           csc_matrix_t<cuopt_int_t, double>& U,
+                                           std::vector<cuopt_int_t>& pinv,
                                            double& work_estimate);
 
-template int right_looking_lu_row_permutation_only<int, double>(
-  const csc_matrix_t<int, double>& A,
-  const simplex_solver_settings_t<int, double>& settings,
+template int right_looking_lu_row_permutation_only<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   double tol,
   double start_time,
-  std::vector<int>& q,
-  std::vector<int>& pinv);
+  std::vector<cuopt_int_t>& q,
+  std::vector<cuopt_int_t>& pinv);
 
-template int right_looking_ldlt<int, double>(const csc_matrix_t<int, double>& A,
-                                             const simplex_solver_settings_t<int, double>& settings,
+template int right_looking_ldlt<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                             const simplex_solver_settings_t<cuopt_int_t, double>& settings,
                                              double pivot_tol,
                                              double start_time,
-                                             std::vector<int>& perm,
-                                             csc_matrix_t<int, double>& L,
+                                             std::vector<cuopt_int_t>& perm,
+                                             csc_matrix_t<cuopt_int_t, double>& L,
                                              std::vector<double>& D,
                                              double& work_estimate);
 #endif

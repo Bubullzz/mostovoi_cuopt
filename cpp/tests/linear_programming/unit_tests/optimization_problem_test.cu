@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <utilities/common_utils.hpp>
 
 #include <cuopt/mathematical_optimization/io/parser.hpp>
@@ -24,14 +25,14 @@
 
 namespace cuopt::mathematical_optimization {
 
-cuopt::mathematical_optimization::io::mps_data_model_t<int, double> read_from_mps(
+cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> read_from_mps(
   const std::string& file, bool fixed_mps_format = true)
 {
   std::string rel_file{};
   // assume relative paths are relative to RAPIDS_DATASET_ROOT_DIR
   const std::string& rapidsDatasetRootDir = cuopt::test::get_rapids_dataset_root_dir();
   rel_file                                = rapidsDatasetRootDir + "/" + file;
-  return cuopt::mathematical_optimization::io::read_mps<int, double>(rel_file, fixed_mps_format);
+  return cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(rel_file, fixed_mps_format);
 }
 
 TEST(optimization_problem_t, good_mps_file_1)
@@ -107,7 +108,7 @@ TEST(optimization_problem_t, good_mps_file_comments)
 TEST(optimization_problem_t, test_set_get_fields)
 {
   raft::handle_t handle;
-  auto problem = optimization_problem_t<int, double>(&handle);
+  auto problem = optimization_problem_t<cuopt_int_t, double>(&handle);
 
   double A_host[]      = {1.0, 2.0, 3.0};
   int indices_host[]   = {0, 1, 2};
@@ -247,10 +248,10 @@ TEST(optimization_problem_t, test_set_get_fields)
 TEST(optimization_problem_t, test_check_problem_validity)
 {
   raft::handle_t handle;
-  auto op_problem_ = optimization_problem_t<int, double>(&handle);
+  auto op_problem_ = optimization_problem_t<cuopt_int_t, double>(&handle);
 
   // Test if exception is thrown when A_CSR_matrix are not set
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   // Set A_CSR_matrix
@@ -260,7 +261,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   op_problem_.set_csr_constraint_matrix(A_host, 1, indices_host, 1, offset_host, 2);
 
   // Test if exception is thrown when c is not set
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   // Test that n_vars is not set
@@ -271,7 +272,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   op_problem_.set_objective_coefficients(c_host, 1);
 
   // Test if exception is thrown when constraints are not set
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   // Test that n_vars is now set
@@ -285,7 +286,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   op_problem_.set_row_types(row_type_host, 1);
 
   // Test if exception is thrown when row_type is set but not b
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   EXPECT_EQ(op_problem_.get_n_constraints(), 1);
@@ -295,7 +296,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   op_problem_.set_constraint_bounds(b_host, 1);
 
   // Test that nothing is thrown when both b and row types are set
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)));
 
   // Unsetting row types and constraints bounds
   op_problem_.set_row_types(row_type_host, 0);
@@ -305,7 +306,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   EXPECT_EQ(op_problem_.get_n_constraints(), 0);
 
   // Test again if exception is thrown when constraints bounds are not set
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   // Seting constraint lower bounds
@@ -316,7 +317,7 @@ TEST(optimization_problem_t, test_check_problem_validity)
   EXPECT_EQ(op_problem_.get_n_constraints(), 1);
 
   // Test if exception is thrown when upper constraints bounds are not set
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                cuopt::logic_error);
 
   // Seting constraint upper bounds
@@ -324,13 +325,13 @@ TEST(optimization_problem_t, test_check_problem_validity)
   op_problem_.set_constraint_upper_bounds(constraint_upper_bounds_host, 1);
 
   // Test if no exception is thrown when constraints bounds are set
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)));
 }
 
 TEST(optimization_problem_t, test_csr_validity)
 {
   raft::handle_t handle;
-  auto op_problem_   = optimization_problem_t<int, double>(&handle);
+  auto op_problem_   = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0};
   int indices_host[] = {0, 0};
   int offset_host[]  = {0, 1, 2};
@@ -340,13 +341,13 @@ TEST(optimization_problem_t, test_csr_validity)
   char row_type_host[] = {'E', 'E'};
   op_problem_.set_row_types(row_type_host, 2);
   // Valid problem
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)));
 
   // Test case 0: A_indices and A_values have different size
   {
     int incorrect_indices_size[] = {0};
     op_problem_.set_csr_constraint_matrix(A_host, 2, incorrect_indices_size, 1, offset_host, 3);
-    EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+    EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
   }
 
@@ -354,7 +355,7 @@ TEST(optimization_problem_t, test_csr_validity)
   {
     int incorrect_first_offset[] = {1, 1, 2};
     op_problem_.set_csr_constraint_matrix(A_host, 2, indices_host, 2, incorrect_first_offset, 3);
-    EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+    EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
   }
 
@@ -362,7 +363,7 @@ TEST(optimization_problem_t, test_csr_validity)
   {
     int unsorted_offsets[] = {0, 2, 1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, indices_host, 2, unsorted_offsets, 3);
-    EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+    EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
   }
 
@@ -370,7 +371,7 @@ TEST(optimization_problem_t, test_csr_validity)
   {
     int negative_indices_host[] = {0, -1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, negative_indices_host, 2, offset_host, 3);
-    EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+    EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
   }
 
@@ -378,7 +379,7 @@ TEST(optimization_problem_t, test_csr_validity)
   {
     int too_big_indices_host[] = {0, 1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, too_big_indices_host, 2, offset_host, 3);
-    EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_)),
+    EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
   }
 }
@@ -388,7 +389,7 @@ TEST(optimization_problem_t, test_row_type_invalidity_char)
   raft::handle_t handle;
 
   // Constraints set through row types
-  auto op_problem_1  = optimization_problem_t<int, double>(&handle);
+  auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
   int indices_host[] = {0, 0, 0};
   int offset_host[]  = {0, 1, 2, 3};
@@ -398,7 +399,7 @@ TEST(optimization_problem_t, test_row_type_invalidity_char)
   char row_type_host[] = {'E', 'L', 'N'};
   op_problem_1.set_row_types(row_type_host, 3);
 
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 }
 
@@ -407,7 +408,7 @@ TEST(optimization_problem_t, test_row_type_invalidity_size)
   raft::handle_t handle;
 
   // Constraints set through row types
-  auto op_problem_1  = optimization_problem_t<int, double>(&handle);
+  auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
   int indices_host[] = {0, 0, 0};
   int offset_host[]  = {0, 1, 2, 3};
@@ -417,18 +418,18 @@ TEST(optimization_problem_t, test_row_type_invalidity_size)
   char row_type_host[] = {'E', 'L', 'L'};
   op_problem_1.set_row_types(row_type_host, 2);
 
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 
   op_problem_1.set_row_types(row_type_host, 3);
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)));
 }
 
 TEST(optimization_problem_t, test_variable_invalidity_size)
 {
   raft::handle_t handle;
 
-  auto op_problem_1  = optimization_problem_t<int, double>(&handle);
+  auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
   int indices_host[] = {0, 0, 0};
   int offset_host[]  = {0, 1, 2, 3};
@@ -439,25 +440,25 @@ TEST(optimization_problem_t, test_variable_invalidity_size)
   op_problem_1.set_objective_coefficients(A_host, 1);
 
   op_problem_1.set_variable_lower_bounds(A_host, 2);
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 
   op_problem_1.set_variable_lower_bounds(A_host, 1);
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)));
 
   op_problem_1.set_variable_upper_bounds(A_host, 2);
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 
   op_problem_1.set_variable_upper_bounds(A_host, 1);
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)));
 }
 
 TEST(optimization_problem_t, test_semi_continuous_equal_bounds_validity)
 {
   raft::handle_t handle;
 
-  auto op_problem    = optimization_problem_t<int, double>(&handle);
+  auto op_problem    = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0};
   int indices[]      = {0};
   int offsets[]      = {0, 1};
@@ -476,14 +477,14 @@ TEST(optimization_problem_t, test_semi_continuous_equal_bounds_validity)
   op_problem.set_variable_upper_bounds(var_ub, 1);
   op_problem.set_variable_types(var_types, 1);
 
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem)));
 }
 
 TEST(optimization_problem_t, test_constraints_invalidity_size)
 {
   raft::handle_t handle;
 
-  auto op_problem_1  = optimization_problem_t<int, double>(&handle);
+  auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
   int indices_host[] = {0, 0, 0};
   int offset_host[]  = {0, 1, 2, 3};
@@ -493,15 +494,15 @@ TEST(optimization_problem_t, test_constraints_invalidity_size)
   op_problem_1.set_constraint_upper_bounds(A_host, 2);
   op_problem_1.set_objective_coefficients(A_host, 1);
 
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 
   op_problem_1.set_constraint_lower_bounds(A_host, 3);
-  EXPECT_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)),
+  EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)),
                cuopt::logic_error);
 
   op_problem_1.set_constraint_upper_bounds(A_host, 3);
-  EXPECT_NO_THROW((problem_checking_t<int, double>::check_problem_representation(op_problem_1)));
+  EXPECT_NO_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_1)));
 }
 
 TEST(optimization_problem_t, good_mps_mip_file_1)

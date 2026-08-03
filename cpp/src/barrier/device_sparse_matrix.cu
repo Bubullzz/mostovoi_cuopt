@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/device_sparse_matrix.cuh>
 #include <barrier/pinned_host_allocator.hpp>
 
@@ -43,7 +44,7 @@ template int matrix_transpose_vector_multiply<int,
                                               double,
                                               PinnedHostAllocator<double>,
                                               PinnedHostAllocator<double>>(
-  const csc_matrix_t<int, double>& A,
+  const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
@@ -51,7 +52,7 @@ template int matrix_transpose_vector_multiply<int,
 
 template int
 matrix_transpose_vector_multiply<int, double, PinnedHostAllocator<double>, std::allocator<double>>(
-  const csc_matrix_t<int, double>& A,
+  const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
@@ -59,15 +60,15 @@ matrix_transpose_vector_multiply<int, double, PinnedHostAllocator<double>, std::
 
 template int
 matrix_transpose_vector_multiply<int, double, std::allocator<double>, PinnedHostAllocator<double>>(
-  const csc_matrix_t<int, double>& A,
+  const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,
   std::vector<double, PinnedHostAllocator<double>>& y);
 
-template void csc_matrix_t<int, double>::scale_columns<std::allocator<double>>(
+template void csc_matrix_t<cuopt_int_t, double>::scale_columns<std::allocator<double>>(
   const std::vector<double, std::allocator<double>>& scale);
-template void csc_matrix_t<int, double>::scale_columns<PinnedHostAllocator<double>>(
+template void csc_matrix_t<cuopt_int_t, double>::scale_columns<PinnedHostAllocator<double>>(
   const std::vector<double, PinnedHostAllocator<double>>& scale);
 
 #endif

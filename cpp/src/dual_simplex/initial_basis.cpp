@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/initial_basis.hpp>
 
 #include <dual_simplex/right_looking_lu.hpp>
@@ -315,13 +316,13 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int initial_basis_selection<int, double>(
-  const lp_problem_t<int, double>& problem,
-  const simplex_solver_settings_t<int, double>& settings,
-  const std::vector<int>& candidate_columns,
+template int initial_basis_selection<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  const std::vector<cuopt_int_t>& candidate_columns,
   double start_time,
   std::vector<variable_status_t>& vstatus,
-  std::vector<int>& dependent_rows);
+  std::vector<cuopt_int_t>& dependent_rows);
 
 #endif
 

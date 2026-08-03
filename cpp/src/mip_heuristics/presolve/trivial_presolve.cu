@@ -5,17 +5,18 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 #include <mip_heuristics/presolve/trivial_presolve.cuh>
 
 namespace cuopt::mathematical_optimization::mip {
 
 #if MIP_INSTANTIATE_FLOAT
-template void trivial_presolve(problem_t<int, float>& problem, bool remap_cache_ids);
+template void trivial_presolve(problem_t<cuopt_int_t, float>& problem, bool remap_cache_ids);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template void trivial_presolve(problem_t<int, double>& problem, bool remap_cache_ids);
+template void trivial_presolve(problem_t<cuopt_int_t, double>& problem, bool remap_cache_ids);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

@@ -43,15 +43,15 @@ static void expect_distributed_matches_base(raft::handle_t const& handle,
   };
 
   auto path                                 = make_path_absolute(mps_rel_path);
-  io::mps_data_model_t<int, double> problem = io::read_mps<int, double>(path, fixed_mps_format);
+  io::mps_data_model_t<cuopt_int_t, double> problem = io::read_mps<cuopt_int_t, double>(path, fixed_mps_format);
 
-  pdlp_solver_settings_t<int, double> base_settings{};
+  pdlp_solver_settings_t<cuopt_int_t, double> base_settings{};
   base_settings.method = method_t::PDLP;
 
-  auto base_op = mps_data_model_to_optimization_problem<int, double>(&handle, problem);
+  auto base_op = mps_data_model_to_optimization_problem<cuopt_int_t, double>(&handle, problem);
   auto base    = solve_lp(base_op, base_settings);
 
-  pdlp_solver_settings_t<int, double> dist_settings = base_settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> dist_settings = base_settings;
   dist_settings.use_distributed_pdlp                = true;
   dist_settings.num_gpus                            = -1;
   auto dist                                         = solve_lp(&handle, problem, dist_settings);

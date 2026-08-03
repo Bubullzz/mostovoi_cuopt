@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -22,7 +23,7 @@
 
 namespace cuopt::mathematical_optimization::test {
 
-io::mps_data_model_t<int, double> create_std_lp_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_std_lp_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -37,7 +38,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_single_var_lp_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_single_var_lp_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -50,7 +51,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_std_milp_problem(bool maximize)
+io::mps_data_model_t<cuopt_int_t, double> create_std_milp_problem(bool maximize)
 {
   auto problem = create_std_lp_problem();
   problem.set_maximize(maximize);
@@ -59,7 +60,7 @@ io::mps_data_model_t<int, double> create_std_milp_problem(bool maximize)
   return problem;
 }
 
-io::mps_data_model_t<int, double> create_single_var_milp_problem(bool maximize)
+io::mps_data_model_t<cuopt_int_t, double> create_single_var_milp_problem(bool maximize)
 {
   auto problem = create_single_var_lp_problem();
   problem.set_maximize(maximize);
@@ -82,7 +83,7 @@ Subject To
 End
 )LP");
 
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> settings{};
   settings.set_optimality_tolerance(1e-2);
   settings.method     = cuopt::mathematical_optimization::method_t::PDLP;
   settings.time_limit = 5;
@@ -108,7 +109,7 @@ TEST(LPTest, TestSampleLP)
   raft::handle_t handle;
   auto problem = create_std_lp_problem();
 
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> settings{};
   settings.set_optimality_tolerance(1e-4);
   settings.time_limit = 5;
   settings.presolver  = cuopt::mathematical_optimization::presolver_t::None;
@@ -124,7 +125,7 @@ TEST(ErrorTest, TestError)
   raft::handle_t handle;
   auto problem = create_std_milp_problem(false);
 
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings{};
   settings.time_limit = 5;
   settings.presolver  = cuopt::mathematical_optimization::presolver_t::None;
 
@@ -154,7 +155,7 @@ TEST_P(MILPTestParams, TestSampleMILP)
   raft::handle_t handle;
   auto problem = create_std_milp_problem(maximize);
 
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings{};
   settings.time_limit      = 5;
   settings.mip_scaling     = scaling;
   settings.heuristics_only = heuristics_only;
@@ -175,7 +176,7 @@ TEST_P(MILPTestParams, TestSingleVarMILP)
   raft::handle_t handle;
   auto problem = create_single_var_milp_problem(maximize);
 
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings{};
   settings.time_limit      = 5;
   settings.mip_scaling     = scaling;
   settings.heuristics_only = heuristics_only;
@@ -215,7 +216,7 @@ INSTANTIATE_TEST_SUITE_P(
 // Coefficient spread (~log2(100000/1) ≈ 17) exceeds the scaler's 12-threshold
 // so the scaling path is exercised; row 4 omits x3 so the integer-only row
 // stays integer.
-static io::mps_data_model_t<int, double> create_wide_spread_milp()
+static io::mps_data_model_t<cuopt_int_t, double> create_wide_spread_milp()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -245,7 +246,7 @@ TEST(ScalingIntegrity, IntegerCoefficientsPreservedAfterScaling)
   raft::handle_t handle;
   auto mps_problem = create_wide_spread_milp();
   auto op_problem  = mps_data_model_to_optimization_problem(&handle, mps_problem);
-  problem_checking_t<int, double>::check_problem_representation(op_problem);
+  problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem);
 
   const int nnz = op_problem.get_nnz();
 
@@ -268,7 +269,7 @@ TEST(ScalingIntegrity, IntegerCoefficientsPreservedAfterScaling)
     }
   }
 
-  mip::mip_scaling_strategy_t<int, double> scaling(op_problem);
+  mip::mip_scaling_strategy_t<cuopt_int_t, double> scaling(op_problem);
   scaling.scale_problem();
 
   auto post_values =
@@ -296,7 +297,7 @@ TEST(ScalingIntegrity, NoObjectiveScalingPreservesIntegerCoefficients)
   raft::handle_t handle;
   auto mps_problem = create_wide_spread_milp();
   auto op_problem  = mps_data_model_to_optimization_problem(&handle, mps_problem);
-  problem_checking_t<int, double>::check_problem_representation(op_problem);
+  problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem);
 
   const int nnz = op_problem.get_nnz();
 
@@ -319,7 +320,7 @@ TEST(ScalingIntegrity, NoObjectiveScalingPreservesIntegerCoefficients)
     }
   }
 
-  mip::mip_scaling_strategy_t<int, double> scaling(op_problem);
+  mip::mip_scaling_strategy_t<cuopt_int_t, double> scaling(op_problem);
   scaling.scale_problem(/*scale_objective=*/false);
 
   auto post_values =

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/singletons.hpp>
 #include <dual_simplex/triangle_solve.hpp>
 #include <math_optimization/types.hpp>
@@ -291,27 +292,27 @@ i_t find_singletons(const csc_matrix_t<i_t, f_t>& A,
 
 template struct row_col_graph_t<int>;
 
-template int order_singletons<int, double>(std::queue<int>& singleton_queue,
+template int order_singletons<cuopt_int_t, double>(std::queue<int>& singleton_queue,
                                            int& singletons_found,
                                            row_col_graph_t<int>& G,
                                            double& work_estimate);
 
 // \param [in,out]  workspace - size m
-template void create_row_representation<int, double>(const csc_matrix_t<int, double>& A,
-                                                     std::vector<int>& row_start,
-                                                     std::vector<int>& col_index,
-                                                     std::vector<int>& workspace,
+template void create_row_representation<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                                     std::vector<cuopt_int_t>& row_start,
+                                                     std::vector<cuopt_int_t>& col_index,
+                                                     std::vector<cuopt_int_t>& workspace,
                                                      double& work_estimate);
 // Complete the permuation
 template int complete_permutation<int>(int singletons,
                                        std::vector<int>& Xdeg,
                                        std::vector<int>& Xperm);
 
-template int find_singletons<int, double>(const csc_matrix_t<int, double>& A,
+template int find_singletons<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
                                           int& row_singletons,
-                                          std::vector<int>& row_perm,
+                                          std::vector<cuopt_int_t>& row_perm,
                                           int& col_singleton,
-                                          std::vector<int>& col_perm,
+                                          std::vector<cuopt_int_t>& col_perm,
                                           double& work_estimate);
 #endif
 

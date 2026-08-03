@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 #include <mip_heuristics/mip_constants.hpp>
@@ -20,12 +21,18 @@ namespace cuopt::mathematical_optimization {
 
 namespace {
 
-bool string_to_int(const std::string& value, int& result)
+template <typename i_t>
+bool string_to_int(const std::string& value, i_t& result)
 {
   try {
     size_t pos = 0;
-    result     = std::stoi(value, &pos);
-    return pos == value.size();
+    auto parsed = std::stoll(value, &pos);
+    if (pos != value.size() || parsed < std::numeric_limits<i_t>::min() ||
+        parsed > std::numeric_limits<i_t>::max()) {
+      return false;
+    }
+    result = static_cast<i_t>(parsed);
+    return true;
   } catch (const std::exception&) {
     return false;
   }
@@ -130,8 +137,8 @@ solver_settings_t<i_t, f_t>::solver_settings_t() : pdlp_settings(), mip_settings
   int_parameters = {
     {CUOPT_ITERATION_LIMIT, &pdlp_settings.iteration_limit, 0, std::numeric_limits<i_t>::max(), std::numeric_limits<i_t>::max()},
     {CUOPT_NODE_LIMIT, &mip_settings.node_limit, 0, std::numeric_limits<i_t>::max(), std::numeric_limits<i_t>::max()},
-    {CUOPT_PDLP_SOLVER_MODE, reinterpret_cast<int*>(&pdlp_settings.pdlp_solver_mode), CUOPT_PDLP_SOLVER_MODE_STABLE1, CUOPT_PDLP_SOLVER_MODE_STABLE3, CUOPT_PDLP_SOLVER_MODE_STABLE3},
-    {CUOPT_METHOD, reinterpret_cast<int*>(&pdlp_settings.method), CUOPT_METHOD_CONCURRENT, CUOPT_METHOD_BARRIER, CUOPT_METHOD_CONCURRENT},
+    {CUOPT_PDLP_SOLVER_MODE, reinterpret_cast<i_t*>(&pdlp_settings.pdlp_solver_mode), CUOPT_PDLP_SOLVER_MODE_STABLE1, CUOPT_PDLP_SOLVER_MODE_STABLE3, CUOPT_PDLP_SOLVER_MODE_STABLE3},
+    {CUOPT_METHOD, reinterpret_cast<i_t*>(&pdlp_settings.method), CUOPT_METHOD_CONCURRENT, CUOPT_METHOD_BARRIER, CUOPT_METHOD_CONCURRENT},
     {CUOPT_NUM_CPU_THREADS, &mip_settings.num_cpu_threads, -1, std::numeric_limits<i_t>::max(), -1},
     {CUOPT_AUGMENTED, &pdlp_settings.augmented, -1, 1, -1},
     {CUOPT_FOLDING, &pdlp_settings.folding, -1, 1, -1},
@@ -155,13 +162,13 @@ solver_settings_t<i_t, f_t>::solver_settings_t() : pdlp_settings(), mip_settings
     {CUOPT_MIP_BATCH_PDLP_STRONG_BRANCHING, &mip_settings.mip_batch_pdlp_strong_branching, 0, 2, 0},
     {CUOPT_MIP_BATCH_PDLP_RELIABILITY_BRANCHING, &mip_settings.mip_batch_pdlp_reliability_branching, 0, 2, 0},
     {CUOPT_MIP_STRONG_BRANCHING_SIMPLEX_ITERATION_LIMIT, &mip_settings.strong_branching_simplex_iteration_limit, -1,std::numeric_limits<i_t>::max(), -1},
-    {CUOPT_PRESOLVE, reinterpret_cast<int*>(&pdlp_settings.presolver), CUOPT_PRESOLVE_DEFAULT, CUOPT_PRESOLVE_PSLP, CUOPT_PRESOLVE_DEFAULT},
-    {CUOPT_PRESOLVE, reinterpret_cast<int*>(&mip_settings.presolver), CUOPT_PRESOLVE_DEFAULT, CUOPT_PRESOLVE_PSLP, CUOPT_PRESOLVE_DEFAULT},
-    {CUOPT_DISTRIBUTED_PDLP_PARTITIONER, reinterpret_cast<int*>(&pdlp_settings.distributed_pdlp_partitioner), CUOPT_DISTRIBUTED_PDLP_PARTITIONER_AUTO, CUOPT_DISTRIBUTED_PDLP_PARTITIONER_ROUND_ROBIN, CUOPT_DISTRIBUTED_PDLP_PARTITIONER_AUTO},
+    {CUOPT_PRESOLVE, reinterpret_cast<i_t*>(&pdlp_settings.presolver), CUOPT_PRESOLVE_DEFAULT, CUOPT_PRESOLVE_PSLP, CUOPT_PRESOLVE_DEFAULT},
+    {CUOPT_PRESOLVE, reinterpret_cast<i_t*>(&mip_settings.presolver), CUOPT_PRESOLVE_DEFAULT, CUOPT_PRESOLVE_PSLP, CUOPT_PRESOLVE_DEFAULT},
+    {CUOPT_DISTRIBUTED_PDLP_PARTITIONER, reinterpret_cast<i_t*>(&pdlp_settings.distributed_pdlp_partitioner), CUOPT_DISTRIBUTED_PDLP_PARTITIONER_AUTO, CUOPT_DISTRIBUTED_PDLP_PARTITIONER_ROUND_ROBIN, CUOPT_DISTRIBUTED_PDLP_PARTITIONER_AUTO},
     {CUOPT_MIP_DETERMINISM_MODE, &mip_settings.determinism_mode, CUOPT_MODE_OPPORTUNISTIC, CUOPT_MODE_DETERMINISTIC, CUOPT_MODE_OPPORTUNISTIC},
     {CUOPT_RANDOM_SEED, &mip_settings.seed, -1, std::numeric_limits<i_t>::max(), -1},
     {CUOPT_MIP_RELIABILITY_BRANCHING, &mip_settings.reliability_branching, -1, std::numeric_limits<i_t>::max(), -1},
-    {CUOPT_PDLP_PRECISION, reinterpret_cast<int*>(&pdlp_settings.pdlp_precision), CUOPT_PDLP_DEFAULT_PRECISION, CUOPT_PDLP_MIXED_PRECISION, CUOPT_PDLP_DEFAULT_PRECISION},
+    {CUOPT_PDLP_PRECISION, reinterpret_cast<i_t*>(&pdlp_settings.pdlp_precision), CUOPT_PDLP_DEFAULT_PRECISION, CUOPT_PDLP_MIXED_PRECISION, CUOPT_PDLP_DEFAULT_PRECISION},
     {CUOPT_MIP_SYMMETRY, &mip_settings.symmetry, -1, 2, -1},
     {CUOPT_MIP_SCALING, &mip_settings.mip_scaling, CUOPT_MIP_SCALING_OFF, CUOPT_MIP_SCALING_NO_OBJECTIVE, CUOPT_MIP_SCALING_NO_OBJECTIVE},
     // MIP heuristic hyper-parameters (hidden from default --help: name contains "hyper_")
@@ -668,25 +675,25 @@ bool solver_settings_t<i_t, f_t>::dump_parameters_to_file(const std::string& pat
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class solver_settings_t<int, float>;
-template void solver_settings_t<int, float>::set_parameter(const std::string& name, int value);
-template void solver_settings_t<int, float>::set_parameter(const std::string& name, float value);
-template void solver_settings_t<int, float>::set_parameter(const std::string& name, bool value);
-template int solver_settings_t<int, float>::get_parameter(const std::string& name) const;
-template float solver_settings_t<int, float>::get_parameter(const std::string& name) const;
-template bool solver_settings_t<int, float>::get_parameter(const std::string& name) const;
-template std::string solver_settings_t<int, float>::get_parameter(const std::string& name) const;
+template class solver_settings_t<cuopt_int_t, float>;
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, int value);
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, float value);
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, bool value);
+template int solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
+template float solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
+template bool solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
+template std::string solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class solver_settings_t<int, double>;
-template void solver_settings_t<int, double>::set_parameter(const std::string& name, int value);
-template void solver_settings_t<int, double>::set_parameter(const std::string& name, double value);
-template void solver_settings_t<int, double>::set_parameter(const std::string& name, bool value);
-template int solver_settings_t<int, double>::get_parameter(const std::string& name) const;
-template double solver_settings_t<int, double>::get_parameter(const std::string& name) const;
-template bool solver_settings_t<int, double>::get_parameter(const std::string& name) const;
-template std::string solver_settings_t<int, double>::get_parameter(const std::string& name) const;
+template class solver_settings_t<cuopt_int_t, double>;
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, int value);
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, double value);
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, bool value);
+template int solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
+template double solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
+template bool solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
+template std::string solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

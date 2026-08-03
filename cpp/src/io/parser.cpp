@@ -12,7 +12,7 @@
 
 #include <utilities/logger.hpp>
 
-#include <cstdint>
+#include <cuopt/mathematical_optimization/constants.h>
 
 namespace cuopt::mathematical_optimization::io {
 
@@ -33,11 +33,11 @@ mps_data_model_t<i_t, f_t> read_mps_from_string(std::string_view mps_contents,
   return problem;
 }
 
-template mps_data_model_t<int, float> read_mps(const std::string& mps_file, bool fixed_mps_format);
-template mps_data_model_t<int, double> read_mps(const std::string& mps_file, bool fixed_mps_format);
-template mps_data_model_t<int, float> read_mps_from_string(std::string_view mps_contents,
+template mps_data_model_t<cuopt_int_t, float> read_mps(const std::string& mps_file, bool fixed_mps_format);
+template mps_data_model_t<cuopt_int_t, double> read_mps(const std::string& mps_file, bool fixed_mps_format);
+template mps_data_model_t<cuopt_int_t, float> read_mps_from_string(std::string_view mps_contents,
                                                            bool fixed_mps_format);
-template mps_data_model_t<int, double> read_mps_from_string(std::string_view mps_contents,
+template mps_data_model_t<cuopt_int_t, double> read_mps_from_string(std::string_view mps_contents,
                                                             bool fixed_mps_format);
 
 template <typename i_t, typename f_t>
@@ -47,11 +47,13 @@ mps_data_model_t<i_t, f_t> read_mps_fast_experimental(const std::string& mps_fil
   return detail::parse_mps_fast_file<i_t, f_t>(mps_file_path);
 }
 
-template mps_data_model_t<int, float> read_mps_fast_experimental(const std::string& mps_file_path);
-template mps_data_model_t<int, double> read_mps_fast_experimental(const std::string& mps_file_path);
+template mps_data_model_t<cuopt_int_t, float> read_mps_fast_experimental(const std::string& mps_file_path);
+template mps_data_model_t<cuopt_int_t, double> read_mps_fast_experimental(const std::string& mps_file_path);
+#if !CUOPT_INSTANTIATE_INT64
 template mps_data_model_t<int64_t, float> read_mps_fast_experimental(
   const std::string& mps_file_path);
 template mps_data_model_t<int64_t, double> read_mps_fast_experimental(
   const std::string& mps_file_path);
+#endif
 
 }  // namespace cuopt::mathematical_optimization::io

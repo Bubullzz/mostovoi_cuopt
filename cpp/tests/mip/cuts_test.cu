@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -46,7 +47,7 @@ namespace {
 constexpr double kCliqueTestTol = 1e-6;
 
 // Pairwise binary conflicts forming a triangle.
-io::mps_data_model_t<int, double> create_pairwise_triangle_set_packing_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_pairwise_triangle_set_packing_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -63,7 +64,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_pairwise_pentagon_set_packing_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_pairwise_pentagon_set_packing_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -85,7 +86,7 @@ End
 }
 
 // Same triangle conflicts plus an isolated binary x3 with no conflict rows.
-io::mps_data_model_t<int, double> create_pairwise_triangle_with_isolated_variable_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_pairwise_triangle_with_isolated_variable_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -105,7 +106,7 @@ End
 
 // x0 + y1 <= 1  (must be ignored for clique graph because y1 is continuous)
 // x0 + x2 <= 1  (must generate a conflict edge)
-io::mps_data_model_t<int, double> create_binary_continuous_mixed_conflict_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_binary_continuous_mixed_conflict_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -125,7 +126,7 @@ End
 // Minimizing the continuous terms gives:
 // c1: x0 + x1 <= 1, which implies a conflict.
 // c2: x0 + x2 <= 2, which does not imply a conflict.
-io::mps_data_model_t<int, double> create_mixed_row_binary_subclique_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_mixed_row_binary_subclique_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -143,7 +144,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_mixed_row_roundoff_non_conflict_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_mixed_row_roundoff_non_conflict_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -162,7 +163,7 @@ End
 
 // x0 + x1 <= 1 but x1 has upper bound 0.9999999, so this row should not be
 // treated as a binary conflict row.
-io::mps_data_model_t<int, double> create_near_binary_bound_conflict_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_near_binary_bound_conflict_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -180,7 +181,7 @@ End
 }
 
 // Creates base clique {x2, x3} and additional clique inducing conflict {x1, x3}.
-io::mps_data_model_t<int, double> create_weighted_addtl_conflict_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_weighted_addtl_conflict_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -196,7 +197,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_addtl_clique_tolerance_boundary_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_addtl_clique_tolerance_boundary_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -212,62 +213,62 @@ End
 )LP");
 }
 
-mip::clique_table_t<int, double> build_clique_table_for_model_with_min_size(
-  const raft::handle_t& handle, const io::mps_data_model_t<int, double>& model, int min_clique_size)
+mip::clique_table_t<cuopt_int_t, double> build_clique_table_for_model_with_min_size(
+  const raft::handle_t& handle, const io::mps_data_model_t<cuopt_int_t, double>& model, int min_clique_size)
 {
   auto op_problem = mps_data_model_to_optimization_problem(&handle, model);
-  mip::problem_t<int, double> mip_problem(op_problem);
-  simplex::user_problem_t<int, double> host_problem(op_problem.get_handle_ptr());
+  mip::problem_t<cuopt_int_t, double> mip_problem(op_problem);
+  simplex::user_problem_t<cuopt_int_t, double> host_problem(op_problem.get_handle_ptr());
   mip_problem.get_host_user_problem(host_problem);
 
   mip::clique_config_t clique_config;
   clique_config.min_clique_size = min_clique_size;
-  mip::clique_table_t<int, double> clique_table(2 * host_problem.num_cols,
+  mip::clique_table_t<cuopt_int_t, double> clique_table(2 * host_problem.num_cols,
                                                 clique_config.min_clique_size,
                                                 clique_config.max_clique_size_for_extension);
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   cuopt::timer_t timer(std::numeric_limits<double>::infinity());
   mip::build_clique_table(host_problem, clique_table, settings.tolerances, true, true, timer);
   return clique_table;
 }
 
-mip::clique_table_t<int, double> build_clique_table_for_model(
-  const raft::handle_t& handle, const io::mps_data_model_t<int, double>& model)
+mip::clique_table_t<cuopt_int_t, double> build_clique_table_for_model(
+  const raft::handle_t& handle, const io::mps_data_model_t<cuopt_int_t, double>& model)
 {
   return build_clique_table_for_model_with_min_size(handle, model, 1);
 }
 
-io::mps_data_model_t<int, double>& get_neos8_model_cached()
+io::mps_data_model_t<cuopt_int_t, double>& get_neos8_model_cached()
 {
   static std::once_flag init_flag;
-  static std::unique_ptr<io::mps_data_model_t<int, double>> model_ptr;
+  static std::unique_ptr<io::mps_data_model_t<cuopt_int_t, double>> model_ptr;
   std::call_once(init_flag, []() {
     const auto neos8_path = make_path_absolute("mip/neos8.mps");
     auto neos8_model =
-      cuopt::mathematical_optimization::io::read_mps<int, double>(neos8_path, false);
-    model_ptr = std::make_unique<io::mps_data_model_t<int, double>>(std::move(neos8_model));
+      cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(neos8_path, false);
+    model_ptr = std::make_unique<io::mps_data_model_t<cuopt_int_t, double>>(std::move(neos8_model));
   });
   cuopt_assert(model_ptr != nullptr, "Failed to initialize cached neos8 model");
   return *model_ptr;
 }
 
-mip::clique_table_t<int, double>& get_neos8_clique_table_cached()
+mip::clique_table_t<cuopt_int_t, double>& get_neos8_clique_table_cached()
 {
   static std::once_flag init_flag;
-  static std::unique_ptr<mip::clique_table_t<int, double>> clique_table_ptr;
+  static std::unique_ptr<mip::clique_table_t<cuopt_int_t, double>> clique_table_ptr;
   std::call_once(init_flag, []() {
     const raft::handle_t handle{};
     auto& neos8_model = get_neos8_model_cached();
     auto clique_table = build_clique_table_for_model(handle, neos8_model);
-    clique_table_ptr  = std::make_unique<mip::clique_table_t<int, double>>(std::move(clique_table));
+    clique_table_ptr  = std::make_unique<mip::clique_table_t<cuopt_int_t, double>>(std::move(clique_table));
   });
   cuopt_assert(clique_table_ptr != nullptr, "Failed to initialize cached neos8 clique table");
   return *clique_table_ptr;
 }
 
 std::vector<std::vector<char>> build_original_adjacency_matrix(
-  mip::clique_table_t<int, double>& clique_table, int num_vars)
+  mip::clique_table_t<cuopt_int_t, double>& clique_table, int num_vars)
 {
   std::vector<std::vector<char>> adj(num_vars, std::vector<char>(num_vars, 0));
   for (int i = 0; i < num_vars; ++i) {
@@ -369,7 +370,7 @@ double original_clique_sum(const std::vector<int>& clique_vars,
   return lhs;
 }
 
-std::string format_phase2_panic_dump(const io::mps_data_model_t<int, double>& problem,
+std::string format_phase2_panic_dump(const io::mps_data_model_t<cuopt_int_t, double>& problem,
                                      const std::vector<int>& clique_vars,
                                      const std::vector<double>& x_star)
 {
@@ -409,7 +410,7 @@ std::string format_phase2_panic_dump(const io::mps_data_model_t<int, double>& pr
   return out.str();
 }
 
-void disable_non_clique_cuts(mip_solver_settings_t<int, double>& settings)
+void disable_non_clique_cuts(mip_solver_settings_t<cuopt_int_t, double>& settings)
 {
   settings.clique_cuts                = 1;
   settings.zero_half_cuts             = 0;
@@ -420,7 +421,7 @@ void disable_non_clique_cuts(mip_solver_settings_t<int, double>& settings)
   settings.strong_chvatal_gomory_cuts = 0;
 }
 
-void disable_non_zero_half_cuts(mip_solver_settings_t<int, double>& settings)
+void disable_non_zero_half_cuts(mip_solver_settings_t<cuopt_int_t, double>& settings)
 {
   settings.clique_cuts                = 1;
   settings.zero_half_cuts             = 1;
@@ -431,7 +432,7 @@ void disable_non_zero_half_cuts(mip_solver_settings_t<int, double>& settings)
   settings.strong_chvatal_gomory_cuts = 0;
 }
 
-void disable_all_cuts(mip_solver_settings_t<int, double>& settings)
+void disable_all_cuts(mip_solver_settings_t<cuopt_int_t, double>& settings)
 {
   settings.max_cut_passes             = 0;
   settings.clique_cuts                = 0;
@@ -499,7 +500,7 @@ neos8_mip_solution_cache_t& get_neos8_optimal_solution_no_cuts_cached()
   std::call_once(init_flag, []() {
     const raft::handle_t handle{};
     auto& neos8_model = get_neos8_model_cached();
-    mip_solver_settings_t<int, double> settings;
+    mip_solver_settings_t<cuopt_int_t, double> settings;
     settings.time_limit = 120.0;
     settings.presolver  = presolver_t::None;
     disable_all_cuts(settings);
@@ -525,7 +526,7 @@ neos8_lp_solution_cache_t& get_neos8_lp_relaxation_solution_cached()
     std::vector<char> all_continuous(lp_relaxation.get_n_variables(), 'C');
     lp_relaxation.set_variable_types(all_continuous);
 
-    pdlp_solver_settings_t<int, double> lp_settings{};
+    pdlp_solver_settings_t<cuopt_int_t, double> lp_settings{};
     lp_settings.time_limit = 120.0;
     lp_settings.presolver  = presolver_t::None;
     lp_settings.set_optimality_tolerance(1e-8);
@@ -540,7 +541,7 @@ neos8_lp_solution_cache_t& get_neos8_lp_relaxation_solution_cached()
   return *solution_ptr;
 }
 
-bool is_binary_var_for_clique_literals(const io::mps_data_model_t<int, double>& problem,
+bool is_binary_var_for_clique_literals(const io::mps_data_model_t<cuopt_int_t, double>& problem,
                                        int var_idx,
                                        double bound_tol)
 {
@@ -552,8 +553,8 @@ bool is_binary_var_for_clique_literals(const io::mps_data_model_t<int, double>& 
 }
 
 std::vector<std::vector<int>> build_fractional_literal_cliques_for_assignment(
-  const io::mps_data_model_t<int, double>& problem,
-  mip::clique_table_t<int, double>& clique_table,
+  const io::mps_data_model_t<cuopt_int_t, double>& problem,
+  mip::clique_table_t<cuopt_int_t, double>& clique_table,
   const std::vector<double>& assignment,
   double integer_tol,
   double bound_tol,
@@ -715,22 +716,22 @@ std::optional<size_t> isolate_first_invalid_literal_cut_by_bisection(
   return lo;
 }
 
-io::mps_data_model_t<int, double>& get_neos8_lp_relaxation_model_cached()
+io::mps_data_model_t<cuopt_int_t, double>& get_neos8_lp_relaxation_model_cached()
 {
   static std::once_flag init_flag;
-  static std::unique_ptr<io::mps_data_model_t<int, double>> model_ptr;
+  static std::unique_ptr<io::mps_data_model_t<cuopt_int_t, double>> model_ptr;
   std::call_once(init_flag, []() {
     auto lp_relaxation = get_neos8_model_cached();
     std::vector<char> all_continuous(lp_relaxation.get_n_variables(), 'C');
     lp_relaxation.set_variable_types(all_continuous);
-    model_ptr = std::make_unique<io::mps_data_model_t<int, double>>(std::move(lp_relaxation));
+    model_ptr = std::make_unique<io::mps_data_model_t<cuopt_int_t, double>>(std::move(lp_relaxation));
   });
   cuopt_assert(model_ptr != nullptr, "Failed to initialize cached neos8 LP relaxation model");
   return *model_ptr;
 }
 
-io::mps_data_model_t<int, double> append_literal_cut_prefix_to_lp_model(
-  const io::mps_data_model_t<int, double>& base_lp_model,
+io::mps_data_model_t<cuopt_int_t, double> append_literal_cut_prefix_to_lp_model(
+  const io::mps_data_model_t<cuopt_int_t, double>& base_lp_model,
   const std::vector<std::vector<int>>& dumped_cuts,
   size_t prefix_end_exclusive,
   int num_vars)
@@ -818,7 +819,7 @@ pdlp_termination_status_t solve_lp_with_literal_cut_prefix(
   auto model_with_cuts = append_literal_cut_prefix_to_lp_model(
     base_lp_model, dumped_cuts, prefix_end_exclusive, num_vars);
 
-  pdlp_solver_settings_t<int, double> lp_settings{};
+  pdlp_solver_settings_t<cuopt_int_t, double> lp_settings{};
   lp_settings.time_limit = 120.0;
   lp_settings.presolver  = presolver_t::None;
   lp_settings.set_optimality_tolerance(1e-8);
@@ -856,7 +857,7 @@ std::optional<size_t> isolate_first_lp_infeasible_literal_cut_by_bisection(
 
 }  // namespace
 
-io::mps_data_model_t<int, double> create_cuts_problem_1()
+io::mps_data_model_t<cuopt_int_t, double> create_cuts_problem_1()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -878,7 +879,7 @@ End
 TEST(cuts, test_cuts_1)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   constexpr double test_time_limit = 1.;
 
   // Create the problem
@@ -886,7 +887,7 @@ TEST(cuts, test_cuts_1)
 
   settings.time_limit                  = test_time_limit;
   settings.max_cut_passes              = 1;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   EXPECT_EQ(solution.get_termination_status(), mip_termination_status_t::Optimal);
 
   double obj_val = solution.get_objective_value();
@@ -896,7 +897,7 @@ TEST(cuts, test_cuts_1)
   EXPECT_LE(solution.get_num_nodes(), 2);
 }
 
-io::mps_data_model_t<int, double> create_cuts_problem_2()
+io::mps_data_model_t<cuopt_int_t, double> create_cuts_problem_2()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -915,7 +916,7 @@ End
 TEST(cuts, test_cuts_2)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   constexpr double test_time_limit = 1.;
 
   // Create the problem
@@ -924,7 +925,7 @@ TEST(cuts, test_cuts_2)
   settings.time_limit                  = test_time_limit;
   settings.max_cut_passes              = 10;
   settings.presolver                   = presolver_t::None;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   EXPECT_EQ(solution.get_termination_status(), mip_termination_status_t::Optimal);
 
   double obj_val = solution.get_objective_value();
@@ -936,46 +937,46 @@ TEST(cuts, test_cuts_2)
 
 TEST(cuts, test_duplicate_cuts_detection)
 {
-  simplex::simplex_solver_settings_t<int, double> settings;
-  mip::cut_pool_t<int, double> cut_pool(4, settings);
-  mip::inequality_t<int, double> cut1;
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  mip::cut_pool_t<cuopt_int_t, double> cut_pool(4, settings);
+  mip::inequality_t<cuopt_int_t, double> cut1;
   cut1.push_back(0, 1.0);
   cut1.push_back(1, 2.0);
   cut1.rhs = 1.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut1);
-  mip::inequality_t<int, double> cut2;
+  mip::inequality_t<cuopt_int_t, double> cut2;
   cut2.push_back(0, 2.0);
   cut2.push_back(1, 4.0);
   cut2.rhs = 2.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut2);
-  mip::inequality_t<int, double> cut3;
+  mip::inequality_t<cuopt_int_t, double> cut3;
   cut3.push_back(0, 0.1);
   cut3.push_back(2, 0.2);
   cut3.rhs = 1.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut3);
-  mip::inequality_t<int, double> cut4;
+  mip::inequality_t<cuopt_int_t, double> cut4;
   cut4.push_back(0, 0.2);
   cut4.push_back(2, 0.4);
   cut4.rhs = 1.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut4);
-  mip::inequality_t<int, double> cut5;
+  mip::inequality_t<cuopt_int_t, double> cut5;
   cut5.push_back(1, 10.0);
   cut5.push_back(3, 20.0);
   cut5.rhs = 0.1;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut5);
-  mip::inequality_t<int, double> cut6;
+  mip::inequality_t<cuopt_int_t, double> cut6;
   cut6.push_back(1, 20.0);
   cut6.push_back(3, 40.0);
   cut6.rhs = 0.2;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut6);
-  mip::inequality_t<int, double> cut7;
+  mip::inequality_t<cuopt_int_t, double> cut7;
   cut7.push_back(0, 1.0);
   cut7.push_back(1, 1.0);
   cut7.push_back(2, 1.0);
   cut7.push_back(3, 1.0);
   cut7.rhs = 1.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut7);
-  mip::inequality_t<int, double> cut8;
+  mip::inequality_t<cuopt_int_t, double> cut8;
   cut8.push_back(1, 3.0);
   cut8.rhs = 7.0;
   cut_pool.add_cut(mip::cut_type_t::MIXED_INTEGER_GOMORY, cut8);
@@ -1087,7 +1088,7 @@ TEST(cuts, clique_phase2_no_cut_off_optimal_solution_validation)
   const raft::handle_t handle{};
   auto problem = create_pairwise_triangle_set_packing_problem();
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
   settings.presolver  = presolver_t::None;
   disable_all_cuts(settings);
@@ -1117,7 +1118,7 @@ TEST(cuts, clique_phase3_fractional_separation_must_cut_off)
   std::vector<char> all_continuous(lp_relaxation.get_n_variables(), 'C');
   lp_relaxation.set_variable_types(all_continuous);
 
-  pdlp_solver_settings_t<int, double> lp_settings{};
+  pdlp_solver_settings_t<cuopt_int_t, double> lp_settings{};
   lp_settings.time_limit = 10.0;
   lp_settings.presolver  = presolver_t::None;
   lp_settings.set_optimality_tolerance(1e-8);
@@ -1165,13 +1166,13 @@ TEST(cuts, clique_phase4_tree_depth_limit_smoke)
   const raft::handle_t handle{};
   auto problem = create_pairwise_triangle_set_packing_problem();
 
-  mip_solver_settings_t<int, double> root_only_settings;
+  mip_solver_settings_t<cuopt_int_t, double> root_only_settings;
   root_only_settings.time_limit = 10.0;
   root_only_settings.presolver  = presolver_t::None;
   root_only_settings.node_limit = 0;
   disable_non_clique_cuts(root_only_settings);
 
-  mip_solver_settings_t<int, double> deeper_settings = root_only_settings;
+  mip_solver_settings_t<cuopt_int_t, double> deeper_settings = root_only_settings;
   deeper_settings.node_limit                         = 100;
 
   auto root_only_solution = solve_mip(&handle, problem, root_only_settings);
@@ -1595,7 +1596,7 @@ TEST(cuts, zero_half_end_to_end_pentagon_tightens_lp_relaxation)
   std::vector<char> all_continuous(lp_relaxation.get_n_variables(), 'C');
   lp_relaxation.set_variable_types(all_continuous);
 
-  pdlp_solver_settings_t<int, double> lp_settings{};
+  pdlp_solver_settings_t<cuopt_int_t, double> lp_settings{};
   lp_settings.time_limit = 10.0;
   lp_settings.presolver  = presolver_t::None;
   lp_settings.set_optimality_tolerance(1e-8);
@@ -1605,7 +1606,7 @@ TEST(cuts, zero_half_end_to_end_pentagon_tightens_lp_relaxation)
   EXPECT_NEAR(lp_obj_no_cuts, -2.5, kCliqueTestTol);
 
   // Optimal IP value is 2 (independent set of size 2), so the LP gap is 0.5.
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
   settings.presolver  = presolver_t::None;
   disable_non_zero_half_cuts(settings);
@@ -1655,7 +1656,7 @@ TEST(cuts, zero_half_unit_separator_seven_cycle_violated_below_half)
 // Index layout (x0,x1,x2,y0,y1,y2 → 0..5) is load-bearing — downstream test
 // helpers index into the primal via point[j] for binaries and point[3+j] for
 // flows. Keep the variable order matching that layout.
-io::mps_data_model_t<int, double> create_small_single_node_flow_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_small_single_node_flow_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -1679,9 +1680,9 @@ End
 
 struct flow_cover_test_problem_t {
   raft::handle_t handle;
-  simplex::simplex_solver_settings_t<int, double> settings;
-  simplex::lp_problem_t<int, double> lp;
-  csr_matrix_t<int, double> Arow;
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  simplex::lp_problem_t<cuopt_int_t, double> lp;
+  csr_matrix_t<cuopt_int_t, double> Arow;
   std::vector<int> new_slacks;
   std::vector<simplex::variable_type_t> var_types;
 
@@ -1689,15 +1690,15 @@ struct flow_cover_test_problem_t {
 };
 
 flow_cover_test_problem_t build_flow_cover_test_problem(
-  const io::mps_data_model_t<int, double>& model)
+  const io::mps_data_model_t<cuopt_int_t, double>& model)
 {
   flow_cover_test_problem_t test_problem;
   auto op_problem = mps_data_model_to_optimization_problem(&test_problem.handle, model);
-  mip::problem_t<int, double> mip_problem(op_problem);
-  simplex::user_problem_t<int, double> host_problem(op_problem.get_handle_ptr());
+  mip::problem_t<cuopt_int_t, double> mip_problem(op_problem);
+  simplex::user_problem_t<cuopt_int_t, double> host_problem(op_problem.get_handle_ptr());
   mip_problem.get_host_user_problem(host_problem);
 
-  simplex::dualize_info_t<int, double> dualize_info;
+  simplex::dualize_info_t<cuopt_int_t, double> dualize_info;
   simplex::convert_user_problem(
     host_problem, test_problem.settings, test_problem.lp, test_problem.new_slacks, dualize_info);
   test_problem.var_types = host_problem.var_types;
@@ -1726,14 +1727,14 @@ bool single_node_flow_y_feasible(const std::vector<double>& y)
   return activity <= 4.0 + 1e-8;
 }
 
-void expect_single_node_flow_cut_valid_at_point(const mip::inequality_t<int, double>& cut,
+void expect_single_node_flow_cut_valid_at_point(const mip::inequality_t<cuopt_int_t, double>& cut,
                                                 const std::vector<double>& point,
                                                 const std::string& label)
 {
   EXPECT_GE(cut.vector.dot(point), cut.rhs - 1e-7) << label;
 }
 
-void expect_single_node_flow_cut_valid_at_extreme_points(const mip::inequality_t<int, double>& cut,
+void expect_single_node_flow_cut_valid_at_extreme_points(const mip::inequality_t<cuopt_int_t, double>& cut,
                                                          int num_cols)
 {
   const std::vector<double> capacities = {3.0, 6.0, 3.0};
@@ -1808,9 +1809,9 @@ TEST(cuts, flow_cover_generates_valid_single_node_flow_cut)
   auto test_problem = build_flow_cover_test_problem(create_small_single_node_flow_problem());
   const std::vector<double> xstar = single_node_flow_fractional_solution(test_problem.lp.num_cols);
 
-  mip::flow_cover_generation_t<int, double> generator(
+  mip::flow_cover_generation_t<cuopt_int_t, double> generator(
     test_problem.lp, test_problem.settings, test_problem.Arow, test_problem.new_slacks);
-  mip::variable_bounds_t<int, double> variable_bounds(test_problem.lp,
+  mip::variable_bounds_t<cuopt_int_t, double> variable_bounds(test_problem.lp,
                                                       test_problem.settings,
                                                       test_problem.var_types,
                                                       test_problem.Arow,
@@ -1819,7 +1820,7 @@ TEST(cuts, flow_cover_generates_valid_single_node_flow_cut)
 
   int generated_cuts = 0;
   for (const auto& flow_cover_row : generator.get_constraints()) {
-    mip::inequality_t<int, double> cut(test_problem.lp.num_cols);
+    mip::inequality_t<cuopt_int_t, double> cut(test_problem.lp.num_cols);
     const int status = generator.generate_cut(test_problem.lp,
                                               test_problem.settings,
                                               test_problem.Arow,

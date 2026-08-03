@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/barrier.hpp>
 
 #include <barrier/conjugate_gradient.hpp>
@@ -4486,12 +4487,12 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template bool validate_barrier_cone_layout<int, double>(
-  const lp_problem_t<int, double>& problem, const simplex_solver_settings_t<int, double>& settings);
-template class barrier_solver_t<int, double>;
-template class sparse_cholesky_base_t<int, double>;
-template class sparse_cholesky_cudss_t<int, double>;
-template class iteration_data_t<int, double>;
+template bool validate_barrier_cone_layout<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& problem, const simplex_solver_settings_t<cuopt_int_t, double>& settings);
+template class barrier_solver_t<cuopt_int_t, double>;
+template class sparse_cholesky_base_t<cuopt_int_t, double>;
+template class sparse_cholesky_cudss_t<cuopt_int_t, double>;
+template class iteration_data_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::barrier

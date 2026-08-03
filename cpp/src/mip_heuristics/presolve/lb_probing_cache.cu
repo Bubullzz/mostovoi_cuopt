@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "probing_cache.cuh"
 
 #include <mip_heuristics/mip_constants.hpp>
@@ -399,11 +400,11 @@ void compute_probing_cache(load_balanced_bounds_presolve_t<i_t, f_t>& bound_pres
 }
 
 #define INSTANTIATE(F_TYPE)                                        \
-  template void compute_probing_cache<int, F_TYPE>(                \
-    load_balanced_bounds_presolve_t<int, F_TYPE> & bound_presolve, \
-    load_balanced_problem_t<int, F_TYPE> & problem,                \
+  template void compute_probing_cache<cuopt_int_t, F_TYPE>(                \
+    load_balanced_bounds_presolve_t<cuopt_int_t, F_TYPE> & bound_presolve, \
+    load_balanced_problem_t<cuopt_int_t, F_TYPE> & problem,                \
     timer_t timer);                                                \
-  template class lb_probing_cache_t<int, F_TYPE>;
+  template class lb_probing_cache_t<cuopt_int_t, F_TYPE>;
 
 #if MIP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

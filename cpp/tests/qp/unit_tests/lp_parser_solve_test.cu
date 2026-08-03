@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <utilities/common_utils.hpp>
 #include <utilities/copy_helpers.hpp>
 
@@ -37,8 +38,8 @@ void expect_optimal_solution(const std::string& lp_text,
                              const std::vector<double>& expected_x)
 {
   raft::handle_t handle;
-  auto problem  = io::read_lp_from_string<int, double>(lp_text);
-  auto settings = pdlp_solver_settings_t<int, double>();
+  auto problem  = io::read_lp_from_string<cuopt_int_t, double>(lp_text);
+  auto settings = pdlp_solver_settings_t<cuopt_int_t, double>();
   auto solution = solve_lp(&handle, problem, settings);
 
   ASSERT_EQ(solution.get_termination_status(), pdlp_termination_status_t::Optimal);

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -18,7 +19,7 @@
 
 namespace cuopt::mathematical_optimization::test {
 
-io::mps_data_model_t<int, double> create_std_lp_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_std_lp_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -33,7 +34,7 @@ End
 )LP");
 }
 
-io::mps_data_model_t<int, double> create_std_milp_problem(bool maximize)
+io::mps_data_model_t<cuopt_int_t, double> create_std_milp_problem(bool maximize)
 {
   auto problem = create_std_lp_problem();
   problem.set_maximize(maximize);
@@ -47,7 +48,7 @@ TEST(ServerTest, TestSampleLP)
   raft::handle_t handle;
   auto problem = create_std_lp_problem();
 
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> settings{};
   settings.set_optimality_tolerance(1e-4);
   settings.set_time_limit(5);
 
@@ -71,7 +72,7 @@ TEST_P(MILPTestParams, TestSampleMILP)
   raft::handle_t handle;
   auto problem = create_std_milp_problem(maximize);
 
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings{};
   settings.time_limit      = 5;
   settings.mip_scaling     = scaling;
   settings.heuristics_only = heuristics_only;

@@ -11,6 +11,7 @@
  * (1/2) x^T H x for the quadratic part).
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <utilities/common_utils.hpp>
 
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
@@ -180,7 +181,7 @@ TEST(mps_writer_op, write_to_mps_diagonal_qp_quadobj_matches_symmetrized_hessian
   raft::handle_t handle;
 
   // minimize x1^2 + x2^2  =>  Q = diag(1,1) in CSR; symmetrized H = Q + Q^T has H_ii = 2.
-  auto op = optimization_problem_t<int, double>(&handle);
+  auto op = optimization_problem_t<cuopt_int_t, double>(&handle);
   setup_two_var_unconstrained_qp(op);
 
   double Q_values_host[] = {1.0, 1.0};
@@ -221,7 +222,7 @@ TEST(mps_writer_op, write_to_mps_nonsymmetric_Q_quadobj_matches_Q_plus_Q_transpo
   //   [ 3  4  5 ]
   //   [ 0  7  8 ]
   // H = Q + Q^T has upper-triangle nonzeros 2, 5, 8, 12, 16 (H(0,2)=0 is not written to QUADOBJ).
-  auto op = optimization_problem_t<int, double>(&handle);
+  auto op = optimization_problem_t<cuopt_int_t, double>(&handle);
   setup_three_var_unconstrained_qp(op);
 
   double Q_values_host[] = {1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 8.0};

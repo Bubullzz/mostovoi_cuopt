@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 #include "line_segment_search.cuh"
 
@@ -291,11 +292,11 @@ bool line_segment_search_t<i_t, f_t>::search_line_segment(solution_t<i_t, f_t>& 
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class line_segment_search_t<int, float>;
+template class line_segment_search_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class line_segment_search_t<int, double>;
+template class line_segment_search_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

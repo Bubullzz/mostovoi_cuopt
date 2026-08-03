@@ -10,6 +10,7 @@ from libcpp cimport bool
 from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from ..cuopt_index cimport cuopt_int_t
 
 
 cdef extern from "cuopt/mathematical_optimization/io/mps_data_model.hpp" namespace "cuopt::mathematical_optimization::io": # noqa
@@ -20,10 +21,10 @@ cdef extern from "cuopt/mathematical_optimization/io/mps_data_model.hpp" namespa
             string constraint_row_name
             char constraint_row_type
             vector[double] linear_values
-            vector[int] linear_indices
+            vector[cuopt_int_t] linear_indices
             double rhs_value
-            vector[int] rows
-            vector[int] cols
+            vector[cuopt_int_t] rows
+            vector[cuopt_int_t] cols
             vector[double] vals
 
         bool maximize_
@@ -51,12 +52,12 @@ cdef extern from "cuopt/mathematical_optimization/io/mps_data_model.hpp" namespa
 
 cdef extern from "cuopt/mathematical_optimization/io/utilities/cython_parser.hpp" namespace "cuopt::cython": # noqa
 
-    cdef unique_ptr[mps_data_model_t[int, double]] call_read(
+    cdef unique_ptr[mps_data_model_t[cuopt_int_t, double]] call_read(
         const string& file_path,
         bool fixed_mps_format
     ) except +
 
-    cdef unique_ptr[mps_data_model_t[int, double]] call_parse_mps(
+    cdef unique_ptr[mps_data_model_t[cuopt_int_t, double]] call_parse_mps(
         const string& mps_file_path,
         bool fixed_mps_format
     ) except +

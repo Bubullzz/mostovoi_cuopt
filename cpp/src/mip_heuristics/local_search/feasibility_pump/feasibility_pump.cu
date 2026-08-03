@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "feasibility_pump.cuh"
 
 #include <cuopt/error.hpp>
@@ -582,11 +583,11 @@ bool feasibility_pump_t<i_t, f_t>::run_single_fp_descent(solution_t<i_t, f_t>& s
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class feasibility_pump_t<int, float>;
+template class feasibility_pump_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class feasibility_pump_t<int, double>;
+template class feasibility_pump_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

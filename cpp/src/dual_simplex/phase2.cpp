@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/basis_solves.hpp>
 #include <dual_simplex/basis_updates.hpp>
 #include <dual_simplex/bound_flipping_ratio_test.hpp>
@@ -3747,58 +3748,58 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template dual_status_t dual_phase2<int, double>(
+template dual_status_t dual_phase2<cuopt_int_t, double>(
   int phase,
   int slack_basis,
   double start_time,
-  const lp_problem_t<int, double>& lp,
-  const simplex_solver_settings_t<int, double>& settings,
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<variable_status_t>& vstatus,
-  lp_solution_t<int, double>& sol,
+  lp_solution_t<cuopt_int_t, double>& sol,
   int& iter,
   std::vector<double>& steepest_edge_norms,
   work_limit_context_t* work_unit_context);
 
-template dual_status_t dual_phase2_with_advanced_basis<int, double>(
+template dual_status_t dual_phase2_with_advanced_basis<cuopt_int_t, double>(
   int phase,
   int slack_basis,
   bool initialize_basis,
   double start_time,
-  const lp_problem_t<int, double>& lp,
-  const simplex_solver_settings_t<int, double>& settings,
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<variable_status_t>& vstatus,
-  basis_update_mpf_t<int, double>& ft,
-  std::vector<int>& basic_list,
-  std::vector<int>& nonbasic_list,
-  lp_solution_t<int, double>& sol,
+  basis_update_mpf_t<cuopt_int_t, double>& ft,
+  std::vector<cuopt_int_t>& basic_list,
+  std::vector<cuopt_int_t>& nonbasic_list,
+  lp_solution_t<cuopt_int_t, double>& sol,
   int& iter,
   std::vector<double>& steepest_edge_norms,
   work_limit_context_t* work_unit_context);
 
-template void compute_reduced_cost_update<int, double>(const lp_problem_t<int, double>& lp,
-                                                       const std::vector<int>& basic_list,
-                                                       const std::vector<int>& nonbasic_list,
+template void compute_reduced_cost_update<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
+                                                       const std::vector<cuopt_int_t>& basic_list,
+                                                       const std::vector<cuopt_int_t>& nonbasic_list,
                                                        const std::vector<double>& delta_y,
                                                        int leaving_index,
                                                        int direction,
-                                                       std::vector<int>& delta_z_mark,
-                                                       std::vector<int>& delta_z_indices,
+                                                       std::vector<cuopt_int_t>& delta_z_mark,
+                                                       std::vector<cuopt_int_t>& delta_z_indices,
                                                        std::vector<double>& delta_z,
                                                        double& work_estimate);
 
-template void compute_delta_z<int, double>(const csr_matrix_t<int, double>& Arow,
-                                           const sparse_vector_t<int, double>& delta_y,
+template void compute_delta_z<cuopt_int_t, double>(const csr_matrix_t<cuopt_int_t, double>& Arow,
+                                           const sparse_vector_t<cuopt_int_t, double>& delta_y,
                                            int leaving_index,
                                            int direction,
-                                           const std::vector<int>& nonbasic_end,
-                                           std::vector<int>& delta_z_mark,
-                                           std::vector<int>& delta_z_indices,
+                                           const std::vector<cuopt_int_t>& nonbasic_end,
+                                           std::vector<cuopt_int_t>& delta_z_mark,
+                                           std::vector<cuopt_int_t>& delta_z_indices,
                                            std::vector<double>& delta_z,
                                            double& work_estimate);
 
-template void compute_initial_nonbasic_end<int, double>(const std::vector<int>& basic_mark,
-                                                        csr_matrix_t<int, double>& Arow,
-                                                        std::vector<int>& nonbasic_end);
+template void compute_initial_nonbasic_end<cuopt_int_t, double>(const std::vector<cuopt_int_t>& basic_mark,
+                                                        csr_matrix_t<cuopt_int_t, double>& Arow,
+                                                        std::vector<cuopt_int_t>& nonbasic_end);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

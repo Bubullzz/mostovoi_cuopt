@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/cusparse_view.hpp>
 #include <barrier/pinned_host_allocator.hpp>
 #include <linear_algebra/dense_vector.hpp>
@@ -15,6 +16,7 @@
 #include <utilities/macros.cuh>
 
 #include <cuopt/error.hpp>
+#include <cuopt/utilities/cusparse_index_types.hpp>
 
 #include <raft/sparse/detail/cusparse_wrappers.h>
 #include <raft/core/cusparse_macros.hpp>
@@ -199,6 +201,8 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(raft::handle_t const* handle_ptr,
   A_T_indices_ = device_copy(A.i, handle_ptr->get_stream());
   A_T_data_    = device_copy(A.x, handle_ptr->get_stream());
 
+  const auto cusparse_index = cuopt::utilities::cusparse_index_type<i_t>();
+
   cusparseCreateCsr(&A_,
                     rows_,
                     cols,
@@ -206,8 +210,8 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(raft::handle_t const* handle_ptr,
                     A_offsets_.data(),
                     A_indices_.data(),
                     A_data_.data(),
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
+                    cusparse_index,
+                    cusparse_index,
                     CUSPARSE_INDEX_BASE_ZERO,
                     CUDA_R_64F);
 
@@ -218,8 +222,8 @@ cusparse_view_t<i_t, f_t>::cusparse_view_t(raft::handle_t const* handle_ptr,
                     A_T_offsets_.data(),
                     A_T_indices_.data(),
                     A_T_data_.data(),
-                    CUSPARSE_INDEX_32I,
-                    CUSPARSE_INDEX_32I,
+                    cusparse_index,
+                    cusparse_index,
                     CUSPARSE_INDEX_BASE_ZERO,
                     CUDA_R_64F);
 
@@ -361,35 +365,35 @@ void cusparse_view_t<i_t, f_t>::transpose_spmv(f_t alpha,
                                      handle_ptr_->get_stream());
 }
 
-template class cusparse_view_t<int, double>;
+template class cusparse_view_t<cuopt_int_t, double>;
 template void
-cusparse_view_t<int, double>::spmv<PinnedHostAllocator<double>, PinnedHostAllocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::spmv<PinnedHostAllocator<double>, PinnedHostAllocator<double>>(
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
   std::vector<double, PinnedHostAllocator<double>>& y);
 
 template void
-cusparse_view_t<int, double>::spmv<PinnedHostAllocator<double>, std::allocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::spmv<PinnedHostAllocator<double>, std::allocator<double>>(
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
   std::vector<double, std::allocator<double>>& y);
 
 template void
-cusparse_view_t<int, double>::spmv<std::allocator<double>, PinnedHostAllocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::spmv<std::allocator<double>, PinnedHostAllocator<double>>(
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,
   std::vector<double, PinnedHostAllocator<double>>& y);
 
-template void cusparse_view_t<int, double>::spmv<std::allocator<double>, std::allocator<double>>(
+template void cusparse_view_t<cuopt_int_t, double>::spmv<std::allocator<double>, std::allocator<double>>(
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,
   std::vector<double, std::allocator<double>>& y);
 
-template void cusparse_view_t<int, double>::transpose_spmv<PinnedHostAllocator<double>,
+template void cusparse_view_t<cuopt_int_t, double>::transpose_spmv<PinnedHostAllocator<double>,
                                                            PinnedHostAllocator<double>>(
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
@@ -397,21 +401,21 @@ template void cusparse_view_t<int, double>::transpose_spmv<PinnedHostAllocator<d
   std::vector<double, PinnedHostAllocator<double>>& y);
 
 template void
-cusparse_view_t<int, double>::transpose_spmv<PinnedHostAllocator<double>, std::allocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::transpose_spmv<PinnedHostAllocator<double>, std::allocator<double>>(
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
   std::vector<double, std::allocator<double>>& y);
 
 template void
-cusparse_view_t<int, double>::transpose_spmv<std::allocator<double>, PinnedHostAllocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::transpose_spmv<std::allocator<double>, PinnedHostAllocator<double>>(
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,
   std::vector<double, PinnedHostAllocator<double>>& y);
 
 template void
-cusparse_view_t<int, double>::transpose_spmv<std::allocator<double>, std::allocator<double>>(
+cusparse_view_t<cuopt_int_t, double>::transpose_spmv<std::allocator<double>, std::allocator<double>>(
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,

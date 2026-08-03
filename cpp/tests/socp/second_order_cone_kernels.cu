@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/second_order_cone_kernels.cuh>
 
 #include <utilities/copy_helpers.hpp>
@@ -26,7 +27,7 @@ TEST(second_order_cone_kernels, topology_and_scratch_layout)
   rmm::device_uvector<double> x(10, stream);
   rmm::device_uvector<double> z(10, stream);
 
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
   EXPECT_EQ(cones.n_cones, std::size_t{3});
   EXPECT_EQ(cones.n_cone_entries, std::size_t{10});
@@ -67,7 +68,7 @@ TEST(second_order_cone_kernels, segmented_sum_uses_all_cone_size_buckets)
   std::vector<int> cone_dimensions{65, 3, 66, 32769};
   rmm::device_uvector<double> x(32903, stream);
   rmm::device_uvector<double> z(32903, stream);
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
   EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.small_cone_ids, stream), (std::vector<int>{1}));
   EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream),
@@ -117,7 +118,7 @@ TEST(second_order_cone_kernels, nt_scaling_matches_host_reference)
 
   auto x = cuopt::device_copy(x_host, stream);
   auto z = cuopt::device_copy(z_host, stream);
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
   const auto workspace_size = cones.segmented_sum.cub_workspace.size();
   EXPECT_GT(workspace_size, 0);
 
@@ -235,7 +236,7 @@ TEST(second_order_cone_kernels, nt_scaling_many_small_one_medium_cone)
 
   auto x = cuopt::device_copy(x_host, stream);
   auto z = cuopt::device_copy(z_host, stream);
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
   EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream), (std::vector<int>{20}));
   EXPECT_EQ(cones.n_sparse_cones, 1);
@@ -349,7 +350,7 @@ TEST(second_order_cone_kernels, cone_step_length_many_small_one_sparse_medium_co
   auto dx = cuopt::device_copy(dx_host, stream);
   auto dz = cuopt::device_copy(dz_host, stream);
 
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
   launch_nt_scaling(cones, stream);
   launch_update_scaling_sparse(cones, stream);
@@ -485,7 +486,7 @@ TEST(second_order_cone_kernels, cone_step_length_keeps_iterate_in_cone)
   auto dx = cuopt::device_copy(dx_host, stream);
   auto dz = cuopt::device_copy(dz_host, stream);
 
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
   const auto step_combined =
     compute_cone_step_length(cones,
                              raft::device_span<const double>(dx.data(), dx.size()),
@@ -566,7 +567,7 @@ TEST(second_order_cone_kernels, scaling_operators_match_host_reference)
   rmm::device_uvector<double> w_squared_v(n_cone_entries, stream);
   rmm::device_uvector<double> recovered_dz(n_cone_entries, stream);
 
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
   launch_nt_scaling(cones, stream);
 
   auto v_span = raft::device_span<const double>(v.data(), v.size());
@@ -685,7 +686,7 @@ TEST(second_order_cone_kernels, combined_cone_rhs_matches_host_reference)
   auto dz_aff = cuopt::device_copy(dz_aff_host, stream);
   rmm::device_uvector<double> out(n_cone_entries, stream);
 
-  cone_data_t<int, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
+  cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
   launch_nt_scaling(cones, stream);
 
   constexpr double sigma_mu = 0.37;
@@ -819,7 +820,7 @@ TEST(second_order_cone_kernels, sparse_cone_classification)
   rmm::device_uvector<double> x(32780, stream);
   rmm::device_uvector<double> z(32780, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/5);
 
   EXPECT_EQ(cones.soc_threshold, 5);
@@ -872,7 +873,7 @@ TEST(second_order_cone_kernels, update_scaling_sparse_matches_reference)
   rmm::device_uvector<double> x(9, stream);
   rmm::device_uvector<double> z(9, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
   ASSERT_EQ(cones.n_sparse_cones, 1);
@@ -931,7 +932,7 @@ TEST(second_order_cone_kernels, update_scaling_sparse_two_cones)
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
 
-  cone_data_t<int, double> cones(
+  cone_data_t<cuopt_int_t, double> cones(
     cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream, /*soc_threshold=*/4);
 
   ASSERT_EQ(cones.n_sparse_cones, 2);

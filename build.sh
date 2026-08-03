@@ -14,7 +14,7 @@ ARGS=$*
 REPODIR=$(cd "$(dirname "$0")"; pwd)
 LIBCUOPT_BUILD_DIR=${LIBCUOPT_BUILD_DIR:=${REPODIR}/cpp/build}
 
-VALIDARGS="clean codegen libcuopt cuopt_grpc_server cuopt cuopt_server cuopt_sh_client docs deb -a -b -g -fsanitize -tsan -msan -v -l= --verbose-pdlp --build-lp-only  --no-fetch-rapids --skip-c-python-adapters --skip-tests-build --skip-routing-build --skip-grpc-build --skip-fatbin-write --host-lineinfo [--cmake-args=\\\"<args>\\\"] [--cache-tool=<tool>] -n --allgpuarch --ci-only-arch --show_depr_warn -h --help"
+VALIDARGS="clean codegen libcuopt cuopt_grpc_server cuopt cuopt_server cuopt_sh_client docs deb -a -b -g -fsanitize -tsan -msan -v -l= --verbose-pdlp --build-lp-only --index-64bit --no-fetch-rapids --skip-c-python-adapters --skip-tests-build --skip-routing-build --skip-grpc-build --skip-fatbin-write --host-lineinfo [--cmake-args=\\\"<args>\\\"] [--cache-tool=<tool>] -n --allgpuarch --ci-only-arch --show_depr_warn -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
@@ -39,6 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    -l=              - log level. Options are: TRACE | DEBUG | INFO | WARN | ERROR | CRITICAL | OFF. Default=INFO
    --verbose-pdlp   - verbose mode for pdlp solver
    --build-lp-only  - build only linear programming components, excluding routing package and MIP-specific files
+   --index-64bit    - use 64-bit sparse indices (cuopt_int_t = int64_t) for problems with >INT_MAX nonzeros
    --skip-c-python-adapters - skip building C and Python adapter files (cython_solve.cu and cuopt_c.cpp)
    --skip-tests-build  - disable building of all tests
    --skip-routing-build - skip building routing components
@@ -76,6 +77,7 @@ BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_ALL_GPU_ARCH=0
 BUILD_CI_ONLY=0
 BUILD_LP_ONLY=0
+CUOPT_INDEX_64BIT=0
 BUILD_SANITIZER=0
 BUILD_TSAN=0
 BUILD_MSAN=0
@@ -232,6 +234,9 @@ if hasArg --build-lp-only; then
     BUILD_LP_ONLY=1
     SKIP_ROUTING_BUILD=1  # Automatically skip routing when building LP-only
 fi
+if hasArg --index-64bit; then
+    CUOPT_INDEX_64BIT=1
+fi
 if hasArg -fsanitize; then
     BUILD_SANITIZER=1
 fi
@@ -370,6 +375,7 @@ if buildAll || hasArg libcuopt || hasArg cuopt_grpc_server; then
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DFETCH_RAPIDS=${FETCH_RAPIDS} \
           -DBUILD_LP_ONLY=${BUILD_LP_ONLY} \
+          -DCUOPT_INDEX_64BIT=${CUOPT_INDEX_64BIT} \
           -DBUILD_SANITIZER=${BUILD_SANITIZER} \
           -DBUILD_TSAN=${BUILD_TSAN} \
           -DBUILD_MSAN=${BUILD_MSAN} \

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
@@ -36,9 +37,9 @@ TEST(problem, find_implied_integers)
   const raft::handle_t handle_{};
 
   auto path           = make_path_absolute("mip/fiball.mps");
-  auto mps_data_model = cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  auto mps_data_model = cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   auto op_problem     = mps_data_model_to_optimization_problem(&handle_, mps_data_model);
-  auto presolver      = std::make_unique<mip::third_party_presolve_t<int, double>>();
+  auto presolver      = std::make_unique<mip::third_party_presolve_t<cuopt_int_t, double>>();
   auto result         = presolver->apply_presolve_from_op_problem(
     op_problem,
     cuopt::mathematical_optimization::problem_category_t::MIP,
@@ -51,7 +52,7 @@ TEST(problem, find_implied_integers)
   ASSERT_NE(result.status, mip::third_party_presolve_status_t::INFEASIBLE);
   ASSERT_NE(result.status, mip::third_party_presolve_status_t::UNBNDORINFEAS);
 
-  auto problem = mip::problem_t<int, double>(result.reduced_problem);
+  auto problem = mip::problem_t<cuopt_int_t, double>(result.reduced_problem);
   problem.set_implied_integers(result.implied_integer_indices);
   ASSERT_TRUE(result.implied_integer_indices.size() > 0);
   auto var_types = host_copy(problem.variable_types, handle_.get_stream());
@@ -63,7 +64,7 @@ TEST(problem, find_implied_integers)
   ASSERT_EQ(problem.presolve_data.var_flags.size(), var_types.size());
   // Ensure it is an implied integer
   EXPECT_EQ(problem.presolve_data.var_flags.element(it - var_types.begin(), handle_.get_stream()),
-            ((int)mip::problem_t<int, double>::var_flags_t::VAR_IMPLIED_INTEGER));
+            ((int)mip::problem_t<cuopt_int_t, double>::var_flags_t::VAR_IMPLIED_INTEGER));
 }
 
 TEST(gf2_presolve, uses_compact_constraint_indices)
@@ -130,7 +131,7 @@ TEST(gf2_presolve, uses_compact_constraint_indices)
   }
 
   const raft::handle_t handle_{};
-  optimization_problem_t<int, double> problem(&handle_);
+  optimization_problem_t<cuopt_int_t, double> problem(&handle_);
   std::vector<double> objective(num_vars, 1.0);
   std::vector<double> variable_lb(num_vars, 0.0);
   std::vector<double> variable_ub(num_vars, 1.0);
@@ -144,7 +145,7 @@ TEST(gf2_presolve, uses_compact_constraint_indices)
   problem.set_constraint_lower_bounds(constraint_lb.data(), constraint_lb.size());
   problem.set_constraint_upper_bounds(constraint_ub.data(), constraint_ub.size());
 
-  auto presolver = std::make_unique<mip::third_party_presolve_t<int, double>>();
+  auto presolver = std::make_unique<mip::third_party_presolve_t<cuopt_int_t, double>>();
   auto result    = presolver->apply_presolve_from_op_problem(
     problem, problem_category_t::MIP, presolver_t::Papilo, false, 1e-6, 1e-12, 20, 1);
 

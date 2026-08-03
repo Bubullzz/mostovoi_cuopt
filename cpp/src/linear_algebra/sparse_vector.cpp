@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <linear_algebra/sparse_vector.hpp>
 
 #include <algorithm>
@@ -282,7 +283,7 @@ void sparse_vector_t<i_t, f_t>::squeeze(sparse_vector_t<i_t, f_t>& y) const
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template class sparse_vector_t<int, double>;
+template class sparse_vector_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

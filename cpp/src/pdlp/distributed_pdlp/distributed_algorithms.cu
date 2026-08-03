@@ -5,6 +5,7 @@
 
 // Out-of-line definitions of multi_gpu_engine_t's high-level algorithm methods
 // used by the pdlp solver.
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/cusparse_view.hpp>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/pdlp.cuh>
@@ -406,18 +407,20 @@ void multi_gpu_engine_t<i_t, f_t>::distributed_compute_initial_primal_weight(
 // The class template is instantiated in multi_gpu_engine.cu; here we only
 // explicit-instantiate the out-of-line members defined in this TU.
 #define INSTANTIATE(F_TYPE)                                                                       \
-  template void multi_gpu_engine_t<int, F_TYPE>::gather_potential_next_solutions_to_master();     \
-  template void multi_gpu_engine_t<int, F_TYPE>::refresh_halo_cummulative_scalings();             \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_bound_objective_rescaling(F_TYPE);   \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_ruiz_inf_scaling(int, int);          \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_pock_chambolle_scaling(F_TYPE, int); \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_scaling(                             \
-    pdlp_hyper_params_t const&, int, bool);                                                       \
-  template F_TYPE multi_gpu_engine_t<int, F_TYPE>::distributed_max_singular_value_squared(        \
-    int, int, F_TYPE);                                                                            \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_compute_initial_step_size(           \
-    pdlp_hyper_params_t const&, int, F_TYPE, int, F_TYPE);                                        \
-  template void multi_gpu_engine_t<int, F_TYPE>::distributed_compute_initial_primal_weight(       \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::gather_potential_next_solutions_to_master();     \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::refresh_halo_cummulative_scalings();             \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_bound_objective_rescaling(F_TYPE);   \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_ruiz_inf_scaling(                    \
+    int, cuopt_int_t);                                                                                    \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_pock_chambolle_scaling(              \
+    F_TYPE, cuopt_int_t);                                                                                 \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_scaling(                             \
+    pdlp_hyper_params_t const&, cuopt_int_t, bool);                                                       \
+  template F_TYPE multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_max_singular_value_squared(        \
+    cuopt_int_t, int, F_TYPE);                                                                            \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_compute_initial_step_size(           \
+    pdlp_hyper_params_t const&, cuopt_int_t, F_TYPE, int, F_TYPE);                                        \
+  template void multi_gpu_engine_t<cuopt_int_t, F_TYPE>::distributed_compute_initial_primal_weight(       \
     pdlp_hyper_params_t const&);
 
 INSTANTIATE(double)

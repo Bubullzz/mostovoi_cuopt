@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/cusparse_view.hpp>
 #include <pdlp/optimal_batch_size_handler/optimal_batch_size_handler.hpp>
 #include <pdlp/pdlp_constants.hpp>
@@ -435,12 +436,12 @@ int optimal_batch_size_handler(const optimization_problem_t<i_t, f_t>& op_proble
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template int optimal_batch_size_handler<int, float>(
-  const optimization_problem_t<int, float>& op_problem, int max_batch_size);
+template int optimal_batch_size_handler<cuopt_int_t, float>(
+  const optimization_problem_t<cuopt_int_t, float>& op_problem, int max_batch_size);
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template int optimal_batch_size_handler<int, double>(
-  const optimization_problem_t<int, double>& op_problem, int max_batch_size);
+template int optimal_batch_size_handler<cuopt_int_t, double>(
+  const optimization_problem_t<cuopt_int_t, double>& op_problem, int max_batch_size);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

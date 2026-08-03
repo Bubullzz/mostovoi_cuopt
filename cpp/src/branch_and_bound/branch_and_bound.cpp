@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <branch_and_bound/branch_and_bound.hpp>
 #include <branch_and_bound/diving_heuristics.hpp>
 #include <branch_and_bound/mip_node.hpp>
@@ -4967,7 +4968,7 @@ void branch_and_bound_t<i_t, f_t>::deterministic_dive(
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template class branch_and_bound_t<int, double>;
+template class branch_and_bound_t<cuopt_int_t, double>;
 
 #endif
 

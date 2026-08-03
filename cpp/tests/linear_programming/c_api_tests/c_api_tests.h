@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/cuopt_c.h>
 
 #ifdef __cplusplus

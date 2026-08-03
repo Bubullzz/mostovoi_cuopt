@@ -135,7 +135,7 @@ struct parameter_info_t<std::string> {
  *
  * @note Default presolver is None.
  */
-enum presolver_t : int {
+enum presolver_t : cuopt_int_t {
   Default = CUOPT_PRESOLVE_DEFAULT,
   None    = CUOPT_PRESOLVE_OFF,
   Papilo  = CUOPT_PRESOLVE_PAPILO,

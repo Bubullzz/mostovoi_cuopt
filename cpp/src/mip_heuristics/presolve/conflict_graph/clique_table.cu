@@ -5,6 +5,7 @@
 
 #define DEBUG_KNAPSACK_CONSTRAINTS 0
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "clique_table.cuh"
 
 #include <algorithm>
@@ -762,21 +763,21 @@ void find_initial_cliques(user_problem_t<i_t, f_t>& problem,
 }
 
 #define INSTANTIATE(F_TYPE)                                                                    \
-  template void find_initial_cliques<int, F_TYPE>(                                             \
-    user_problem_t<int, F_TYPE> & problem,                                                     \
-    typename mip_solver_settings_t<int, F_TYPE>::tolerances_t tolerances,                      \
-    std::shared_ptr<clique_table_t<int, F_TYPE>> & clique_table_out,                           \
+  template void find_initial_cliques<cuopt_int_t, F_TYPE>(                                             \
+    user_problem_t<cuopt_int_t, F_TYPE> & problem,                                                     \
+    typename mip_solver_settings_t<cuopt_int_t, F_TYPE>::tolerances_t tolerances,                      \
+    std::shared_ptr<clique_table_t<cuopt_int_t, F_TYPE>> & clique_table_out,                           \
     cuopt::timer_t & timer,                                                                    \
     omp_atomic_t<bool> * signal_extend);                                                       \
-  template void build_clique_table<int, F_TYPE>(                                               \
-    const user_problem_t<int, F_TYPE>& problem,                                                \
-    clique_table_t<int, F_TYPE>& clique_table,                                                 \
-    typename mip_solver_settings_t<int, F_TYPE>::tolerances_t tolerances,                      \
+  template void build_clique_table<cuopt_int_t, F_TYPE>(                                               \
+    const user_problem_t<cuopt_int_t, F_TYPE>& problem,                                                \
+    clique_table_t<cuopt_int_t, F_TYPE>& clique_table,                                                 \
+    typename mip_solver_settings_t<cuopt_int_t, F_TYPE>::tolerances_t tolerances,                      \
     bool remove_small_cliques_flag,                                                            \
     bool fill_var_clique_maps_flag,                                                            \
     cuopt::timer_t& timer);                                                                    \
-  template void fill_var_clique_maps<int, F_TYPE>(clique_table_t<int, F_TYPE> & clique_table); \
-  template class clique_table_t<int, F_TYPE>;
+  template void fill_var_clique_maps<cuopt_int_t, F_TYPE>(clique_table_t<cuopt_int_t, F_TYPE> & clique_table); \
+  template class clique_table_t<cuopt_int_t, F_TYPE>;
 
 #if MIP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

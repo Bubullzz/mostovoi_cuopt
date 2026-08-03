@@ -11,6 +11,7 @@ from libc.stddef cimport size_t
 from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from ..cuopt_index cimport cuopt_int_t
 
 
 cdef extern from "cuopt/mathematical_optimization/io/mps_data_model.hpp" namespace "cuopt::mathematical_optimization::io" nogil: # noqa
@@ -21,10 +22,10 @@ cdef extern from "cuopt/mathematical_optimization/io/mps_data_model.hpp" namespa
             string constraint_row_name
             char constraint_row_type
             vector[double] linear_values
-            vector[int] linear_indices
+            vector[cuopt_int_t] linear_indices
             double rhs_value
-            vector[int] rows
-            vector[int] cols
+            vector[cuopt_int_t] rows
+            vector[cuopt_int_t] cols
             vector[double] vals
 
 
@@ -77,5 +78,5 @@ cdef extern from "cuopt/mathematical_optimization/io/data_model_view.hpp" namesp
 cdef extern from "cuopt/mathematical_optimization/io/writer.hpp" namespace "cuopt::mathematical_optimization::io" nogil: # noqa
 
     cdef void write_mps(
-        const data_model_view_t[int, double] data_model,
+        const data_model_view_t[cuopt_int_t, double] data_model,
         const string user_problem_file) except +

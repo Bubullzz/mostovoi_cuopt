@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuts/cuts.hpp>
 #include <cuts/rational.hpp>
 
@@ -1034,7 +1035,7 @@ std::vector<std::vector<int>> find_maximal_cliques_for_test(
   const double max_work_estimate = std::numeric_limits<double>::infinity();
   const double start_time        = tic();
 
-  bk_bitset_context_t<int, double> ctx{adj_bitset,
+  bk_bitset_context_t<cuopt_int_t, double> ctx{adj_bitset,
                                        weights,
                                        min_weight,
                                        max_calls,
@@ -1050,7 +1051,7 @@ std::vector<std::vector<int>> find_maximal_cliques_for_test(
   for (size_t idx = 0; idx < n_vertices; ++idx) {
     bitset_set(P, idx);
   }
-  bron_kerbosch<int, double>(ctx, R, P, X, 0.0);
+  bron_kerbosch<cuopt_int_t, double>(ctx, R, P, X, 0.0);
   return ctx.cliques;
 }
 
@@ -1083,13 +1084,13 @@ std::vector<std::vector<int>> find_violated_odd_cycles_for_test(
 
   std::vector<std::vector<int>> result;
   std::vector<int> bipartite_path;
-  dijkstra_scratch_t<int, double> dijkstra_scratch;
+  dijkstra_scratch_t<cuopt_int_t, double> dijkstra_scratch;
 
   for (int s = 0; s < num_local; ++s) {
     if (toc(start_time) >= time_limit) { break; }
 
     double total_weight = 0;
-    if (!dijkstra_odd_cycle<int, double>(s,
+    if (!dijkstra_odd_cycle<cuopt_int_t, double>(s,
                                          adj_local,
                                          x_values,
                                          cutoff,
@@ -6632,31 +6633,31 @@ void verify_cuts_against_saved_solution(const csr_matrix_t<i_t, f_t>& cuts,
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template class cut_pool_t<int, double>;
-template class cut_generation_t<int, double>;
-template class knapsack_generation_t<int, double>;
-template class flow_cover_generation_t<int, double>;
-template class tableau_equality_t<int, double>;
-template class complemented_mixed_integer_rounding_cut_t<int, double>;
-template class variable_bounds_t<int, double>;
+template class cut_pool_t<cuopt_int_t, double>;
+template class cut_generation_t<cuopt_int_t, double>;
+template class knapsack_generation_t<cuopt_int_t, double>;
+template class flow_cover_generation_t<cuopt_int_t, double>;
+template class tableau_equality_t<cuopt_int_t, double>;
+template class complemented_mixed_integer_rounding_cut_t<cuopt_int_t, double>;
+template class variable_bounds_t<cuopt_int_t, double>;
 
-template int add_cuts(const simplex_solver_settings_t<int, double>& settings,
-                      const csr_matrix_t<int, double>& cuts,
+template int add_cuts(const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                      const csr_matrix_t<cuopt_int_t, double>& cuts,
                       const std::vector<double>& cut_rhs,
-                      lp_problem_t<int, double>& lp,
-                      std::vector<int>& new_slacks,
-                      lp_solution_t<int, double>& solution,
-                      basis_update_mpf_t<int, double>& basis_update,
-                      std::vector<int>& basic_list,
-                      std::vector<int>& nonbasic_list,
+                      lp_problem_t<cuopt_int_t, double>& lp,
+                      std::vector<cuopt_int_t>& new_slacks,
+                      lp_solution_t<cuopt_int_t, double>& solution,
+                      basis_update_mpf_t<cuopt_int_t, double>& basis_update,
+                      std::vector<cuopt_int_t>& basic_list,
+                      std::vector<cuopt_int_t>& nonbasic_list,
                       std::vector<variable_status_t>& vstatus,
                       std::vector<double>& edge_norms);
 
-template int remove_cuts<int, double>(lp_problem_t<int, double>& lp,
-                                      const simplex_solver_settings_t<int, double>& settings,
+template int remove_cuts<cuopt_int_t, double>(lp_problem_t<cuopt_int_t, double>& lp,
+                                      const simplex_solver_settings_t<cuopt_int_t, double>& settings,
                                       double start_time,
-                                      csr_matrix_t<int, double>& Arow,
-                                      std::vector<int>& new_slacks,
+                                      csr_matrix_t<cuopt_int_t, double>& Arow,
+                                      std::vector<cuopt_int_t>& new_slacks,
                                       int original_rows,
                                       std::vector<variable_type_t>& var_types,
                                       std::vector<variable_status_t>& vstatus,
@@ -6664,20 +6665,20 @@ template int remove_cuts<int, double>(lp_problem_t<int, double>& lp,
                                       std::vector<double>& x,
                                       std::vector<double>& y,
                                       std::vector<double>& z,
-                                      std::vector<int>& basic_list,
-                                      std::vector<int>& nonbasic_list,
-                                      basis_update_mpf_t<int, double>& basis_update);
+                                      std::vector<cuopt_int_t>& basic_list,
+                                      std::vector<cuopt_int_t>& nonbasic_list,
+                                      basis_update_mpf_t<cuopt_int_t, double>& basis_update);
 
-template void read_saved_solution_for_cut_verification<int, double>(
-  const lp_problem_t<int, double>& lp,
-  const simplex_solver_settings_t<int, double>& settings,
+template void read_saved_solution_for_cut_verification<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<double>& saved_solution);
 
-template void write_solution_for_cut_verification<int, double>(const lp_problem_t<int, double>& lp,
+template void write_solution_for_cut_verification<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
                                                                const std::vector<double>& solution);
 
-template void verify_cuts_against_saved_solution<int, double>(
-  const csr_matrix_t<int, double>& cuts,
+template void verify_cuts_against_saved_solution<cuopt_int_t, double>(
+  const csr_matrix_t<cuopt_int_t, double>& cuts,
   const std::vector<double>& cut_rhs,
   const std::vector<double>& saved_solution);
 #endif

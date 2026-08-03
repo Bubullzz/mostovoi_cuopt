@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 #include <mip_heuristics/relaxed_lp/relaxed_lp.cuh>
 #include <utilities/copy_helpers.hpp>
@@ -952,11 +953,11 @@ bool lb_constraint_prop_t<i_t, f_t>::find_integer(
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class lb_constraint_prop_t<int, float>;
+template class lb_constraint_prop_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class lb_constraint_prop_t<int, double>;
+template class lb_constraint_prop_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

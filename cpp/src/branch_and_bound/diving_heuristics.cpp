@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <branch_and_bound/diving_heuristics.hpp>
 
 namespace cuopt::mathematical_optimization::mip {
@@ -374,37 +375,37 @@ template branch_variable_t<int> line_search_diving(const std::vector<int>& fract
                                                    const std::vector<double>& root_solution,
                                                    logger_t& log);
 
-template branch_variable_t<int> pseudocost_diving(pseudo_costs_t<int, double>& pc,
-                                                  const std::vector<int>& fractional,
+template branch_variable_t<int> pseudocost_diving(pseudo_costs_t<cuopt_int_t, double>& pc,
+                                                  const std::vector<cuopt_int_t>& fractional,
                                                   const std::vector<double>& solution,
                                                   const std::vector<double>& root_solution,
                                                   logger_t& log);
 
-template branch_variable_t<int> guided_diving(pseudo_costs_t<int, double>& pc,
-                                              const std::vector<int>& fractional,
+template branch_variable_t<int> guided_diving(pseudo_costs_t<cuopt_int_t, double>& pc,
+                                              const std::vector<cuopt_int_t>& fractional,
                                               const std::vector<double>& solution,
                                               const std::vector<double>& incumbent,
                                               logger_t& log);
 
-template void calculate_variable_locks(const lp_problem_t<int, double>& lp_problem,
-                                       std::vector<int>& up_locks,
-                                       std::vector<int>& down_locks);
+template void calculate_variable_locks(const lp_problem_t<cuopt_int_t, double>& lp_problem,
+                                       std::vector<cuopt_int_t>& up_locks,
+                                       std::vector<cuopt_int_t>& down_locks);
 
-template branch_variable_t<int> coefficient_diving(const lp_problem_t<int, double>& lp_problem,
-                                                   const std::vector<int>& fractional,
+template branch_variable_t<int> coefficient_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
+                                                   const std::vector<cuopt_int_t>& fractional,
                                                    const std::vector<double>& solution,
-                                                   const std::vector<int>& up_locks,
-                                                   const std::vector<int>& down_locks,
+                                                   const std::vector<cuopt_int_t>& up_locks,
+                                                   const std::vector<cuopt_int_t>& down_locks,
                                                    logger_t& log);
 
-template branch_variable_t<int> farkas_diving(const lp_problem_t<int, double>& lp_problem,
-                                              const std::vector<int>& fractional,
+template branch_variable_t<int> farkas_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
+                                              const std::vector<cuopt_int_t>& fractional,
                                               const std::vector<double>& solution,
                                               double zero_tol,
                                               logger_t& log);
 
-template branch_variable_t<int> vector_length_diving(const lp_problem_t<int, double>& lp_problem,
-                                                     const std::vector<int>& fractional,
+template branch_variable_t<int> vector_length_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
+                                                     const std::vector<cuopt_int_t>& fractional,
                                                      const std::vector<double>& solution,
                                                      logger_t& log);
 

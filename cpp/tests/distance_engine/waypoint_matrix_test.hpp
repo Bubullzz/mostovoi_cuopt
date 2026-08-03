@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/routing/distance_engine/waypoint_matrix.hpp>
 #include <vector>
 #include "utilities/data_model.hpp"
@@ -118,7 +119,7 @@ parse_data_model_custom_weight(data_model_view_t&& data_model)
 }
 
 template <typename... Args>
-std::vector<waypoint_matrix_params_t<waypoint_sequence_params_t<int, float>, int, float>>
+std::vector<waypoint_matrix_params_t<waypoint_sequence_params_t<cuopt_int_t, float>, int, float>>
 parse_data_models(Args... args)
 {
   return {parse_data_model(args)...};

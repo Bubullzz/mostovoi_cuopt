@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -51,7 +52,7 @@ struct fj_tweaks_t {
 };
 
 struct fj_state_t {
-  mip::solution_t<int, double> solution;
+  mip::solution_t<cuopt_int_t, double> solution;
   std::vector<double> solution_vector;
   int minimums;
   double incumbent_objective;
@@ -68,24 +69,24 @@ static fj_state_t run_fj(std::string test_instance,
   std::cout << "Running: " << test_instance << std::endl;
 
   auto path = cuopt::test::get_rapids_dataset_root_dir() + ("/mip/" + test_instance);
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> mps_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   auto op_problem = mps_data_model_to_optimization_problem(&handle_, mps_problem);
-  problem_checking_t<int, double>::check_problem_representation(op_problem);
+  problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem);
 
   init_handler(op_problem.get_handle_ptr());
   // run the problem constructor of MIP, so that we do bounds standardization
-  mip::problem_t<int, double> problem(op_problem);
+  mip::problem_t<cuopt_int_t, double> problem(op_problem);
   problem.preprocess_problem();
-  mip::mip_scaling_strategy_t<int, double> scaling(problem);
+  mip::mip_scaling_strategy_t<cuopt_int_t, double> scaling(problem);
 
-  auto settings       = mip_solver_settings_t<int, double>{};
+  auto settings       = mip_solver_settings_t<cuopt_int_t, double>{};
   settings.time_limit = 30.;
   auto timer          = cuopt::timer_t(30);
-  mip::mip_solver_t<int, double> solver(problem, settings, scaling, timer);
+  mip::mip_solver_t<cuopt_int_t, double> solver(problem, settings, scaling, timer);
 
-  mip::solution_t<int, double> solution(*solver.context.problem_ptr);
+  mip::solution_t<cuopt_int_t, double> solution(*solver.context.problem_ptr);
   if (initial_solution.size() > 0) {
     expand_device_copy(solution.assignment, initial_solution, solution.handle_ptr->get_stream());
   } else {
@@ -96,7 +97,7 @@ static fj_state_t run_fj(std::string test_instance,
   }
   solution.clamp_within_bounds();
 
-  mip::fj_t<int, double> fj(solver.context, fj_settings);
+  mip::fj_t<cuopt_int_t, double> fj(solver.context, fj_settings);
   fj.reset_weights(solution.handle_ptr->get_stream(), 1.);
   fj.objective_weight.set_value_async(tweaks.objective_weight, solution.handle_ptr->get_stream());
   solution.handle_ptr->sync_stream();

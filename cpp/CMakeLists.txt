@@ -54,6 +54,12 @@ option(SKIP_ROUTING_BUILD "Skip building routing components" OFF)
 option(SKIP_GRPC_BUILD "Skip building gRPC and protobuf components" OFF)
 option(WRITE_FATBIN "Enable fatbin writing" ON)
 option(HOST_LINEINFO "Build with debug line information for host code" OFF)
+option(CUOPT_INDEX_64BIT "Use 64-bit indices (cuopt_int_t = int64_t) for >INT_MAX nonzeros" OFF)
+
+if(CUOPT_INDEX_64BIT)
+  # Force int64 indices; #ifndef guards in constants.h honor these definitions.
+  add_compile_definitions(CUOPT_INSTANTIATE_INT64=1 CUOPT_INSTANTIATE_INT32=0)
+endif()
 
 message(VERBOSE "cuOpt: Enable nvcc -lineinfo: ${CMAKE_CUDA_LINEINFO}")
 message(VERBOSE "cuOpt: Build cuOpt unit-tests: ${BUILD_TESTS}")
@@ -64,6 +70,7 @@ message(VERBOSE "cuOpt: Skip C/Python adapters: ${SKIP_C_PYTHON_ADAPTERS}")
 message(VERBOSE "cuOpt: Skip routing build: ${SKIP_ROUTING_BUILD}")
 message(VERBOSE "cuOpt: Build with debug line information for host code: ${HOST_LINEINFO}")
 message(VERBOSE "cuOpt: fatbin: ${WRITE_FATBIN}")
+message(VERBOSE "cuOpt: 64-bit indices: ${CUOPT_INDEX_64BIT}")
 
 # ##################################################################################################
 # - compiler options ------------------------------------------------------------------------------

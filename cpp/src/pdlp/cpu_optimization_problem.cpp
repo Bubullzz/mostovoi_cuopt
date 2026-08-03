@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/csr_matrix_utils.hpp>
@@ -1187,10 +1188,10 @@ void cpu_optimization_problem_t<i_t, f_t>::adopt_from_mps_data_model(
 // ==============================================================================
 
 #if MIP_INSTANTIATE_FLOAT
-template class cpu_optimization_problem_t<int32_t, float>;
+template class cpu_optimization_problem_t<cuopt_int_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template class cpu_optimization_problem_t<int32_t, double>;
+template class cpu_optimization_problem_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

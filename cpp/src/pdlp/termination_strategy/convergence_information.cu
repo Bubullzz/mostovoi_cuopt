@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/pdlp.cuh>
 #include <pdlp/pdlp_climber_strategy.hpp>
@@ -1244,18 +1245,18 @@ convergence_information_t<i_t, f_t>::to_primal_quality_adapter(
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class convergence_information_t<int, float>;
+template class convergence_information_t<cuopt_int_t, float>;
 
-template __global__ void compute_remaining_stats_kernel<int, float>(
-  typename convergence_information_t<int, float>::view_t convergence_information_view,
+template __global__ void compute_remaining_stats_kernel<cuopt_int_t, float>(
+  typename convergence_information_t<cuopt_int_t, float>::view_t convergence_information_view,
   int batch_size);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class convergence_information_t<int, double>;
+template class convergence_information_t<cuopt_int_t, double>;
 
-template __global__ void compute_remaining_stats_kernel<int, double>(
-  typename convergence_information_t<int, double>::view_t convergence_information_view,
+template __global__ void compute_remaining_stats_kernel<cuopt_int_t, double>(
+  typename convergence_information_t<cuopt_int_t, double>::view_t convergence_information_view,
   int batch_size);
 #endif
 

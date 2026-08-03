@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "lb_bounds_repair.cuh"
 
 #include <thrust/copy.h>
@@ -482,11 +483,11 @@ bool lb_bounds_repair_t<i_t, f_t>::repair_problem(
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class lb_bounds_repair_t<int, float>;
+template class lb_bounds_repair_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class lb_bounds_repair_t<int, double>;
+template class lb_bounds_repair_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

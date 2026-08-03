@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -45,20 +46,20 @@ void test_bounds_standardization_test(std::string test_instance)
   const raft::handle_t handle_{};
   std::cout << "Running: " << test_instance << std::endl;
   auto path = make_path_absolute(test_instance);
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   auto op_problem = mps_data_model_to_optimization_problem(&handle_, problem);
-  problem_checking_t<int, double>::check_problem_representation(op_problem);
+  problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem);
   init_handler(op_problem.get_handle_ptr());
   // run the problem constructor of MIP, so that we do bounds standardization
-  mip::problem_t<int, double> standardized_problem(op_problem);
-  mip::problem_t<int, double> original_problem(op_problem);
+  mip::problem_t<cuopt_int_t, double> standardized_problem(op_problem);
+  mip::problem_t<cuopt_int_t, double> original_problem(op_problem);
   standardized_problem.preprocess_problem();
   mip::trivial_presolve(standardized_problem);
-  mip::solution_t<int, double> solution_1(standardized_problem);
+  mip::solution_t<cuopt_int_t, double> solution_1(standardized_problem);
 
-  mip_solver_settings_t<int, double> default_settings{};
+  mip_solver_settings_t<cuopt_int_t, double> default_settings{};
   mip::relaxed_lp_settings_t lp_settings;
   lp_settings.time_limit              = 120.;
   lp_settings.tolerance               = default_settings.tolerances.absolute_tolerance;
@@ -74,7 +75,7 @@ void test_bounds_standardization_test(std::string test_instance)
   standardized_problem.post_process_solution(solution_1);
   solution_1.problem_ptr = &original_problem;
   auto optimization_prob_solution =
-    solution_1.get_solution(sol_1_feasible, solver_stats_t<int, double>{});
+    solution_1.get_solution(sol_1_feasible, solver_stats_t<cuopt_int_t, double>{});
   test_objective_sanity(problem,
                         optimization_prob_solution.get_solution(),
                         optimization_prob_solution.get_objective_value());
@@ -86,7 +87,7 @@ void test_bounds_standardization_test(std::string test_instance)
   // now do relax the problem before passing it to the problem, so that bounds standardization is
   // not applied
   op_problem.set_problem_category(problem_category_t::LP);
-  auto settings             = pdlp_solver_settings_t<int, double>{};
+  auto settings             = pdlp_solver_settings_t<cuopt_int_t, double>{};
   settings.pdlp_solver_mode = cuopt::mathematical_optimization::pdlp_solver_mode_t::Stable1;
   settings.set_optimality_tolerance(1e-4);
   settings.tolerances.relative_primal_tolerance = 1e-6;

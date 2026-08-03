@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -552,7 +553,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::apply_cummulative_scaling_to_pro
   // scale A
   i_t number_of_blocks = op_problem_scaled_.n_constraints / block_size;
   if (op_problem_scaled_.n_constraints % block_size) number_of_blocks++;
-  i_t number_of_threads = std::min(op_problem_scaled_.n_variables, block_size);
+  i_t number_of_threads = std::min<i_t>(op_problem_scaled_.n_variables, block_size);
   scale_problem_kernel<i_t, f_t><<<number_of_blocks, number_of_threads, 0, stream_view_>>>(
     this->view(), op_problem_scaled_.view());
   RAFT_CUDA_TRY(cudaPeekAtLastError());
@@ -560,7 +561,8 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::apply_cummulative_scaling_to_pro
   // also scale A_T in cusparse view
   i_t number_of_blocks_transposed = op_problem_scaled_.n_variables / block_size;
   if (op_problem_scaled_.n_variables % block_size) number_of_blocks_transposed++;
-  i_t number_of_threads_transposed = std::min(op_problem_scaled_.n_constraints, block_size);
+  i_t number_of_threads_transposed =
+    std::min<i_t>(op_problem_scaled_.n_constraints, block_size);
 
   scale_transposed_problem_kernel<i_t, f_t>
     <<<number_of_blocks_transposed, number_of_threads_transposed, 0, stream_view_>>>(
@@ -1035,41 +1037,41 @@ pdlp_initial_scaling_strategy_t<i_t, f_t>::view()
 }
 
 #define INSTANTIATE(F_TYPE)                                                                   \
-  template class pdlp_initial_scaling_strategy_t<int, F_TYPE>;                                \
+  template class pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>;                                \
                                                                                               \
-  template __global__ void inf_norm_row_kernel<int, F_TYPE>(                                  \
-    const typename mip::problem_t<int, F_TYPE>::view_t op_problem,                            \
-    typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view);      \
+  template __global__ void inf_norm_row_kernel<cuopt_int_t, F_TYPE>(                                  \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view);      \
                                                                                               \
-  template __global__ void inf_norm_col_kernel<int, F_TYPE>(                                  \
-    const typename mip::problem_t<int, F_TYPE>::view_t op_problem,                            \
-    typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view,       \
+  template __global__ void inf_norm_col_kernel<cuopt_int_t, F_TYPE>(                                  \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,       \
     const F_TYPE* A_T,                                                                        \
-    const int* A_T_offsets,                                                                   \
-    const int* A_T_indices);                                                                  \
+    const cuopt_int_t* A_T_offsets,                                                                   \
+    const cuopt_int_t* A_T_indices);                                                                  \
                                                                                               \
-  template __global__ void pock_chambolle_scaling_kernel_col<int, F_TYPE, 128>(               \
-    const typename mip::problem_t<int, F_TYPE>::view_t op_problem,                            \
+  template __global__ void pock_chambolle_scaling_kernel_col<cuopt_int_t, F_TYPE, 128>(       \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
     F_TYPE alpha,                                                                             \
-    typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view,       \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,       \
     const F_TYPE* A_T,                                                                        \
-    const int* A_T_offsets,                                                                   \
-    const int* A_T_indices);                                                                  \
+    const cuopt_int_t* A_T_offsets,                                                           \
+    const cuopt_int_t* A_T_indices);                                                          \
                                                                                               \
-  template __global__ void pock_chambolle_scaling_kernel_row<int, F_TYPE, 128>(               \
-    const typename mip::problem_t<int, F_TYPE>::view_t op_problem,                            \
+  template __global__ void pock_chambolle_scaling_kernel_row<cuopt_int_t, F_TYPE, 128>(       \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
     F_TYPE alpha,                                                                             \
-    typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view);      \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view);      \
                                                                                               \
-  template __global__ void scale_problem_kernel<int, F_TYPE>(                                 \
-    const typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view, \
-    const typename mip::problem_t<int, F_TYPE>::view_t op_problem);                           \
+  template __global__ void scale_problem_kernel<cuopt_int_t, F_TYPE>(                                 \
+    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view, \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem);                           \
                                                                                               \
-  template __global__ void scale_transposed_problem_kernel<int, F_TYPE>(                      \
-    const typename pdlp_initial_scaling_strategy_t<int, F_TYPE>::view_t initial_scaling_view, \
+  template __global__ void scale_transposed_problem_kernel<cuopt_int_t, F_TYPE>(                      \
+    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view, \
     F_TYPE* A_T,                                                                              \
-    int* A_T_offsets,                                                                         \
-    int* A_T_indices);
+    cuopt_int_t* A_T_offsets,                                                                         \
+    cuopt_int_t* A_T_indices);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "problem_checking.cuh"
 
 #include <cuopt/error.hpp>
@@ -374,7 +375,7 @@ bool problem_checking_t<i_t, f_t>::has_crossing_bounds(
   return !all_variable_bounds_valid || !all_constraint_bounds_valid;
 }
 
-#define INSTANTIATE(F_TYPE) template class problem_checking_t<int, F_TYPE>;
+#define INSTANTIATE(F_TYPE) template class problem_checking_t<cuopt_int_t, F_TYPE>;
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

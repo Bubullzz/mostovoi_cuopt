@@ -6,6 +6,7 @@
 /* clang-format on */
 #pragma once
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_solution.hpp>
@@ -115,7 +116,7 @@ solve_lp_batch_fixed(
 
 // Compute on the CPU x * c to check that the returned objective value is correct
 static void test_objective_sanity(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
   const rmm::device_uvector<double>& primal_solution,
   double objective_value,
   double epsilon = tolerance)
@@ -140,7 +141,7 @@ static void test_objective_sanity(
 
 // Compute on the CPU x * c to check that the returned objective value is correct
 static void test_objective_sanity(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
   const std::vector<double>& primal_solution,
   double objective_value,
   double epsilon = tolerance)
@@ -167,8 +168,8 @@ static void test_objective_sanity(
 //  Check that it respect the absolute/relative tolerance
 // Check that the primal variables respected the variable bounds
 static void test_constraint_sanity(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
-  const optimization_problem_solution_t<int, double>::additional_termination_information_t&
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
+  const optimization_problem_solution_t<cuopt_int_t, double>::additional_termination_information_t&
     termination_information,
   const rmm::device_uvector<double>& primal_solution,
   double epsilon        = tolerance,
@@ -211,7 +212,7 @@ static void test_constraint_sanity(
     EXPECT_NEAR(l2_primal_residual, termination_information.l2_primal_residual, epsilon);
 
     // Check if primal residual is indeed respecting the default tolerance
-    pdlp_solver_settings_t solver_settings = pdlp_solver_settings_t<int, double>{};
+    pdlp_solver_settings_t solver_settings = pdlp_solver_settings_t<cuopt_int_t, double>{};
     solver_settings.set_optimality_tolerance(epsilon);
 
     std::vector<double> combined_bounds(constraint_lower_bounds.size());

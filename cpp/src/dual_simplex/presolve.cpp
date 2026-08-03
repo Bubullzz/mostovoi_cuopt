@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/presolve.hpp>
 
 #include <dual_simplex/bounds_strengthening.hpp>
@@ -1927,60 +1928,60 @@ void uncrush_solution(const presolve_info_t<i_t, f_t>& presolve_info,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template void convert_user_problem<int, double>(
-  const user_problem_t<int, double>& user_problem,
-  const simplex_solver_settings_t<int, double>& settings,
-  lp_problem_t<int, double>& problem,
-  std::vector<int>& new_slacks,
-  dualize_info_t<int, double>& dualize_info);
+template void convert_user_problem<cuopt_int_t, double>(
+  const user_problem_t<cuopt_int_t, double>& user_problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  lp_problem_t<cuopt_int_t, double>& problem,
+  std::vector<cuopt_int_t>& new_slacks,
+  dualize_info_t<cuopt_int_t, double>& dualize_info);
 
-template void convert_lp_to_user_problem<int, double>(
-  const lp_problem_t<int, double>& simplex_problem,
+template void convert_lp_to_user_problem<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& simplex_problem,
   const std::vector<variable_type_t>& var_types,
-  const simplex_solver_settings_t<int, double>& settings,
-  user_problem_t<int, double>& user_problem);
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  user_problem_t<cuopt_int_t, double>& user_problem);
 
-template void convert_user_lp_with_guess<int, double>(
-  const user_problem_t<int, double>& user_problem,
-  const lp_solution_t<int, double>& initial_solution,
+template void convert_user_lp_with_guess<cuopt_int_t, double>(
+  const user_problem_t<cuopt_int_t, double>& user_problem,
+  const lp_solution_t<cuopt_int_t, double>& initial_solution,
   const std::vector<double>& initial_slack,
-  lp_problem_t<int, double>& lp,
-  lp_solution_t<int, double>& converted_solution);
+  lp_problem_t<cuopt_int_t, double>& lp,
+  lp_solution_t<cuopt_int_t, double>& converted_solution);
 
-template int presolve<int, double>(const lp_problem_t<int, double>& original,
-                                   const simplex_solver_settings_t<int, double>& settings,
-                                   lp_problem_t<int, double>& presolved,
-                                   presolve_info_t<int, double>& presolve_info);
+template int presolve<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& original,
+                                   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                                   lp_problem_t<cuopt_int_t, double>& presolved,
+                                   presolve_info_t<cuopt_int_t, double>& presolve_info);
 
-template void crush_primal_solution<int, double>(const user_problem_t<int, double>& user_problem,
-                                                 const lp_problem_t<int, double>& problem,
+template void crush_primal_solution<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& user_problem,
+                                                 const lp_problem_t<cuopt_int_t, double>& problem,
                                                  const std::vector<double>& user_solution,
-                                                 const std::vector<int>& new_slacks,
+                                                 const std::vector<cuopt_int_t>& new_slacks,
                                                  std::vector<double>& solution);
 
-template double crush_dual_solution<int, double>(const user_problem_t<int, double>& user_problem,
-                                                 const lp_problem_t<int, double>& problem,
-                                                 const std::vector<int>& new_slacks,
+template double crush_dual_solution<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& user_problem,
+                                                 const lp_problem_t<cuopt_int_t, double>& problem,
+                                                 const std::vector<cuopt_int_t>& new_slacks,
                                                  const std::vector<double>& user_y,
                                                  const std::vector<double>& user_z,
                                                  std::vector<double>& y,
                                                  std::vector<double>& z);
 
-template void uncrush_primal_solution<int, double>(const user_problem_t<int, double>& user_problem,
-                                                   const lp_problem_t<int, double>& problem,
+template void uncrush_primal_solution<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& user_problem,
+                                                   const lp_problem_t<cuopt_int_t, double>& problem,
                                                    const std::vector<double>& solution,
                                                    std::vector<double>& user_solution);
 
-template void uncrush_dual_solution<int, double>(const user_problem_t<int, double>& user_problem,
-                                                 const lp_problem_t<int, double>& problem,
+template void uncrush_dual_solution<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& user_problem,
+                                                 const lp_problem_t<cuopt_int_t, double>& problem,
                                                  const std::vector<double>& y,
                                                  const std::vector<double>& z,
                                                  std::vector<double>& user_y,
                                                  std::vector<double>& user_z);
 
-template void uncrush_solution<int, double>(const presolve_info_t<int, double>& presolve_info,
-                                            const simplex_solver_settings_t<int, double>& settings,
-                                            const lp_problem_t<int, double>& original_problem,
+template void uncrush_solution<cuopt_int_t, double>(const presolve_info_t<cuopt_int_t, double>& presolve_info,
+                                            const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                                            const lp_problem_t<cuopt_int_t, double>& original_problem,
                                             const std::vector<double>& crushed_x,
                                             const std::vector<double>& crushed_y,
                                             const std::vector<double>& crushed_z,
@@ -1992,7 +1993,7 @@ template row_bounds_t<double> get_range_bounds_from_sense<double>(char, double, 
 
 #endif
 
-// Emitted unconditionally: third_party_presolve.cpp always instantiates its <int, float>
+// Emitted unconditionally: third_party_presolve.cpp always instantiates its <cuopt_int_t, float>
 // variant (its guard MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT is always true because
 // PDLP_INSTANTIATE_FLOAT == 1), so this float symbol must exist even though the rest of this
 // dual_simplex TU is double-only.

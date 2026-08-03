@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/solve_remote.hpp>
 
@@ -950,20 +951,20 @@ std::unique_ptr<mip_solution_interface_t<i_t, f_t>> solve_mip(
 }
 
 #define INSTANTIATE(F_TYPE)                                                                    \
-  template mip_solution_t<int, F_TYPE> solve_mip(                                              \
-    optimization_problem_t<int, F_TYPE>& op_problem,                                           \
-    mip_solver_settings_t<int, F_TYPE> const& settings);                                       \
+  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                                              \
+    optimization_problem_t<cuopt_int_t, F_TYPE>& op_problem,                                           \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                                       \
                                                                                                \
-  template mip_solution_t<int, F_TYPE> solve_mip(                                              \
+  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                                              \
     raft::handle_t const* handle_ptr,                                                          \
-    const cuopt::mathematical_optimization::io::mps_data_model_t<int, F_TYPE>& mps_data_model, \
-    mip_solver_settings_t<int, F_TYPE> const& settings);                                       \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, F_TYPE>& mps_data_model, \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                                       \
                                                                                                \
-  template std::unique_ptr<mip_solution_interface_t<int, F_TYPE>> solve_mip(                   \
-    cpu_optimization_problem_t<int, F_TYPE>&, mip_solver_settings_t<int, F_TYPE> const&);      \
+  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(                   \
+    cpu_optimization_problem_t<cuopt_int_t, F_TYPE>&, mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);      \
                                                                                                \
-  template std::unique_ptr<mip_solution_interface_t<int, F_TYPE>> solve_mip(                   \
-    optimization_problem_interface_t<int, F_TYPE>*, mip_solver_settings_t<int, F_TYPE> const&);
+  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(                   \
+    optimization_problem_interface_t<cuopt_int_t, F_TYPE>*, mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);
 
 #if MIP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

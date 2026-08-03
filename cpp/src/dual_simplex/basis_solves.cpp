@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/basis_solves.hpp>
 
 #include <dual_simplex/initial_basis.hpp>
@@ -943,57 +944,57 @@ template void get_basis_from_vstatus<int>(int m,
                                           std::vector<int>& nonbasic_list,
                                           std::vector<int>& superbasic_list);
 
-template int factorize_basis<int>(const csc_matrix_t<int, double>& A,
-                                  const simplex_solver_settings_t<int, double>& settings,
-                                  const std::vector<int>& basis_list,
+template int factorize_basis<int>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                                  const std::vector<cuopt_int_t>& basis_list,
                                   double start_time,
-                                  csc_matrix_t<int, double>& L,
-                                  csc_matrix_t<int, double>& U,
-                                  std::vector<int>& p,
-                                  std::vector<int>& pinv,
-                                  std::vector<int>& q,
-                                  std::vector<int>& deficient,
-                                  std::vector<int>& slacks_needed,
+                                  csc_matrix_t<cuopt_int_t, double>& L,
+                                  csc_matrix_t<cuopt_int_t, double>& U,
+                                  std::vector<cuopt_int_t>& p,
+                                  std::vector<cuopt_int_t>& pinv,
+                                  std::vector<cuopt_int_t>& q,
+                                  std::vector<cuopt_int_t>& deficient,
+                                  std::vector<cuopt_int_t>& slacks_needed,
                                   double& work_estimate);
 
-template int basis_repair<int, double>(const csc_matrix_t<int, double>& A,
-                                       const simplex_solver_settings_t<int, double>& settings,
+template int basis_repair<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                       const simplex_solver_settings_t<cuopt_int_t, double>& settings,
                                        const std::vector<double>& lower,
                                        const std::vector<double>& upper,
-                                       const std::vector<int>& deficient,
-                                       const std::vector<int>& slacks_needed,
-                                       std::vector<int>& basis_list,
-                                       std::vector<int>& nonbasic_list,
-                                       std::vector<int>& superbasic_list,
+                                       const std::vector<cuopt_int_t>& deficient,
+                                       const std::vector<cuopt_int_t>& slacks_needed,
+                                       std::vector<cuopt_int_t>& basis_list,
+                                       std::vector<cuopt_int_t>& nonbasic_list,
+                                       std::vector<cuopt_int_t>& superbasic_list,
                                        std::vector<variable_status_t>& vstatus,
                                        double& work_estimate);
 
-template int form_b<int, double>(const csc_matrix_t<int, double>& A,
-                                 const std::vector<int>& basic_list,
-                                 csc_matrix_t<int, double>& B,
+template int form_b<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                 const std::vector<cuopt_int_t>& basic_list,
+                                 csc_matrix_t<cuopt_int_t, double>& B,
                                  double& work_estimate);
 
-template int b_multiply<int, double>(const lp_problem_t<int, double>& lp,
-                                     const std::vector<int>& basic_list,
+template int b_multiply<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
+                                     const std::vector<cuopt_int_t>& basic_list,
                                      const std::vector<double>& x,
                                      std::vector<double>& y);
 
-template int b_transpose_multiply<int, double>(const lp_problem_t<int, double>& lp,
-                                               const std::vector<int>& basic_list,
+template int b_transpose_multiply<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
+                                               const std::vector<cuopt_int_t>& basic_list,
                                                const std::vector<double>& x,
                                                std::vector<double>& y);
 
 // Solves B'*y = c, given L*U = B(p, :). This version supports a dense vector
-template int b_transpose_solve<int, double>(const csc_matrix_t<int, double>& L,
-                                            const csc_matrix_t<int, double>& U,
-                                            const std::vector<int>& p,
+template int b_transpose_solve<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& L,
+                                            const csc_matrix_t<cuopt_int_t, double>& U,
+                                            const std::vector<cuopt_int_t>& p,
                                             const std::vector<double>& rhs,
                                             std::vector<double>& solution);
 
 // Solves the system B*x = b, given L*U = B(p, :)
-template int b_solve<int, double>(const csc_matrix_t<int, double>& L,
-                                  const csc_matrix_t<int, double>& U,
-                                  const std::vector<int>& p,
+template int b_solve<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& L,
+                                  const csc_matrix_t<cuopt_int_t, double>& U,
+                                  const std::vector<cuopt_int_t>& p,
                                   const std::vector<double>& rhs,
                                   std::vector<double>& solution);
 #endif

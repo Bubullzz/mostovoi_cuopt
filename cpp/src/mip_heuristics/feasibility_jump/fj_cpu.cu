@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <dual_simplex/presolve.hpp>
@@ -1843,43 +1844,43 @@ void fj_cpu_worker_t<i_t, f_t>::stop()
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class fj_t<int, float>;
-template struct fj_cpu_worker_t<int, float>;
-template void cpufj_solve(fj_cpu_climber_t<int, float>* fj_cpu,
+template class fj_t<cuopt_int_t, float>;
+template struct fj_cpu_worker_t<cuopt_int_t, float>;
+template void cpufj_solve(fj_cpu_climber_t<cuopt_int_t, float>* fj_cpu,
                           float in_time_limit,
                           double work_unit_limit);
-template std::unique_ptr<fj_cpu_climber_t<int, float>> init_fj_cpu_standalone(
-  problem_t<int, float>& problem,
-  solution_t<int, float>& solution,
+template std::unique_ptr<fj_cpu_climber_t<cuopt_int_t, float>> init_fj_cpu_standalone(
+  problem_t<cuopt_int_t, float>& problem,
+  solution_t<cuopt_int_t, float>& solution,
   std::atomic<bool>& preemption_flag,
   fj_settings_t settings);
 template void finalize_fj_cpu_host_initialization(
-  fj_cpu_climber_t<int, float>& fj_cpu,
+  fj_cpu_climber_t<cuopt_int_t, float>& fj_cpu,
   int n_variables,
   int n_constraints,
   int n_integer_vars,
   int nnz,
-  const typename mip_solver_settings_t<int, float>::tolerances_t& tolerances);
+  const typename mip_solver_settings_t<cuopt_int_t, float>::tolerances_t& tolerances);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class fj_t<int, double>;
-template struct fj_cpu_worker_t<int, double>;
-template void cpufj_solve(fj_cpu_climber_t<int, double>* fj_cpu,
+template class fj_t<cuopt_int_t, double>;
+template struct fj_cpu_worker_t<cuopt_int_t, double>;
+template void cpufj_solve(fj_cpu_climber_t<cuopt_int_t, double>* fj_cpu,
                           double in_time_limit,
                           double work_unit_limit);
-template std::unique_ptr<fj_cpu_climber_t<int, double>> init_fj_cpu_standalone(
-  problem_t<int, double>& problem,
-  solution_t<int, double>& solution,
+template std::unique_ptr<fj_cpu_climber_t<cuopt_int_t, double>> init_fj_cpu_standalone(
+  problem_t<cuopt_int_t, double>& problem,
+  solution_t<cuopt_int_t, double>& solution,
   std::atomic<bool>& preemption_flag,
   fj_settings_t settings);
 template void finalize_fj_cpu_host_initialization(
-  fj_cpu_climber_t<int, double>& fj_cpu,
+  fj_cpu_climber_t<cuopt_int_t, double>& fj_cpu,
   int n_variables,
   int n_constraints,
   int n_integer_vars,
   int nnz,
-  const typename mip_solver_settings_t<int, double>::tolerances_t& tolerances);
+  const typename mip_solver_settings_t<cuopt_int_t, double>::tolerances_t& tolerances);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

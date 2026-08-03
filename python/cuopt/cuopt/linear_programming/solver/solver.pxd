@@ -17,6 +17,7 @@ from rmm.librmm.device_buffer cimport device_buffer
 
 from cuopt.linear_programming.data_model.data_model cimport data_model_view_t
 from cuopt.linear_programming.solver_settings.solver_settings cimport (
+from ..cuopt_index cimport cuopt_int_t
     method_t,
     pdlp_solver_mode_t,
     solver_settings_t,
@@ -142,13 +143,13 @@ cdef extern from "cuopt/mathematical_optimization/utilities/cython_solve.hpp" na
         mip_ret_t mip_ret
 
     cdef unique_ptr[solver_ret_t] call_solve(
-        data_model_view_t[int, double]* data_model,
-        solver_settings_t[int, double]* solver_settings,
+        data_model_view_t[cuopt_int_t, double]* data_model,
+        solver_settings_t[cuopt_int_t, double]* solver_settings,
     ) except + nogil
 
     cdef pair[vector[unique_ptr[solver_ret_t]], double] call_batch_solve( # noqa
-        vector[data_model_view_t[int, double] *] data_models,
-        solver_settings_t[int, double]* solver_settings,
+        vector[data_model_view_t[cuopt_int_t, double] *] data_models,
+        solver_settings_t[cuopt_int_t, double]* solver_settings,
     ) except + nogil
 
 # Variant helper functions — Cython can't call std::get directly, so we use

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/shard.hpp>
 #include <pdlp/pdlp.cuh>
 #include <pdlp/utils.cuh>
@@ -160,7 +161,7 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   handle.sync_stream(stream_view);
 }
 
-template struct pdlp_shard_t<int, double>;
-template struct pdlp_shard_t<int, float>;
+template struct pdlp_shard_t<cuopt_int_t, double>;
+template struct pdlp_shard_t<cuopt_int_t, float>;
 
 }  // namespace cuopt::mathematical_optimization::pdlp

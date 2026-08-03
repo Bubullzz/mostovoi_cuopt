@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "lagrangian.cuh"
 #include "local_search.cuh"
 
@@ -895,11 +896,11 @@ bool local_search_t<i_t, f_t>::generate_solution(solution_t<i_t, f_t>& solution,
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class local_search_t<int, float>;
+template class local_search_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class local_search_t<int, double>;
+template class local_search_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

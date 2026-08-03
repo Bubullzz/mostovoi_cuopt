@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "feasibility_test.cuh"
 #include "solution.cuh"
 #include "solution_kernels.cuh"
@@ -645,11 +646,11 @@ cuopt::mathematical_optimization::mip_solution_t<i_t, f_t> solution_t<i_t, f_t>:
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class solution_t<int, float>;
+template class solution_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class solution_t<int, double>;
+template class solution_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

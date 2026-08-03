@@ -6,6 +6,7 @@
 /* clang-format on */
 
 // #include <dual_simplex/dense_vector.hpp>
+#include <cuopt/mathematical_optimization/constants.h>
 #include <linear_algebra/sparse_matrix.hpp>
 #include <linear_algebra/sparse_vector.hpp>
 
@@ -715,7 +716,7 @@ i_t multiply(const csc_matrix_t<i_t, f_t>& A,
   C.reallocate(A.nz_max + B.nz_max);
 
   i_t nz = 0;
-  for (int j = 0; j < n; ++j) {
+  for (i_t j = 0; j < n; ++j) {
     // Grow C if we don't have enough space
     if (nz + m > C.nz_max) { C.reallocate(2 * C.nz_max + m); }
 
@@ -941,64 +942,64 @@ f_t sparse_dot(const std::vector<i_t>& xind,
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 // Minimal float instantiation for LP usage
-template class csc_matrix_t<int, float>;
-template class csr_matrix_t<int, float>;
+template class csc_matrix_t<cuopt_int_t, float>;
+template class csr_matrix_t<cuopt_int_t, float>;
 #endif
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template class csc_matrix_t<int, double>;
+template class csc_matrix_t<cuopt_int_t, double>;
 
-template class csr_matrix_t<int, double>;
+template class csr_matrix_t<cuopt_int_t, double>;
 
-template void cumulative_sum<int>(std::vector<int>& inout, std::vector<int>& output);
+template void cumulative_sum<cuopt_int_t>(std::vector<cuopt_int_t>& inout, std::vector<cuopt_int_t>& output);
 
-template int coo_to_csc<int, double>(const std::vector<int>& Ai,
-                                     const std::vector<int>& Aj,
+template cuopt_int_t coo_to_csc<cuopt_int_t, double>(const std::vector<cuopt_int_t>& Ai,
+                                     const std::vector<cuopt_int_t>& Aj,
                                      const std::vector<double>& Ax,
-                                     csc_matrix_t<int, double>& A);
+                                     csc_matrix_t<cuopt_int_t, double>& A);
 
-template int scatter<int, double>(const csc_matrix_t<int, double>& A,
-                                  int j,
+template cuopt_int_t scatter<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  cuopt_int_t j,
                                   double beta,
-                                  std::vector<int>& workspace,
-                                  std::vector<double>& x,
-                                  int mark,
-                                  csc_matrix_t<int, double>& C,
-                                  int nz);
+                                  std::vector<cuopt_int_t>& workspace,
+                                  std::vector<double>& x, cuopt_int_t mark,
+                                  csc_matrix_t<cuopt_int_t, double>& C, cuopt_int_t nz);
 
-template void scatter_dense<int, double>(const csc_matrix_t<int, double>& A,
-                                         int j,
+template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A, cuopt_int_t j,
                                          double alpha,
                                          std::vector<double>& x);
 
-template void scatter_dense<int, double>(const csc_matrix_t<int, double>& A,
-                                         int j,
+template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A, cuopt_int_t j,
                                          double alpha,
                                          std::vector<double>& x,
-                                         std::vector<int>& mark,
-                                         std::vector<int>& indices);
+                                         std::vector<cuopt_int_t>& mark,
+                                         std::vector<cuopt_int_t>& indices);
 
-template int multiply<int, double>(const csc_matrix_t<int, double>& A,
-                                   const csc_matrix_t<int, double>& B,
-                                   csc_matrix_t<int, double>& C);
+template cuopt_int_t multiply<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                   const csc_matrix_t<cuopt_int_t, double>& B,
+                                   csc_matrix_t<cuopt_int_t, double>& C);
 
-template int add<int, double>(const csc_matrix_t<int, double>& A,
-                              const csc_matrix_t<int, double>& B,
+template cuopt_int_t add<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                              const csc_matrix_t<cuopt_int_t, double>& B,
                               double alpha,
                               double beta,
-                              csc_matrix_t<int, double>& C);
+                              csc_matrix_t<cuopt_int_t, double>& C);
 
-template double sparse_dot<int, double>(const std::vector<int>& xind,
+template double sparse_dot<cuopt_int_t, double>(const std::vector<cuopt_int_t>& xind,
                                         const std::vector<double>& xval,
-                                        const csc_matrix_t<int, double>& Y,
-                                        int y_col);
+                                        const csc_matrix_t<cuopt_int_t, double>& Y,
+                                        cuopt_int_t y_col);
 
 // NOTE: matrix_vector_multiply is now templated on VectorX and VectorY.
 // Since it's defined inline in the header, no explicit instantiation is needed here.
 
-template int
-matrix_transpose_vector_multiply<int, double, std::allocator<double>, std::allocator<double>>(
-  const csc_matrix_t<int, double>& A,
+template cuopt_int_t matrix_transpose_vector_multiply<
+  cuopt_int_t,
+  double,
+  std::allocator<double>,
+  std::allocator<double>>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, std::allocator<double>>& x,
   double beta,

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/mip/solver_settings.hpp>
 #include <mip_heuristics/mip_constants.hpp>
 
@@ -359,11 +360,11 @@ void bound_presolve_t<i_t, f_t>::calc_and_set_updated_constraint_bounds(problem_
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class bound_presolve_t<int, float>;
+template class bound_presolve_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class bound_presolve_t<int, double>;
+template class bound_presolve_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

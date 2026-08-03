@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/folding.hpp>
 
 #include <math_optimization/tic_toc.hpp>
@@ -1743,9 +1744,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template void folding<int, double>(lp_problem_t<int, double>& problem,
-                                   const simplex_solver_settings_t<int, double>& settings,
-                                   presolve_info_t<int, double>& presolve_info);
+template void folding<cuopt_int_t, double>(lp_problem_t<cuopt_int_t, double>& problem,
+                                   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                                   presolve_info_t<cuopt_int_t, double>& presolve_info);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

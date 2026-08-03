@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/pdlp_climber_strategy.hpp>
 #include <pdlp/restart_strategy/localized_duality_gap_container.hpp>
 #include <pdlp/restart_strategy/pdlp_restart_strategy.cuh>
@@ -145,10 +146,10 @@ localized_duality_gap_container_t<i_t, f_t>::view()
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template struct localized_duality_gap_container_t<int, float>;
+template struct localized_duality_gap_container_t<cuopt_int_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template struct localized_duality_gap_container_t<int, double>;
+template struct localized_duality_gap_container_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

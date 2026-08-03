@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/bound_flipping_ratio_test.hpp>
 
 #include <math_optimization/tic_toc.hpp>
@@ -345,7 +346,7 @@ void bound_flipping_ratio_test_t<i_t, f_t>::bucket_pass(const std::vector<i_t>& 
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template class bound_flipping_ratio_test_t<int, double>;
+template class bound_flipping_ratio_test_t<cuopt_int_t, double>;
 
 #endif
 

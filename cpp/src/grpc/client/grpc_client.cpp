@@ -1241,50 +1241,50 @@ bool grpc_client_t::download_chunked_result(const std::string& job_id,
 
 // Explicit template instantiations
 #if CUOPT_INSTANTIATE_FLOAT
-template remote_lp_result_t<int32_t, float> grpc_client_t::solve_lp(
-  const cpu_optimization_problem_t<int32_t, float>& problem,
-  const pdlp_solver_settings_t<int32_t, float>& settings);
-template remote_mip_result_t<int32_t, float> grpc_client_t::solve_mip(
-  const cpu_optimization_problem_t<int32_t, float>& problem,
-  const mip_solver_settings_t<int32_t, float>& settings,
+template remote_lp_result_t<cuopt_int_t, float> grpc_client_t::solve_lp(
+  const cpu_optimization_problem_t<cuopt_int_t, float>& problem,
+  const pdlp_solver_settings_t<cuopt_int_t, float>& settings);
+template remote_mip_result_t<cuopt_int_t, float> grpc_client_t::solve_mip(
+  const cpu_optimization_problem_t<cuopt_int_t, float>& problem,
+  const mip_solver_settings_t<cuopt_int_t, float>& settings,
   bool enable_incumbents);
 template submit_result_t grpc_client_t::submit_lp(
-  const cpu_optimization_problem_t<int32_t, float>& problem,
-  const pdlp_solver_settings_t<int32_t, float>& settings);
+  const cpu_optimization_problem_t<cuopt_int_t, float>& problem,
+  const pdlp_solver_settings_t<cuopt_int_t, float>& settings);
 template submit_result_t grpc_client_t::submit_mip(
-  const cpu_optimization_problem_t<int32_t, float>& problem,
-  const mip_solver_settings_t<int32_t, float>& settings,
+  const cpu_optimization_problem_t<cuopt_int_t, float>& problem,
+  const mip_solver_settings_t<cuopt_int_t, float>& settings,
   bool enable_incumbents);
-template remote_lp_result_t<int32_t, float> grpc_client_t::get_lp_result(const std::string& job_id);
-template remote_mip_result_t<int32_t, float> grpc_client_t::get_mip_result(
+template remote_lp_result_t<cuopt_int_t, float> grpc_client_t::get_lp_result(const std::string& job_id);
+template remote_mip_result_t<cuopt_int_t, float> grpc_client_t::get_mip_result(
   const std::string& job_id);
 template bool grpc_client_t::upload_chunked_arrays(
-  const cpu_optimization_problem_t<int32_t, float>& problem,
+  const cpu_optimization_problem_t<cuopt_int_t, float>& problem,
   const cuopt::remote::ChunkedProblemHeader& header,
   std::string& job_id_out);
 #endif
 
 #if CUOPT_INSTANTIATE_DOUBLE
-template remote_lp_result_t<int32_t, double> grpc_client_t::solve_lp(
-  const cpu_optimization_problem_t<int32_t, double>& problem,
-  const pdlp_solver_settings_t<int32_t, double>& settings);
-template remote_mip_result_t<int32_t, double> grpc_client_t::solve_mip(
-  const cpu_optimization_problem_t<int32_t, double>& problem,
-  const mip_solver_settings_t<int32_t, double>& settings,
+template remote_lp_result_t<cuopt_int_t, double> grpc_client_t::solve_lp(
+  const cpu_optimization_problem_t<cuopt_int_t, double>& problem,
+  const pdlp_solver_settings_t<cuopt_int_t, double>& settings);
+template remote_mip_result_t<cuopt_int_t, double> grpc_client_t::solve_mip(
+  const cpu_optimization_problem_t<cuopt_int_t, double>& problem,
+  const mip_solver_settings_t<cuopt_int_t, double>& settings,
   bool enable_incumbents);
 template submit_result_t grpc_client_t::submit_lp(
-  const cpu_optimization_problem_t<int32_t, double>& problem,
-  const pdlp_solver_settings_t<int32_t, double>& settings);
+  const cpu_optimization_problem_t<cuopt_int_t, double>& problem,
+  const pdlp_solver_settings_t<cuopt_int_t, double>& settings);
 template submit_result_t grpc_client_t::submit_mip(
-  const cpu_optimization_problem_t<int32_t, double>& problem,
-  const mip_solver_settings_t<int32_t, double>& settings,
+  const cpu_optimization_problem_t<cuopt_int_t, double>& problem,
+  const mip_solver_settings_t<cuopt_int_t, double>& settings,
   bool enable_incumbents);
-template remote_lp_result_t<int32_t, double> grpc_client_t::get_lp_result(
+template remote_lp_result_t<cuopt_int_t, double> grpc_client_t::get_lp_result(
   const std::string& job_id);
-template remote_mip_result_t<int32_t, double> grpc_client_t::get_mip_result(
+template remote_mip_result_t<cuopt_int_t, double> grpc_client_t::get_mip_result(
   const std::string& job_id);
 template bool grpc_client_t::upload_chunked_arrays(
-  const cpu_optimization_problem_t<int32_t, double>& problem,
+  const cpu_optimization_problem_t<cuopt_int_t, double>& problem,
   const cuopt::remote::ChunkedProblemHeader& header,
   std::string& job_id_out);
 #endif

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/pdlp.cuh>
 
@@ -449,7 +450,7 @@ void multi_gpu_engine_t<i_t, f_t>::distributed_spmv_A(
     [&](auto& s, int r) { s.sub_pdlp->pdhg_solver_.spmv_A_into(in_descs[r], out_descs[r]); });
 }
 
-template struct multi_gpu_engine_t<int, double>;
-template struct multi_gpu_engine_t<int, float>;
+template struct multi_gpu_engine_t<cuopt_int_t, double>;
+template struct multi_gpu_engine_t<cuopt_int_t, float>;
 
 }  // namespace cuopt::mathematical_optimization::pdlp

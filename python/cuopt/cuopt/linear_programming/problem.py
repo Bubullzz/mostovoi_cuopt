@@ -10,6 +10,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 
 import cuopt.linear_programming.data_model as data_model
+from cuopt.linear_programming.data_model.data_model_wrapper import get_index_dtype
 from cuopt.linear_programming import ParseMps, Read
 import cuopt.linear_programming.solver as solver
 import cuopt.linear_programming.solver_settings as solver_settings
@@ -1334,10 +1335,10 @@ class Constraint:
                 rhs_value,
             ) = _quadratic_expression_to_qcmatrix(expr, rhs)
             self.linear_values = np.array(linear_values, dtype=np.float64)
-            self.linear_indices = np.array(linear_indices, dtype=np.int32)
+            self.linear_indices = np.array(linear_indices, dtype=get_index_dtype())
             self.vals = np.array(quadratic_values, dtype=np.float64)
-            self.rows = np.array(quadratic_row_indices, dtype=np.int32)
-            self.cols = np.array(quadratic_col_indices, dtype=np.int32)
+            self.rows = np.array(quadratic_row_indices, dtype=get_index_dtype())
+            self.cols = np.array(quadratic_col_indices, dtype=get_index_dtype())
             self.rhs_value = rhs_value
             self.RHS = rhs_value
             self.vindex_coeff_dict = {}

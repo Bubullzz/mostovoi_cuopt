@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "assignment_hash_map.cuh"
 
 #include <mip_heuristics/mip_constants.hpp>
@@ -150,11 +151,11 @@ static_assert(false, "MIP_INSTANTIATE_FLOAT or MIP_INSTANTIATE_DOUBLE must be de
 #endif
 
 #if MIP_INSTANTIATE_FLOAT
-template class assignment_hash_map_t<int, float>;
+template class assignment_hash_map_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class assignment_hash_map_t<int, double>;
+template class assignment_hash_map_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace mip

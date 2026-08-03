@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/bounds_strengthening.hpp>
 
 #include <algorithm>
@@ -291,7 +292,7 @@ bool bounds_strengthening_t<i_t, f_t>::bounds_strengthening(
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template class bounds_strengthening_t<int, double>;
+template class bounds_strengthening_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

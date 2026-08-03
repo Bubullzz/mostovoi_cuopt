@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <gtest/gtest.h>
 
 #include <dual_simplex/right_looking_lu.hpp>
@@ -20,7 +21,7 @@ namespace cuopt::mathematical_optimization::simplex::test {
 
 // Helper: build a CSC lower-triangle matrix from dense symmetric input (column-major, full matrix).
 // Only stores entries (i, j) with i >= j.
-static csc_matrix_t<int, double> dense_to_lower_csc(int n, const std::vector<double>& dense)
+static csc_matrix_t<cuopt_int_t, double> dense_to_lower_csc(int n, const std::vector<double>& dense)
 {
   // Count nonzeros in lower triangle
   int nnz = 0;
@@ -30,7 +31,7 @@ static csc_matrix_t<int, double> dense_to_lower_csc(int n, const std::vector<dou
     }
   }
 
-  csc_matrix_t<int, double> A(n, n, nnz);
+  csc_matrix_t<cuopt_int_t, double> A(n, n, nnz);
   int p = 0;
   for (int j = 0; j < n; j++) {
     A.col_start[j] = p;
@@ -53,7 +54,7 @@ static void verify_ldlt(int n,
                         const std::vector<double>& dense_A,
                         int rank,
                         const std::vector<int>& perm,
-                        const csc_matrix_t<int, double>& L,
+                        const csc_matrix_t<cuopt_int_t, double>& L,
                         const std::vector<double>& D,
                         double tol = 1e-10)
 {
@@ -107,9 +108,9 @@ TEST(right_looking_ldlt, diagonal_2x2)
   std::vector<double> dense = {4.0, 0.0, 0.0, 9.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -133,9 +134,9 @@ TEST(right_looking_ldlt, pd_3x3)
   std::vector<double> dense = {4.0, 2.0, 1.0, 2.0, 5.0, 3.0, 1.0, 3.0, 6.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -162,9 +163,9 @@ TEST(right_looking_ldlt, rank1_psd)
   std::vector<double> dense = {1.0, 2.0, 3.0, 2.0, 4.0, 6.0, 3.0, 6.0, 9.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -189,9 +190,9 @@ TEST(right_looking_ldlt, rank2_psd)
   std::vector<double> dense = {1.0, 0.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -214,9 +215,9 @@ TEST(right_looking_ldlt, zero_matrix)
   std::vector<double> dense(n * n, 0.0);
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -234,9 +235,9 @@ TEST(right_looking_ldlt, scalar_1x1)
   std::vector<double> dense = {7.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -275,9 +276,9 @@ TEST(right_looking_ldlt, pd_5x5)
 
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -314,9 +315,9 @@ TEST(right_looking_ldlt, rank3_5x5_psd)
 
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -340,9 +341,9 @@ TEST(right_looking_ldlt, identity)
   }
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -370,9 +371,9 @@ TEST(right_looking_ldlt, graph_laplacian)
     2.0, -1.0, 0.0, -1.0, -1.0, 2.0, -1.0, 0.0, 0.0, -1.0, 2.0, -1.0, -1.0, 0.0, -1.0, 2.0};
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L_out(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L_out(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -403,9 +404,9 @@ TEST(right_looking_ldlt, symmetrized_from_unsymmetric)
   std::vector<double> dense_H = {8.0, 4.0, 0.0, 4.0, 10.0, 3.0, 0.0, 3.0, 12.0};
   auto A                      = dense_to_lower_csc(n, dense_H);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -448,9 +449,9 @@ TEST(right_looking_ldlt, rank5_10x10_psd)
 
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -472,9 +473,9 @@ TEST(right_looking_ldlt, sparse_single_entry_10x10)
   dense[9 * n + 9] = 1.0;  // A(9,9) = 1, everything else is 0
   auto A           = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -499,9 +500,9 @@ TEST(right_looking_ldlt, indefinite_2x2)
   std::vector<double> dense = {1.0, 2.0, 2.0, 1.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -520,9 +521,9 @@ TEST(right_looking_ldlt, indefinite_cross_only_2x2)
   std::vector<double> dense = {0.0, 2.0, 2.0, 0.0};
   auto A                    = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -542,9 +543,9 @@ TEST(right_looking_ldlt, indefinite_4x4)
     2.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0, 2.0, -1.0, 1.0, 0.0, -1.0, -1.0};
   auto A = dense_to_lower_csc(n, dense);
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
@@ -572,7 +573,7 @@ TEST(right_looking_ldlt, large_arrowhead_markowitz)
   // Lower triangle: column 0 has entries (0, n+2), (1, 1), (2, 1), ..., (n-1, 1).
   //                 column j > 0 has entry (j, n).
   int nnz = n + (n - 1);  // n entries in col 0, (n-1) diagonal entries in cols 1..n-1
-  csc_matrix_t<int, double> A(n, n, nnz);
+  csc_matrix_t<cuopt_int_t, double> A(n, n, nnz);
   int p = 0;
   // Column 0
   A.col_start[0] = p;
@@ -593,9 +594,9 @@ TEST(right_looking_ldlt, large_arrowhead_markowitz)
   }
   A.col_start[n] = p;
 
-  simplex_solver_settings_t<int, double> settings;
+  simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<int> perm;
-  csc_matrix_t<int, double> L(n, n, 1);
+  csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();

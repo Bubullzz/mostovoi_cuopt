@@ -45,7 +45,7 @@ TEST(barrier, chess_set)
   namespace simplex = cuopt::mathematical_optimization::simplex;
   raft::handle_t handle{};
   init_handler(&handle);
-  simplex::user_problem_t<int, double> user_problem(&handle);
+  simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   // maximize   5*xs + 20*xl
   // subject to  1*xs +  3*xl <= 200
   //             3*xs +  2*xl <= 160
@@ -99,8 +99,8 @@ TEST(barrier, chess_set)
   user_problem.var_types[0] = simplex::variable_type_t::CONTINUOUS;
   user_problem.var_types[1] = simplex::variable_type_t::CONTINUOUS;
 
-  simplex::simplex_solver_settings_t<int, double> settings;
-  simplex::lp_solution_t<int, double> solution(user_problem.num_rows, user_problem.num_cols);
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  simplex::lp_solution_t<cuopt_int_t, double> solution(user_problem.num_rows, user_problem.num_cols);
   EXPECT_EQ((simplex::solve_linear_program_with_barrier(user_problem, settings, solution)),
             simplex::lp_status_t::OPTIMAL);
   const double objective = -solution.objective;
@@ -119,7 +119,7 @@ TEST(barrier, dual_variable_greater_than)
 
   raft::handle_t handle{};
   init_handler(&handle);
-  cuopt::mathematical_optimization::simplex::user_problem_t<int, double> user_problem(&handle);
+  cuopt::mathematical_optimization::simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   constexpr int m  = 2;
   constexpr int n  = 2;
   constexpr int nz = 4;
@@ -169,8 +169,8 @@ TEST(barrier, dual_variable_greater_than)
   user_problem.num_range_rows = 0;
   user_problem.problem_name   = "dual_variable_greater_than";
 
-  simplex::simplex_solver_settings_t<int, double> settings;
-  simplex::lp_solution_t<int, double> solution(user_problem.num_rows, user_problem.num_cols);
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  simplex::lp_solution_t<cuopt_int_t, double> solution(user_problem.num_rows, user_problem.num_cols);
   EXPECT_EQ((simplex::solve_linear_program_with_barrier(user_problem, settings, solution)),
             simplex::lp_status_t::OPTIMAL);
   EXPECT_NEAR(solution.objective, 3.0, 1e-5);
@@ -197,9 +197,9 @@ TEST(barrier, min_x_squared_free_variable_dual_correction)
 
   auto path =
     cuopt::test::get_rapids_dataset_root_dir() + "/quadratic_programming/min_x_squared.mps";
-  auto mps_data = cuopt::mathematical_optimization::io::read_mps<int, double>(path);
+  auto mps_data = cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path);
 
-  auto settings = cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double>{};
+  auto settings = cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double>{};
 
   auto solution = cuopt::mathematical_optimization::solve_lp(&handle, mps_data, settings);
 
@@ -230,9 +230,9 @@ TEST(barrier, qplib_8515_column_imbalance)
 
   auto path =
     cuopt::test::get_rapids_dataset_root_dir() + "/quadratic_programming/qplib/QPLIB_8515.lp";
-  auto mps_data = io::read_lp<int, double>(path);
+  auto mps_data = io::read_lp<cuopt_int_t, double>(path);
 
-  auto settings   = pdlp_solver_settings_t<int, double>{};
+  auto settings   = pdlp_solver_settings_t<cuopt_int_t, double>{};
   settings.method = method_t::Barrier;
 
   auto solution = solve_lp(&handle, mps_data, settings);
@@ -257,9 +257,9 @@ TEST(barrier, qplib_8515_ruiz_forced_off)
 
   auto path =
     cuopt::test::get_rapids_dataset_root_dir() + "/quadratic_programming/qplib/QPLIB_8515.lp";
-  auto mps_data = io::read_lp<int, double>(path);
+  auto mps_data = io::read_lp<cuopt_int_t, double>(path);
 
-  auto settings                    = pdlp_solver_settings_t<int, double>{};
+  auto settings                    = pdlp_solver_settings_t<cuopt_int_t, double>{};
   settings.method                  = method_t::Barrier;
   settings.qcqp_ruiz_equilibration = 0;   // force off
   settings.iteration_limit         = 50;  // equilibrated needs ~14; forced-off can't finish in 50

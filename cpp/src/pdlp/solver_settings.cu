@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
@@ -415,11 +416,11 @@ pdlp_solver_settings_t<i_t, f_t>::get_pdlp_warm_start_data_view() const noexcept
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class pdlp_solver_settings_t<int, float>;
+template class pdlp_solver_settings_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class pdlp_solver_settings_t<int, double>;
+template class pdlp_solver_settings_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

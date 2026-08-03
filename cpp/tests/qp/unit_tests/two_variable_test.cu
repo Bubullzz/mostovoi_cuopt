@@ -4,6 +4,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <utilities/common_utils.hpp>
 #include <utilities/copy_helpers.hpp>
 #include <utilities/inline_lp_test_utils.hpp>
@@ -33,7 +34,7 @@ Bounds
 End
 )LP");
 
-  auto settings = pdlp_solver_settings_t<int, double>();
+  auto settings = pdlp_solver_settings_t<cuopt_int_t, double>();
   auto solution = solve_lp(&handle, problem, settings);
 
   EXPECT_EQ(solution.get_termination_status(), pdlp_termination_status_t::Optimal);

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/pdlp/pdlp_hyper_params.cuh>
 
 #include <pdlp/pdlp_climber_strategy.hpp>
@@ -589,18 +590,18 @@ adaptive_step_size_strategy_t<i_t, f_t>::view()
 }
 
 #define INSTANTIATE(F_TYPE)                                                                    \
-  template class adaptive_step_size_strategy_t<int, F_TYPE>;                                   \
-  template __global__ void compute_actual_stepsizes<int, F_TYPE>(                              \
-    const typename adaptive_step_size_strategy_t<int, F_TYPE>::view_t step_size_strategy_view, \
+  template class adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>;                                   \
+  template __global__ void compute_actual_stepsizes<cuopt_int_t, F_TYPE>(                              \
+    const typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t step_size_strategy_view, \
     raft::device_span<F_TYPE> primal_step_size,                                                \
     raft::device_span<F_TYPE> dual_step_size,                                                  \
-    int size);                                                                                 \
+    cuopt_int_t size);                                                                         \
                                                                                                \
-  template __global__ void compute_step_sizes_from_movement_and_interaction<int, F_TYPE>(      \
-    typename adaptive_step_size_strategy_t<int, F_TYPE>::view_t step_size_strategy_view,       \
+  template __global__ void compute_step_sizes_from_movement_and_interaction<cuopt_int_t, F_TYPE>(      \
+    typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t step_size_strategy_view,       \
     F_TYPE * primal_step_size,                                                                 \
     F_TYPE * dual_step_size,                                                                   \
-    int* pdhg_iteration);
+    cuopt_int_t* pdhg_iteration);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

@@ -21,8 +21,12 @@ struct segmented_sum_handler_t {
                             i_t batch_size,
                             i_t problem_size)
   {
+    // CUB's equal-size-segment convenience overload uses 32-bit segment
+    // counts/sizes. Matrix offsets remain i_t, so this does not constrain nnz.
+    const auto num_segments = static_cast<int>(batch_size);
+    const auto segment_size = static_cast<int>(problem_size);
     cub::DeviceSegmentedReduce::Sum(
-      nullptr, byte_needed_, input, output, batch_size, problem_size, stream_view_);
+      nullptr, byte_needed_, input, output, num_segments, segment_size, stream_view_);
 
     segmented_sum_storage_.resize(byte_needed_, stream_view_);
 
@@ -30,8 +34,8 @@ struct segmented_sum_handler_t {
                                     byte_needed_,
                                     input,
                                     output,
-                                    batch_size,
-                                    problem_size,
+                                    num_segments,
+                                    segment_size,
                                     stream_view_);
   }
 
@@ -43,12 +47,14 @@ struct segmented_sum_handler_t {
                                ReductionOpT reduction_op,
                                f_t initial_value)
   {
+    const auto num_segments = static_cast<int>(batch_size);
+    const auto segment_size = static_cast<int>(problem_size);
     cub::DeviceSegmentedReduce::Reduce(nullptr,
                                        byte_needed_,
                                        input,
                                        output,
-                                       batch_size,
-                                       problem_size,
+                                       num_segments,
+                                       segment_size,
                                        reduction_op,
                                        initial_value,
                                        stream_view_.value());
@@ -59,8 +65,8 @@ struct segmented_sum_handler_t {
                                        byte_needed_,
                                        input,
                                        output,
-                                       batch_size,
-                                       problem_size,
+                                       num_segments,
+                                       segment_size,
                                        reduction_op,
                                        initial_value,
                                        stream_view_.value());

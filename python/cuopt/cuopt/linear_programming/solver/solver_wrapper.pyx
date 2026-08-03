@@ -70,6 +70,7 @@ from cuopt.linear_programming.solver_settings.solver_settings cimport (
 from cuopt.utilities import InputValidationError, get_data_ptr, series_from_buf
 
 import pyarrow as pa
+from ..cuopt_index cimport cuopt_int_t
 
 
 cdef extern from "cuopt/mathematical_optimization/utilities/internals.hpp" namespace "cuopt::internals": # noqa
@@ -183,7 +184,7 @@ cdef set_solver_setting(
     """
     # Reset-replay: fresh C++ object every Solve/BatchSolve; do not treat
     # settings.c_solver_settings as long-lived state (see set_c_solver_settings).
-    settings.c_solver_settings.reset(new solver_settings_t[int, double]())
+    settings.c_solver_settings.reset(new solver_settings_t[cuopt_int_t, double]())
     if settings.get_pdlp_warm_start_data() is not None:  # noqa
         if len(data_model_obj.get_objective_coefficients()) != len(
             settings.get_pdlp_warm_start_data().current_primal_solution
@@ -202,7 +203,7 @@ cdef set_solver_setting(
     # Replay Python state into the new C++ settings object.
     settings.set_c_solver_settings()
 
-    cdef solver_settings_t[int, double]* c_solver_settings = settings.c_solver_settings.get()
+    cdef solver_settings_t[cuopt_int_t, double]* c_solver_settings = settings.c_solver_settings.get()
 
     # Set initial solution on the C++ side if set on the Python side
     cdef uintptr_t c_initial_primal_solution = (
@@ -474,7 +475,7 @@ def Solve(py_data_model_obj, SolverSettings settings, mip=False):
 
 cdef set_and_insert_vector(
         DataModel data_model_obj,
-        vector[data_model_view_t[int, double] *]& data_model_views):
+        vector[data_model_view_t[cuopt_int_t, double] *]& data_model_views):
     data_model_obj.set_data_model_view()
     data_model_views.push_back(data_model_obj.c_data_model_view.get())
 
@@ -485,7 +486,7 @@ def BatchSolve(py_data_model_list, SolverSettings settings):
         raise Exception("Cannot use warmstart data with Batch Solve")
     set_solver_setting(settings)
 
-    cdef vector[data_model_view_t[int, double] *] data_model_views
+    cdef vector[data_model_view_t[cuopt_int_t, double] *] data_model_views
 
     for data_model_obj in py_data_model_list:
         set_and_insert_vector(<DataModel>data_model_obj, data_model_views)

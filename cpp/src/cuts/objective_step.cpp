@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuts/objective_step.hpp>
 #include <cuts/rational.hpp>
 
@@ -371,10 +372,10 @@ objective_step_t<f_t> compute_objective_step_info(
 }
 
 // Explicit instantiations
-template bool propagate_lattice<int, double>(int,
+template bool propagate_lattice<cuopt_int_t, double>(int,
                                              int,
-                                             const std::vector<int>&,
-                                             const std::vector<int>&,
+                                             const std::vector<cuopt_int_t>&,
+                                             const std::vector<cuopt_int_t>&,
                                              const std::vector<double>&,
                                              const std::vector<double>&,
                                              const std::vector<double>&,
@@ -382,10 +383,10 @@ template bool propagate_lattice<int, double>(int,
                                              const std::vector<double>&,
                                              std::vector<double>&);
 
-template bool propagate_lattice<int, float>(int,
+template bool propagate_lattice<cuopt_int_t, float>(int,
                                             int,
-                                            const std::vector<int>&,
-                                            const std::vector<int>&,
+                                            const std::vector<cuopt_int_t>&,
+                                            const std::vector<cuopt_int_t>&,
                                             const std::vector<float>&,
                                             const std::vector<float>&,
                                             const std::vector<float>&,
@@ -393,19 +394,19 @@ template bool propagate_lattice<int, float>(int,
                                             const std::vector<float>&,
                                             std::vector<float>&);
 
-template objective_step_t<double> compute_objective_step_info<int, double>(
+template objective_step_t<double> compute_objective_step_info<cuopt_int_t, double>(
   const std::vector<double>&,
   const std::vector<bool>&,
-  const std::vector<int>&,
-  const std::vector<int>&,
+  const std::vector<cuopt_int_t>&,
+  const std::vector<cuopt_int_t>&,
   const std::vector<double>&,
   const std::vector<double>&,
   const std::vector<double>&);
 
-template objective_step_t<float> compute_objective_step_info<int, float>(const std::vector<float>&,
+template objective_step_t<float> compute_objective_step_info<cuopt_int_t, float>(const std::vector<float>&,
                                                                          const std::vector<bool>&,
-                                                                         const std::vector<int>&,
-                                                                         const std::vector<int>&,
+                                                                         const std::vector<cuopt_int_t>&,
+                                                                         const std::vector<cuopt_int_t>&,
                                                                          const std::vector<float>&,
                                                                          const std::vector<float>&,
                                                                          const std::vector<float>&);

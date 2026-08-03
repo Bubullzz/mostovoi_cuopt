@@ -64,10 +64,11 @@ class kaminpar_partitioner_t : public partitioner_i<i_t, f_t> {
   std::vector<i_t> partition(partitioner_input_t<i_t, f_t> const& input) const override;
 };
 
-void validate_partition(std::vector<int> const& parts,
-                        int nb_cstr,
-                        int nb_vars,
-                        int nb_parts,
+template <typename i_t>
+void validate_partition(std::vector<i_t> const& parts,
+                        i_t nb_cstr,
+                        i_t nb_vars,
+                        i_t nb_parts,
                         char const* context = "partition");
 
 template <typename i_t, typename f_t>

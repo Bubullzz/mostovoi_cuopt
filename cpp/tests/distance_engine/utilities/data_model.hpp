@@ -6,6 +6,7 @@
 /* clang-format on */
 #pragma once
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <vector>
 namespace cuopt {
 namespace distance_engine {
@@ -27,7 +28,7 @@ struct first_test_data_model_t {
   std::vector<i_t> expected_full_path{0, 1, 4, 2, 3, 3, 4, 6};
   std::vector<i_t> expected_sequence_offsets{0, 5, static_cast<i_t>(expected_full_path.size())};
 };
-static first_test_data_model_t<int, float> first_input_;
+static first_test_data_model_t<cuopt_int_t, float> first_input_;
 
 template <typename i_t, typename f_t>
 struct second_test_data_model_t {
@@ -44,7 +45,7 @@ struct second_test_data_model_t {
   std::vector<i_t> expected_sequence_offsets{0, 2, 5, 7, 8, 10, 12};
 };
 
-static second_test_data_model_t<int, float> second_input_;
+static second_test_data_model_t<cuopt_int_t, float> second_input_;
 
 }  // namespace test
 }  // namespace distance_engine

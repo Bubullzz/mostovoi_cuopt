@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <thrust/binary_search.h>
 #include <thrust/count.h>
 #include <thrust/extrema.h>
@@ -690,11 +691,11 @@ void load_balanced_bounds_presolve_t<i_t, f_t>::set_updated_bounds(
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class load_balanced_bounds_presolve_t<int, float>;
+template class load_balanced_bounds_presolve_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class load_balanced_bounds_presolve_t<int, double>;
+template class load_balanced_bounds_presolve_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

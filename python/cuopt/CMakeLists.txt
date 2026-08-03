@@ -23,6 +23,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_STANDARD 20)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
+option(CUOPT_INDEX_64BIT "Use 64-bit indices (cuopt_int_t = int64_t) for >INT_MAX nonzeros" OFF)
+
+if(CUOPT_INDEX_64BIT)
+  add_compile_definitions(CUOPT_INDEX_64BIT=1 CUOPT_INSTANTIATE_INT64=1 CUOPT_INSTANTIATE_INT32=0)
+endif()
+
 find_package(cuopt "${RAPIDS_VERSION}")
 
 include(rapids-cython-core)

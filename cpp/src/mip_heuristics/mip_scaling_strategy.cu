@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 #include <mip_heuristics/mip_scaling_strategy.cuh>
 #include <pdlp/utils.cuh>
@@ -870,7 +871,7 @@ void mip_scaling_strategy_t<i_t, f_t>::scale_problem(bool do_objective_scaling)
   CUOPT_LOG_INFO("MIP row scaling completed");
 }
 
-#define INSTANTIATE(F_TYPE) template class mip_scaling_strategy_t<int, F_TYPE>;
+#define INSTANTIATE(F_TYPE) template class mip_scaling_strategy_t<cuopt_int_t, F_TYPE>;
 
 #if MIP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

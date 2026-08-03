@@ -13,6 +13,12 @@ import warnings
 
 import numpy as np
 
+IF CUOPT_INDEX_64BIT:
+    CUOPT_INDEX_DTYPE = np.int64
+ELSE:
+    CUOPT_INDEX_DTYPE = np.int32
+
+
 from cuopt.utilities import get_data_ptr
 
 from libc.stdint cimport uintptr_t
@@ -20,6 +26,7 @@ from libcpp.memory cimport unique_ptr
 from libcpp.string cimport string
 from libcpp.utility cimport move
 from libcpp.vector cimport vector
+from ..cuopt_index cimport cuopt_int_t
 
 
 def type_cast(np_obj, np_type, name):
@@ -40,7 +47,7 @@ def type_cast(np_obj, np_type, name):
 cdef class DataModel:
 
     def __init__(self):
-        self.c_data_model_view.reset(new data_model_view_t[int, double]())
+        self.c_data_model_view.reset(new data_model_view_t[cuopt_int_t, double]())
 
         self.maximize = False
         self.A_values = np.array([])
@@ -97,9 +104,9 @@ cdef class DataModel:
             else type_cast(linear_values, np.float64, "linear_values")
         )
         linear_indices = (
-            np.array([], dtype=np.int32)
+            np.array([], dtype=CUOPT_INDEX_DTYPE)
             if linear_indices is None
-            else type_cast(linear_indices, np.int32, "linear_indices")
+            else type_cast(linear_indices, CUOPT_INDEX_DTYPE, "linear_indices")
         )
         if linear_values.shape[0] != linear_indices.shape[0]:
             raise ValueError("linear_values and linear_indices must have the same length")
@@ -109,14 +116,14 @@ cdef class DataModel:
             else type_cast(vals, np.float64, "vals")
         )
         rows = (
-            np.array([], dtype=np.int32)
+            np.array([], dtype=CUOPT_INDEX_DTYPE)
             if rows is None
-            else type_cast(rows, np.int32, "rows")
+            else type_cast(rows, CUOPT_INDEX_DTYPE, "rows")
         )
         cols = (
-            np.array([], dtype=np.int32)
+            np.array([], dtype=CUOPT_INDEX_DTYPE)
             if cols is None
-            else type_cast(cols, np.int32, "cols")
+            else type_cast(cols, CUOPT_INDEX_DTYPE, "cols")
         )
         if not (vals.shape[0] == rows.shape[0] == cols.shape[0]):
             raise ValueError("vals, rows, and cols must have the same length")
@@ -149,8 +156,8 @@ cdef class DataModel:
 
     def set_csr_constraint_matrix(self, A_values, A_indices, A_offsets):
         self.A_values = type_cast(A_values, np.float64, "A_values")
-        self.A_indices = type_cast(A_indices, np.int32, "A_indices")
-        self.A_offsets = type_cast(A_offsets, np.int32, "A_offsets")
+        self.A_indices = type_cast(A_indices, CUOPT_INDEX_DTYPE, "A_indices")
+        self.A_offsets = type_cast(A_offsets, CUOPT_INDEX_DTYPE, "A_offsets")
 
     def set_constraint_bounds(self, b):
         self.b = type_cast(b, np.float64, "b")
@@ -166,8 +173,8 @@ cdef class DataModel:
 
     def set_quadratic_objective_matrix(self, Q_values, Q_indices, Q_offsets):
         self.Q_values = type_cast(Q_values, np.float64, "Q_values")
-        self.Q_indices = type_cast(Q_indices, np.int32, "Q_indices")
-        self.Q_offsets = type_cast(Q_offsets, np.int32, "Q_offsets")
+        self.Q_indices = type_cast(Q_indices, CUOPT_INDEX_DTYPE, "Q_indices")
+        self.Q_offsets = type_cast(Q_offsets, CUOPT_INDEX_DTYPE, "Q_offsets")
 
     def set_variable_lower_bounds(self, variable_lower_bounds):
         self.variable_lower_bounds = type_cast(
@@ -292,7 +299,7 @@ cdef class DataModel:
         return self.problem_name
 
     def set_data_model_view(self):
-        cdef data_model_view_t[int, double]* c_data_model_view = (
+        cdef data_model_view_t[cuopt_int_t, double]* c_data_model_view = (
             self.c_data_model_view.get()
         )
 
@@ -464,10 +471,10 @@ cdef class DataModel:
             self._set_cpp_quadratic_constraints(c_data_model_view)
 
     cdef void _set_cpp_quadratic_constraints(
-        self, data_model_view_t[int, double]* c_data_model_view
+        self, data_model_view_t[cuopt_int_t, double]* c_data_model_view
     ):
-        cdef vector[mps_data_model_t[int, double].quadratic_constraint_t] constraints
-        cdef mps_data_model_t[int, double].quadratic_constraint_t qc
+        cdef vector[mps_data_model_t[cuopt_int_t, double].quadratic_constraint_t] constraints
+        cdef mps_data_model_t[cuopt_int_t, double].quadratic_constraint_t qc
         cdef dict item
         cdef size_t i
         cdef uintptr_t c_linear_values
@@ -522,3 +529,8 @@ cdef class DataModel:
         self.set_data_model_view()
         write_mps(self.c_data_model_view.get()[0],
                   user_problem_file.encode('utf-8'))
+
+
+def get_index_dtype():
+    """NumPy dtype for sparse matrix indices (int32 or int64 depending on build)."""
+    return CUOPT_INDEX_DTYPE

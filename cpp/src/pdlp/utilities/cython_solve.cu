@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
@@ -42,10 +43,10 @@ namespace cython {
  * @param solver_settings PDLP solver settings object
  * @return lp_solution_interface_t pointer (raw pointer, caller owns)
  */
-cuopt::mathematical_optimization::lp_solution_interface_t<int, double>* call_solve_lp(
-  cuopt::mathematical_optimization::optimization_problem_interface_t<int, double>*
+cuopt::mathematical_optimization::lp_solution_interface_t<cuopt_int_t, double>* call_solve_lp(
+  cuopt::mathematical_optimization::optimization_problem_interface_t<cuopt_int_t, double>*
     problem_interface,
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double>& solver_settings,
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double>& solver_settings,
   bool is_batch_mode)
 {
   raft::common::nvtx::range fun_scope("Call Solve LP");
@@ -71,10 +72,10 @@ cuopt::mathematical_optimization::lp_solution_interface_t<int, double>* call_sol
  * @param solver_settings MIP solver settings object
  * @return mip_solution_interface_t pointer (raw pointer, caller owns)
  */
-cuopt::mathematical_optimization::mip_solution_interface_t<int, double>* call_solve_mip(
-  cuopt::mathematical_optimization::optimization_problem_interface_t<int, double>*
+cuopt::mathematical_optimization::mip_solution_interface_t<cuopt_int_t, double>* call_solve_mip(
+  cuopt::mathematical_optimization::optimization_problem_interface_t<cuopt_int_t, double>*
     problem_interface,
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double>& solver_settings)
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double>& solver_settings)
 {
   raft::common::nvtx::range fun_scope("Call Solve MIP");
   cuopt_expects((problem_interface->get_problem_category() ==
@@ -93,8 +94,8 @@ cuopt::mathematical_optimization::mip_solution_interface_t<int, double>* call_so
 }
 
 std::unique_ptr<solver_ret_t> call_solve(
-  cuopt::mathematical_optimization::io::data_model_view_t<int, double>* data_model,
-  cuopt::mathematical_optimization::solver_settings_t<int, double>* solver_settings,
+  cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>* data_model,
+  cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* solver_settings,
   unsigned int flags,
   bool is_batch_mode)
 {
@@ -111,7 +112,7 @@ std::unique_ptr<solver_ret_t> call_solve(
     rmm::cuda_stream stream(static_cast<rmm::cuda_stream::flags>(flags));
     const raft::handle_t handle_{stream};
 
-    auto problem = cuopt::mathematical_optimization::optimization_problem_t<int, double>(&handle_);
+    auto problem = cuopt::mathematical_optimization::optimization_problem_t<cuopt_int_t, double>(&handle_);
     cuopt::mathematical_optimization::populate_from_data_model_view(
       &problem, data_model, solver_settings, &handle_);
 
@@ -119,7 +120,7 @@ std::unique_ptr<solver_ret_t> call_solve(
     if (problem.get_problem_category() == mathematical_optimization::problem_category_t::LP) {
       // Solve and get solution interface pointer
       auto lp_solution_ptr =
-        std::unique_ptr<mathematical_optimization::lp_solution_interface_t<int, double>>(
+        std::unique_ptr<mathematical_optimization::lp_solution_interface_t<cuopt_int_t, double>>(
           call_solve_lp(&problem, solver_settings->get_pdlp_settings(), is_batch_mode));
 
       response.lp_ret       = lp_solution_ptr->to_python_lp_ret();
@@ -145,7 +146,7 @@ std::unique_ptr<solver_ret_t> call_solve(
     } else {
       // MIP solve
       auto mip_solution_ptr =
-        std::unique_ptr<mathematical_optimization::mip_solution_interface_t<int, double>>(
+        std::unique_ptr<mathematical_optimization::mip_solution_interface_t<cuopt_int_t, double>>(
           call_solve_mip(&problem, solver_settings->get_mip_settings()));
 
       response.mip_ret      = mip_solution_ptr->to_python_mip_ret();
@@ -177,14 +178,14 @@ std::unique_ptr<solver_ret_t> call_solve(
 
   } else {
     // CPU memory backend: pure data container, no CUDA resources needed
-    auto cpu_problem = cuopt::mathematical_optimization::cpu_optimization_problem_t<int, double>();
+    auto cpu_problem = cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double>();
     cuopt::mathematical_optimization::populate_from_data_model_view(
       &cpu_problem, data_model, solver_settings, nullptr);
 
     // Call appropriate solve function and convert to ret struct
     if (cpu_problem.get_problem_category() == mathematical_optimization::problem_category_t::LP) {
       auto lp_solution_ptr =
-        std::unique_ptr<mathematical_optimization::lp_solution_interface_t<int, double>>(
+        std::unique_ptr<mathematical_optimization::lp_solution_interface_t<cuopt_int_t, double>>(
           call_solve_lp(&cpu_problem, solver_settings->get_pdlp_settings(), is_batch_mode));
 
       response.lp_ret       = lp_solution_ptr->to_python_lp_ret();
@@ -192,7 +193,7 @@ std::unique_ptr<solver_ret_t> call_solve(
 
     } else {
       auto mip_solution_ptr =
-        std::unique_ptr<mathematical_optimization::mip_solution_interface_t<int, double>>(
+        std::unique_ptr<mathematical_optimization::mip_solution_interface_t<cuopt_int_t, double>>(
           call_solve_mip(&cpu_problem, solver_settings->get_mip_settings()));
 
       response.mip_ret      = mip_solution_ptr->to_python_mip_ret();
@@ -204,7 +205,7 @@ std::unique_ptr<solver_ret_t> call_solve(
 }
 
 static int compute_max_thread(
-  const std::vector<cuopt::mathematical_optimization::io::data_model_view_t<int, double>*>&
+  const std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*>&
     data_models)
 {
   constexpr std::size_t max_total = 4;
@@ -241,8 +242,8 @@ static int compute_max_thread(
 }
 
 std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> solve_batch_remote(
-  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<int, double>*> data_models,
-  cuopt::mathematical_optimization::solver_settings_t<int, double>* solver_settings)
+  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*> data_models,
+  cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* solver_settings)
 {
   cuopt_expects(
     false,
@@ -253,8 +254,8 @@ std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> solve_batch_remote
 }
 
 std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> call_batch_solve(
-  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<int, double>*> data_models,
-  cuopt::mathematical_optimization::solver_settings_t<int, double>* solver_settings)
+  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*> data_models,
+  cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* solver_settings)
 {
   raft::common::nvtx::range fun_scope("Call batch solve");
 

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/solution/solution.cuh>
 #include "problem.cuh"
 #include "problem_helpers.cuh"
@@ -2497,11 +2498,11 @@ void problem_t<i_t, f_t>::update_variable_bounds(const std::vector<i_t>& var_ind
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class problem_t<int, float>;
+template class problem_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class problem_t<int, double>;
+template class problem_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

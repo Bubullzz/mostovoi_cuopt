@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <utilities/macros.cuh>
 
@@ -1444,16 +1445,16 @@ void cusparse_view_t<i_t, f_t>::create_spmv_op_plans(bool is_reflected)
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class cusparse_sp_mat_descr_wrapper_t<int, float>;
+template class cusparse_sp_mat_descr_wrapper_t<cuopt_int_t, float>;
 template class cusparse_dn_vec_descr_wrapper_t<float>;
 template class cusparse_dn_mat_descr_wrapper_t<float>;
-template class cusparse_view_t<int, float>;
+template class cusparse_view_t<cuopt_int_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template class cusparse_sp_mat_descr_wrapper_t<int, double>;
+template class cusparse_sp_mat_descr_wrapper_t<cuopt_int_t, double>;
 template class cusparse_dn_vec_descr_wrapper_t<double>;
 template class cusparse_dn_mat_descr_wrapper_t<double>;
-template class cusparse_view_t<int, double>;
+template class cusparse_view_t<cuopt_int_t, double>;
 #endif
 
 #if CUDA_VER_12_4_UP

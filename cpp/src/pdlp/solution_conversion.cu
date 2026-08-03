@@ -10,6 +10,7 @@
  * @brief Implementations of conversion methods from solution classes to Cython ret structs
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem_solution.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem_solution.hpp>
 #include <cuopt/mathematical_optimization/utilities/cython_solve.hpp>
@@ -216,10 +217,10 @@ cuopt::cython::mip_ret_t cpu_mip_solution_t<i_t, f_t>::to_cpu_mip_ret_t()
 
 // Explicit template instantiations
 template cuopt::cython::linear_programming_ret_t
-gpu_lp_solution_t<int, double>::to_linear_programming_ret_t();
-template cuopt::cython::mip_ret_t gpu_mip_solution_t<int, double>::to_mip_ret_t();
+gpu_lp_solution_t<cuopt_int_t, double>::to_linear_programming_ret_t();
+template cuopt::cython::mip_ret_t gpu_mip_solution_t<cuopt_int_t, double>::to_mip_ret_t();
 template cuopt::cython::linear_programming_ret_t
-cpu_lp_solution_t<int, double>::to_cpu_linear_programming_ret_t();
-template cuopt::cython::mip_ret_t cpu_mip_solution_t<int, double>::to_cpu_mip_ret_t();
+cpu_lp_solution_t<cuopt_int_t, double>::to_cpu_linear_programming_ret_t();
+template cuopt::cython::mip_ret_t cpu_mip_solution_t<cuopt_int_t, double>::to_cpu_mip_ret_t();
 
 }  // namespace cuopt::mathematical_optimization

@@ -150,7 +150,7 @@ class mip_solver_settings_t {
 
   /** Initial primal solutions */
   std::vector<std::shared_ptr<rmm::device_uvector<f_t>>> initial_solutions;
-  int mip_scaling = CUOPT_MIP_SCALING_NO_OBJECTIVE;
+  i_t mip_scaling = CUOPT_MIP_SCALING_NO_OBJECTIVE;
   presolver_t presolver{presolver_t::Default};
   /**
    * @brief Enable the cuOpt internal probing-cache step of presolve (MIP only).
@@ -169,7 +169,7 @@ class mip_solver_settings_t {
    * - CUOPT_MODE_DETERMINISTIC (1): Ensures deterministic results across runs
    *   at potential cost of performance
    */
-  int determinism_mode = CUOPT_MODE_OPPORTUNISTIC;
+  i_t determinism_mode = CUOPT_MODE_OPPORTUNISTIC;
   /**
    * @brief Random seed for the MIP solver.
    *

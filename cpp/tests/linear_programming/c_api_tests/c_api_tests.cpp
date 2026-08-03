@@ -23,12 +23,12 @@
 #include <utilities/common_utils.hpp>
 #include <utilities/error.hpp>
 
-#include <gmock/gmock.h>
+#include <cuopt/mathematical_optimization/constants.h>
 #include <gtest/gtest.h>
 
 using ::testing::ElementsAreArray;
 
-TEST(c_api, int_size) { EXPECT_EQ(test_int_size(), sizeof(int32_t)); }
+TEST(c_api, int_size) { EXPECT_EQ(test_int_size(), sizeof(cuopt_int_t)); }
 
 TEST(c_api, float_size) { EXPECT_EQ(test_float_size(), sizeof(double)); }
 

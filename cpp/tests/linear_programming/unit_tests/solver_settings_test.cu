@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -23,8 +24,8 @@ namespace cuopt::mathematical_optimization {
 
 TEST(SolverSettingsTest, TestSetGet)
 {
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> solver_settings =
-    cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double>{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> solver_settings =
+    cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double>{};
 
   const double tolerance_value = 1e-5;
 
@@ -75,8 +76,8 @@ TEST(SolverSettingsTest, warm_start_smaller_vector)
 {
   const raft::handle_t handle_{};
 
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> solver_settings =
-    cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double>{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> solver_settings =
+    cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double>{};
 
   std::vector<double> primal      = {0.0, 1.0, 2.0, 3.0};
   std::vector<double> dual        = {0.0, 1.0, 2.0, 3.0};
@@ -107,8 +108,8 @@ TEST(SolverSettingsTest, warm_start_smaller_vector)
     cuopt::device_copy(primal_mapping, handle_.get_stream());
   rmm::device_uvector<int> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
 
-  pdlp_warm_start_data_t<int, double> warm_start_data =
-    pdlp_warm_start_data_t<int, double>(current_primal_solution,
+  pdlp_warm_start_data_t<cuopt_int_t, double> warm_start_data =
+    pdlp_warm_start_data_t<cuopt_int_t, double>(current_primal_solution,
                                         current_dual_solution,
                                         initial_primal_average,
                                         initial_dual_average,
@@ -175,8 +176,8 @@ TEST(SolverSettingsTest, warm_start_bigger_vector)
 {
   const raft::handle_t handle_{};
 
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> solver_settings =
-    cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double>{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> solver_settings =
+    cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double>{};
 
   std::vector<double> primal      = {0.0, 1.0, 2.0, 3.0};
   std::vector<double> dual        = {0.0, 1.0, 2.0};
@@ -208,8 +209,8 @@ TEST(SolverSettingsTest, warm_start_bigger_vector)
     cuopt::device_copy(primal_mapping, handle_.get_stream());
   rmm::device_uvector<int> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
 
-  pdlp_warm_start_data_t<int, double> warm_start_data =
-    pdlp_warm_start_data_t<int, double>(current_primal_solution,
+  pdlp_warm_start_data_t<cuopt_int_t, double> warm_start_data =
+    pdlp_warm_start_data_t<cuopt_int_t, double>(current_primal_solution,
                                         current_dual_solution,
                                         initial_primal_average,
                                         initial_dual_average,

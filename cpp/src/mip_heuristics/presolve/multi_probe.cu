@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <thrust/count.h>
@@ -489,11 +490,11 @@ void multi_probe_t<i_t, f_t>::set_updated_bounds(problem_t<i_t, f_t>& pb,
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class multi_probe_t<int, float>;
+template class multi_probe_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class multi_probe_t<int, double>;
+template class multi_probe_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

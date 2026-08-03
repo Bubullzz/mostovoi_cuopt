@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/cuopt_c.h>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>

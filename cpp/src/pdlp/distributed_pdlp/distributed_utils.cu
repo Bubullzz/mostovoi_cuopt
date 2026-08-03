@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/distributed_utils.hpp>
 
 #include <cuopt/error.hpp>
@@ -247,17 +248,17 @@ std::vector<rank_data_t<i_t, f_t>> create_rank_data_from_parts(
   return rank_data;
 }
 
-template std::vector<rank_data_t<int, double>> create_rank_data_from_parts<int, double>(
-  const std::vector<int>& parts,
-  const std::vector<int>& A_row_offsets,
-  const std::vector<int>& A_col_indices,
+template std::vector<rank_data_t<cuopt_int_t, double>> create_rank_data_from_parts<cuopt_int_t, double>(
+  const std::vector<cuopt_int_t>& parts,
+  const std::vector<cuopt_int_t>& A_row_offsets,
+  const std::vector<cuopt_int_t>& A_col_indices,
   const std::vector<double>& A_values,
-  const std::vector<int>& A_t_row_offsets,
-  const std::vector<int>& A_t_col_indices,
+  const std::vector<cuopt_int_t>& A_t_row_offsets,
+  const std::vector<cuopt_int_t>& A_t_col_indices,
   const std::vector<double>& A_t_values,
-  int nb_parts,
-  int nb_cstr,
-  int nb_vars,
-  int nnz);
+  cuopt_int_t nb_parts,
+  cuopt_int_t nb_cstr,
+  cuopt_int_t nb_vars,
+  cuopt_int_t nnz);
 
 }  // namespace cuopt::mathematical_optimization::pdlp

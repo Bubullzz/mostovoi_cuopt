@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "diversity_manager.cuh"
 #include "population.cuh"
 
@@ -896,11 +897,11 @@ void population_t<i_t, f_t>::diversity_step(i_t max_iterations_without_improveme
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class population_t<int, float>;
+template class population_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class population_t<int, double>;
+template class population_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

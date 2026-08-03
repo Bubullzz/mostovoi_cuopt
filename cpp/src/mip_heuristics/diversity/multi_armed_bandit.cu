@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/diversity/recombiners/recombiner_stats.hpp>
 #include <mip_heuristics/mip_constants.hpp>
 #include <mip_heuristics/problem/problem.cuh>
@@ -175,7 +176,7 @@ void mab_t::add_mab_reward(int option_id,
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template struct mab_ls_config_t<int, float>;
+template struct mab_ls_config_t<cuopt_int_t, float>;
 template void mab_t::add_mab_reward<ls_work_normalized_reward_t>(
   int, double, double, double, ls_work_normalized_reward_t);
 template void mab_t::add_mab_reward<recombiner_work_normalized_reward_t>(
@@ -183,7 +184,7 @@ template void mab_t::add_mab_reward<recombiner_work_normalized_reward_t>(
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template struct mab_ls_config_t<int, double>;
+template struct mab_ls_config_t<cuopt_int_t, double>;
 template void mab_t::add_mab_reward<ls_work_normalized_reward_t>(
   int, double, double, double, ls_work_normalized_reward_t);
 template void mab_t::add_mab_reward<recombiner_work_normalized_reward_t>(

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/crossover.hpp>
 
 #include <dual_simplex/basis_solves.hpp>
@@ -1626,12 +1627,12 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template crossover_status_t crossover<int, double>(
-  const lp_problem_t<int, double>& problem,
-  const simplex_solver_settings_t<int, double>& settings,
-  const lp_solution_t<int, double>& initial_solution,
+template crossover_status_t crossover<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  const lp_solution_t<cuopt_int_t, double>& initial_solution,
   double start_time,
-  lp_solution_t<int, double>& solution,
+  lp_solution_t<cuopt_int_t, double>& solution,
   std::vector<variable_status_t>& vstatus);
 
 #endif

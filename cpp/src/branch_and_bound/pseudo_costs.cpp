@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <branch_and_bound/pseudo_costs.hpp>
 #include <branch_and_bound/shared_strong_branching_context.hpp>
 #include <branch_and_bound/symmetry.hpp>
@@ -1987,25 +1988,25 @@ void pseudo_costs_t<i_t, f_t>::update_pseudo_costs_from_strong_branching(
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template class pseudo_costs_t<int, double>;
-template class pseudo_cost_snapshot_t<int, double>;
+template class pseudo_costs_t<cuopt_int_t, double>;
+template class pseudo_cost_snapshot_t<cuopt_int_t, double>;
 
-template void strong_branching<int, double>(const lp_problem_t<int, double>& original_lp,
-                                            const simplex_solver_settings_t<int, double>& settings,
+template void strong_branching<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& original_lp,
+                                            const simplex_solver_settings_t<cuopt_int_t, double>& settings,
                                             double start_time,
-                                            const std::vector<int>& new_slacks,
+                                            const std::vector<cuopt_int_t>& new_slacks,
                                             const std::vector<variable_type_t>& var_types,
-                                            const lp_solution_t<int, double>& root_solution,
-                                            const std::vector<int>& fractional,
+                                            const lp_solution_t<cuopt_int_t, double>& root_solution,
+                                            const std::vector<cuopt_int_t>& fractional,
                                             double root_obj,
                                             double upper_bound,
                                             const std::vector<variable_status_t>& root_vstatus,
                                             const std::vector<double>& edge_norms,
-                                            const std::vector<int>& basic_list,
-                                            const std::vector<int>& nonbasic_list,
-                                            basis_update_mpf_t<int, double>& basis_factors,
-                                            mip_symmetry_t<int, double>* symmetry,
-                                            pseudo_costs_t<int, double>& pc);
+                                            const std::vector<cuopt_int_t>& basic_list,
+                                            const std::vector<cuopt_int_t>& nonbasic_list,
+                                            basis_update_mpf_t<cuopt_int_t, double>& basis_factors,
+                                            mip_symmetry_t<cuopt_int_t, double>* symmetry,
+                                            pseudo_costs_t<cuopt_int_t, double>& pc);
 
 #endif
 

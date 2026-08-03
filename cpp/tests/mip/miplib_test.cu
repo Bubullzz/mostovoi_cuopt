@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "branch_and_bound/branch_and_bound.hpp"
 #include "cuopt/mathematical_optimization/mip/solver_settings.hpp"
@@ -33,13 +34,13 @@ struct result_map_t {
   double cost;
 };
 
-void test_miplib_file(result_map_t test_instance, mip_solver_settings_t<int, double> settings)
+void test_miplib_file(result_map_t test_instance, mip_solver_settings_t<cuopt_int_t, double> settings)
 {
   const raft::handle_t handle_{};
 
   auto path = make_path_absolute(test_instance.file);
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   // set the time limit depending on we are in assert mode or not
 #ifdef ASSERT_MODE
@@ -49,7 +50,7 @@ void test_miplib_file(result_map_t test_instance, mip_solver_settings_t<int, dou
 #endif
 
   settings.time_limit                  = test_time_limit;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   bool is_feasible = solution.get_termination_status() == mip_termination_status_t::FeasibleFound ||
                      solution.get_termination_status() == mip_termination_status_t::Optimal;
   EXPECT_TRUE(is_feasible);
@@ -62,7 +63,7 @@ void test_miplib_file(result_map_t test_instance, mip_solver_settings_t<int, dou
 
 TEST(mip_solve, run_small_tests)
 {
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<result_map_t> test_instances = {
     {"mip/50v-10.mps", 11311031.}, {"mip/neos5.mps", 15.}, {"mip/swath1.mps", 1300.}};
   for (const auto& test_instance : test_instances) {
@@ -73,18 +74,18 @@ TEST(mip_solve, run_small_tests)
 // See https://github.com/NVIDIA/cuopt/pull/1111
 TEST(mip_solve, low_thread_count_test)
 {
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.num_cpu_threads = 2;
   settings.time_limit      = 30;
 
   const raft::handle_t handle_{};
 
   auto path = make_path_absolute("mip/dominating_set.mps");
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   EXPECT_EQ(solution.get_termination_status(), mip_termination_status_t::Optimal);
   EXPECT_NEAR(solution.get_objective_value(), 3.0, 1e-14);
   test_variable_bounds(problem, solution.get_solution(), settings);
@@ -95,7 +96,7 @@ TEST(mip_solve, low_thread_count_test)
 // a feasible (but not necessarily optimal) solution.
 TEST(mip_solve, node_limit_test)
 {
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.node_limit      = 1000;
   settings.time_limit      = 60;
   settings.num_cpu_threads = 8;
@@ -104,11 +105,11 @@ TEST(mip_solve, node_limit_test)
   const raft::handle_t handle_{};
 
   auto path = make_path_absolute("mip/swath1.mps");
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   const auto status                    = solution.get_termination_status();
   EXPECT_TRUE(status == mip_termination_status_t::FeasibleFound);
   // for now keep a 100% error rate

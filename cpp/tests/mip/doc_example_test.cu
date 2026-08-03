@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -21,7 +22,7 @@
 
 namespace cuopt::mathematical_optimization::test {
 
-io::mps_data_model_t<int, double> create_doc_example_problem()
+io::mps_data_model_t<cuopt_int_t, double> create_doc_example_problem()
 {
   return cuopt::test::parse_inline_lp(R"LP(
 Maximize
@@ -43,14 +44,14 @@ struct result_map_t {
 void test_mps_file()
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   constexpr double test_time_limit = 1.;
 
   // Create the problem from documentation example
   auto problem = create_doc_example_problem();
 
   settings.time_limit                  = test_time_limit;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   EXPECT_EQ(solution.get_termination_status(), mip_termination_status_t::Optimal);
 
   double obj_val = solution.get_objective_value();
@@ -76,7 +77,7 @@ TEST(docs, mixed_integer_linear_programming) { test_mps_file(); }
 TEST(docs, user_problem_file)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   constexpr double test_time_limit = 1.;
 
   // Create the problem from documentation example
@@ -93,8 +94,8 @@ TEST(docs, user_problem_file)
 
   EXPECT_TRUE(std::filesystem::exists(user_problem_path));
 
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem2 =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(user_problem_path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem2 =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(user_problem_path, false);
 
   EXPECT_EQ(problem2.get_n_variables(), problem.get_n_variables());
   EXPECT_EQ(problem2.get_n_constraints(), problem.get_n_constraints());
@@ -102,7 +103,7 @@ TEST(docs, user_problem_file)
 
   const auto user_problem_path2 = std::filesystem::temp_directory_path() / "user_problem2.mps";
   settings.user_problem_file    = user_problem_path2;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem2, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem2, settings);
   EXPECT_EQ(solution.get_termination_status(), mip_termination_status_t::Optimal);
 
   double obj_val = solution.get_objective_value();

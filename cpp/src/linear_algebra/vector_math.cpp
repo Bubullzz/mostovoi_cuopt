@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <barrier/pinned_host_allocator.hpp>
 
 #include <linear_algebra/vector_math.hpp>
@@ -182,29 +183,29 @@ template double vector_norm2_squared<int, double, barrier::PinnedHostAllocator<d
 template double vector_norm2<int, double, barrier::PinnedHostAllocator<double>>(
   const std::vector<double, barrier::PinnedHostAllocator<double>>&);
 
-template double vector_norm1<int, double>(const std::vector<double>& x);
+template double vector_norm1<cuopt_int_t, double>(const std::vector<double>& x);
 
-template double dot<int, double>(const std::vector<double>& x, const std::vector<double>& y);
+template double dot<cuopt_int_t, double>(const std::vector<double>& x, const std::vector<double>& y);
 
-template double sparse_dot<int, double>(const std::vector<int>& xind,
+template double sparse_dot<cuopt_int_t, double>(const std::vector<cuopt_int_t>& xind,
                                         const std::vector<double>& xval,
-                                        const std::vector<int>& yind,
+                                        const std::vector<cuopt_int_t>& yind,
                                         const std::vector<double>& yval);
 
-template double sparse_dot<int, double>(int const* xind,
+template double sparse_dot<cuopt_int_t, double>(cuopt_int_t const* xind,
                                         double const* xval,
-                                        int nx,
-                                        int const* yind,
-                                        int ny,
+                                        cuopt_int_t nx,
+                                        cuopt_int_t const* yind,
+                                        cuopt_int_t ny,
                                         double const* y_scatter_val);
 
-template double sparse_dot<int, double>(
-  int* xind, double* xval, int nx, int* yind, double* yval, int ny);
+template double sparse_dot<cuopt_int_t, double>(
+  cuopt_int_t* xind, double* xval, cuopt_int_t nx, cuopt_int_t* yind, double* yval, cuopt_int_t ny);
 
-template int permute_vector<int, double>(const std::vector<int>& p,
+template cuopt_int_t permute_vector<cuopt_int_t, double>(const std::vector<cuopt_int_t>& p,
                                          const std::vector<double>& b,
                                          std::vector<double>& x);
-template int inverse_permute_vector<int, double>(const std::vector<int>& p,
+template cuopt_int_t inverse_permute_vector<cuopt_int_t, double>(const std::vector<cuopt_int_t>& p,
                                                  const std::vector<double>& b,
                                                  std::vector<double>& x);
 template int inverse_permutation<int>(const std::vector<int>& p, std::vector<int>& pinv);

@@ -16,15 +16,16 @@ from libcpp.memory cimport unique_ptr
 from libc.stdint cimport uintptr_t
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from ..cuopt_index cimport cuopt_int_t
 
 
 def get_solver_setting(name):
     """Return the default string form of solver parameter *name* from a fresh C++ settings object."""
-    cdef unique_ptr[solver_settings_t[int, double]] unique_solver_settings
+    cdef unique_ptr[solver_settings_t[cuopt_int_t, double]] unique_solver_settings
 
-    unique_solver_settings.reset(new solver_settings_t[int, double]())
+    unique_solver_settings.reset(new solver_settings_t[cuopt_int_t, double]())
 
-    cdef solver_settings_t[int, double]* c_solver_settings = (
+    cdef solver_settings_t[cuopt_int_t, double]* c_solver_settings = (
         unique_solver_settings.get()
     )
     return c_solver_settings.get_parameter_as_string(
@@ -34,9 +35,9 @@ def get_solver_setting(name):
 
 cpdef get_solver_parameter_names():
     """Return all registered solver parameter names (same order as the C++ layer)."""
-    cdef unique_ptr[solver_settings_t[int, double]] unique_solver_settings
-    unique_solver_settings.reset(new solver_settings_t[int, double]())
-    cdef solver_settings_t[int, double]* c_solver_settings = (
+    cdef unique_ptr[solver_settings_t[cuopt_int_t, double]] unique_solver_settings
+    unique_solver_settings.reset(new solver_settings_t[cuopt_int_t, double]())
+    cdef solver_settings_t[cuopt_int_t, double]* c_solver_settings = (
         unique_solver_settings.get()
     )
     cdef vector[string] parameter_names = c_solver_settings.get_parameter_names()
@@ -113,7 +114,7 @@ class PDLPSolverMode(IntEnum):
 
 cdef class SolverSettings:
     def __init__(self):
-        self.c_solver_settings.reset(new solver_settings_t[int, double]())
+        self.c_solver_settings.reset(new solver_settings_t[cuopt_int_t, double]())
         self.settings_dict = {}
         self.pdlp_warm_start_data = None
         self.mip_callbacks = []
@@ -371,7 +372,7 @@ cdef class SolverSettings:
         replay stay consistent.
         """
         # All cdef declarations must precede other statements in this function.
-        cdef solver_settings_t[int, double]* c_solver_settings
+        cdef solver_settings_t[cuopt_int_t, double]* c_solver_settings
         cdef uintptr_t c_current_primal_solution
         cdef uintptr_t c_current_dual_solution
         cdef uintptr_t c_initial_primal_average
@@ -477,7 +478,7 @@ cdef class SolverSettings:
             ``True`` if the C++ layer reports success.
         """
         self.set_c_solver_settings()
-        cdef solver_settings_t[int, double]* c_ss = self.c_solver_settings.get()
+        cdef solver_settings_t[cuopt_int_t, double]* c_ss = self.c_solver_settings.get()
         cdef string c_path = path.encode("utf-8")
         return c_ss.dump_parameters_to_file(c_path, hyperparameters_only)
 
@@ -496,7 +497,7 @@ cdef class SolverSettings:
             Path to a parameter file with ``name = value`` lines (see C++
             ``solver_settings_t::load_parameters_from_file``).
         """
-        cdef solver_settings_t[int, double]* c_ss = self.c_solver_settings.get()
+        cdef solver_settings_t[cuopt_int_t, double]* c_ss = self.c_solver_settings.get()
         cdef string c_path = path.encode("utf-8")
         cdef string c_name
         cdef string c_val

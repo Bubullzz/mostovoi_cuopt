@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <mip_heuristics/problem/problem.cuh>
@@ -399,11 +400,11 @@ void load_balanced_problem_t<i_t, f_t>::set_updated_bounds(
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class load_balanced_problem_t<int, float>;
+template class load_balanced_problem_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class load_balanced_problem_t<int, double>;
+template class load_balanced_problem_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

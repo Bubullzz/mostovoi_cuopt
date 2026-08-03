@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 
 #include <pdlp/pdlp.cuh>
@@ -711,16 +712,16 @@ void pdlp_termination_strategy_t<i_t, f_t>::print_termination_criteria(i_t itera
 }
 
 #define INSTANTIATE(F_TYPE)                                                                    \
-  template class pdlp_termination_strategy_t<int, F_TYPE>;                                     \
+  template class pdlp_termination_strategy_t<cuopt_int_t, F_TYPE>;                                     \
                                                                                                \
-  template __global__ void check_termination_criteria_kernel<int, F_TYPE>(                     \
-    const typename convergence_information_t<int, F_TYPE>::view_t convergence_information,     \
-    const typename infeasibility_information_t<int, F_TYPE>::view_t infeasibility_information, \
-    raft::device_span<int> termination_status,                                                 \
-    typename pdlp_solver_settings_t<int, F_TYPE>::tolerances_t tolerances,                     \
+  template __global__ void check_termination_criteria_kernel<cuopt_int_t, F_TYPE>(                     \
+    const typename convergence_information_t<cuopt_int_t, F_TYPE>::view_t convergence_information,     \
+    const typename infeasibility_information_t<cuopt_int_t, F_TYPE>::view_t infeasibility_information, \
+    raft::device_span<cuopt_int_t> termination_status,                                         \
+    typename pdlp_solver_settings_t<cuopt_int_t, F_TYPE>::tolerances_t tolerances,                     \
     bool infeasibility_detection,                                                              \
     bool per_constraint_residual,                                                              \
-    int batch_size);
+    cuopt_int_t batch_size);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

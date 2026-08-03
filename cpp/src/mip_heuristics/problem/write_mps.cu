@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "problem.cuh"
 
 #include <fstream>
@@ -155,11 +156,11 @@ void problem_t<i_t, f_t>::write_as_mps(const std::string& path)
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template void problem_t<int, float>::write_as_mps(const std::string& path);
+template void problem_t<cuopt_int_t, float>::write_as_mps(const std::string& path);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template void problem_t<int, double>::write_as_mps(const std::string& path);
+template void problem_t<cuopt_int_t, double>::write_as_mps(const std::string& path);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

@@ -25,6 +25,7 @@
  *   RAPIDS_DATASET_ROOT_DIR - Path to test datasets
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -472,15 +473,15 @@ class GrpcIntegrationTestBase : public ::testing::Test {
   // Load a problem from disk, dispatching by file extension to read_mps()
   // for .mps/.qps (with optional .gz/.bz2) and read_lp() for .lp (with
   // optional .gz/.bz2).  See io::read() in parser.hpp.
-  cpu_optimization_problem_t<int32_t, double> load_problem_from_file(const std::string& path)
+  cpu_optimization_problem_t<cuopt_int_t, double> load_problem_from_file(const std::string& path)
   {
-    auto mps_data = cuopt::mathematical_optimization::io::read<int32_t, double>(path);
-    cpu_optimization_problem_t<int32_t, double> problem;
+    auto mps_data = cuopt::mathematical_optimization::io::read<cuopt_int_t, double>(path);
+    cpu_optimization_problem_t<cuopt_int_t, double> problem;
     populate_from_mps_data_model(&problem, mps_data);
     return problem;
   }
 
-  cpu_optimization_problem_t<int32_t, double> create_simple_mip()
+  cpu_optimization_problem_t<cuopt_int_t, double> create_simple_mip()
   {
     auto data = cuopt::test::parse_inline_lp(R"LP(
 Minimize
@@ -492,7 +493,7 @@ Binaries
   x1
 End
 )LP");
-    cpu_optimization_problem_t<int32_t, double> problem;
+    cpu_optimization_problem_t<cuopt_int_t, double> problem;
     populate_from_mps_data_model(&problem, data);
     return problem;
   }
@@ -696,7 +697,7 @@ TEST_F(DefaultServerTests, GetResultNonexistentJob)
 {
   auto client = create_client();
   ASSERT_NE(client, nullptr);
-  auto result = client->get_lp_result<int32_t, double>("nonexistent-job-12345");
+  auto result = client->get_lp_result<cuopt_int_t, double>("nonexistent-job-12345");
   EXPECT_FALSE(result.success);
 }
 
@@ -709,7 +710,7 @@ TEST_F(DefaultServerTests, SolveLPPolling)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto submit_result = client->submit_lp(problem, settings);
@@ -728,7 +729,7 @@ TEST_F(DefaultServerTests, SolveLPPolling)
   EXPECT_EQ(final_status, job_status_t::COMPLETED)
     << "Status: " << job_status_to_string(final_status);
 
-  auto result = client->get_lp_result<int32_t, double>(submit_result.job_id);
+  auto result = client->get_lp_result<cuopt_int_t, double>(submit_result.job_id);
   EXPECT_TRUE(result.success) << result.error_message;
   ASSERT_NE(result.solution, nullptr);
   EXPECT_NEAR(result.solution->get_objective_value(), -464.753, 1.0);
@@ -742,7 +743,7 @@ TEST_F(DefaultServerTests, SolveLPWaitRPC)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -756,7 +757,7 @@ TEST_F(DefaultServerTests, SolveInfeasibleLP)
   auto client = create_client();
   ASSERT_NE(client, nullptr);
 
-  cpu_optimization_problem_t<int32_t, double> problem;
+  cpu_optimization_problem_t<cuopt_int_t, double> problem;
   std::vector<double> var_lb   = {1.0};
   std::vector<double> var_ub   = {0.0};
   std::vector<double> obj      = {1.0};
@@ -770,7 +771,7 @@ TEST_F(DefaultServerTests, SolveInfeasibleLP)
   problem.set_constraint_lower_bounds(nullptr, 0);
   problem.set_constraint_upper_bounds(nullptr, 0);
 
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -789,7 +790,7 @@ TEST_F(DefaultServerTests, SolveMIPBlocking)
   ASSERT_NE(client, nullptr);
   auto problem = create_simple_mip();
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_mip(problem, settings, false);
@@ -808,7 +809,7 @@ TEST_F(DefaultServerTests, ExplicitAsyncLPFlow)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto submit_result = client->submit_lp(problem, settings);
@@ -818,7 +819,7 @@ TEST_F(DefaultServerTests, ExplicitAsyncLPFlow)
 
   wait_for_job_done(client.get(), job_id, 30);
 
-  auto result = client->get_lp_result<int32_t, double>(job_id);
+  auto result = client->get_lp_result<cuopt_int_t, double>(job_id);
   EXPECT_TRUE(result.success) << result.error_message;
   ASSERT_NE(result.solution, nullptr);
   EXPECT_NEAR(result.solution->get_objective_value(), -464.753, 1.0);
@@ -839,7 +840,7 @@ TEST_F(DefaultServerTests, ServerLogsJobProcessing)
   ASSERT_NE(client, nullptr);
 
   auto problem = create_simple_mip();
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
   auto result         = client->solve_mip(problem, settings, false);
   EXPECT_TRUE(result.success) << result.error_message;
@@ -859,7 +860,7 @@ TEST_F(DefaultServerTests, ClientDebugLogsSubmission)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -882,7 +883,7 @@ TEST_F(DefaultServerTests, MultipleSequentialSolves)
   for (int i = 0; i < 3; ++i) {
     std::string mps_path = get_test_lp_path("afiro_original.mps");
     auto problem         = load_problem_from_file(mps_path);
-    pdlp_solver_settings_t<int32_t, double> settings;
+    pdlp_solver_settings_t<cuopt_int_t, double> settings;
     settings.time_limit = 10.0;
 
     auto result = client->solve_lp(problem, settings);
@@ -901,7 +902,7 @@ TEST_F(DefaultServerTests, ConcurrentJobSubmission)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   std::vector<std::pair<grpc_client_t*, std::string>> jobs;
@@ -939,7 +940,7 @@ TEST_F(DefaultServerTests, ConcurrentJobSubmission)
   ASSERT_EQ(completed_count, 3) << "Not all jobs completed in time";
 
   for (size_t i = 0; i < jobs.size(); ++i) {
-    auto result = jobs[i].first->get_lp_result<int32_t, double>(jobs[i].second);
+    auto result = jobs[i].first->get_lp_result<cuopt_int_t, double>(jobs[i].second);
     EXPECT_TRUE(result.success);
     ASSERT_NE(result.solution, nullptr);
     EXPECT_NEAR(result.solution->get_objective_value(), -464.753, 1.0);
@@ -959,7 +960,7 @@ TEST_F(DefaultServerTests, VerifyUnaryUploadSmallProblem)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -983,7 +984,7 @@ TEST_F(DefaultServerTests, VerifyUnaryDownloadSmallResult)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1004,7 +1005,7 @@ TEST_F(DefaultServerTests, SolveLPReturnsWarmStartData)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1056,7 +1057,7 @@ TEST_F(DefaultServerTests, SolveMIPWithLogCallback)
   std::string mps_path = get_test_mip_path("bb_optimality.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit     = 10.0;
   settings.log_to_console = true;
 
@@ -1085,7 +1086,7 @@ TEST_F(DefaultServerTests, IncumbentCallbacksMIP)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_mip(problem, settings, true);
@@ -1114,7 +1115,7 @@ TEST_F(DefaultServerTests, IncumbentCallbackCancelsSolve)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto start  = std::chrono::steady_clock::now();
@@ -1135,7 +1136,7 @@ TEST_F(DefaultServerTests, CancelRunningJob)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 120.0;
 
   auto submit_result = client->submit_mip(problem, settings);
@@ -1167,7 +1168,7 @@ TEST_F(DefaultServerTests, DeleteQueuedJobPreventsRun)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 120.0;
 
   // Occupy the single worker with a long solve.
@@ -1196,7 +1197,7 @@ TEST_F(DefaultServerTests, DeleteQueuedJobPreventsRun)
   // assert the worker stays functional instead.
   client->cancel_job(running.job_id);
 
-  mip_solver_settings_t<int32_t, double> probe_settings;
+  mip_solver_settings_t<cuopt_int_t, double> probe_settings;
   probe_settings.time_limit = 10.0;
   auto probe                = client->submit_mip(problem, probe_settings);
   ASSERT_TRUE(probe.success);
@@ -1218,7 +1219,7 @@ TEST_F(DefaultServerTests, DeleteRunningJobCancelsWorker)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 120.0;
 
   auto submit_result = client->submit_mip(problem, settings);
@@ -1254,7 +1255,7 @@ TEST_F(DefaultServerTests, DeleteRunningJobCancelsWorker)
 
   // Prove the killed worker was actually replaced: a probe job must be picked
   // up (reach PROCESSING) and run to completion within a bounded interval.
-  mip_solver_settings_t<int32_t, double> probe_settings;
+  mip_solver_settings_t<cuopt_int_t, double> probe_settings;
   probe_settings.time_limit = 10.0;
   auto probe                = client->submit_mip(problem, probe_settings);
   ASSERT_TRUE(probe.success);
@@ -1337,7 +1338,7 @@ TEST_F(ChunkedUploadTests, ChunkedUploadLP)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1359,7 +1360,7 @@ TEST_F(ChunkedUploadTests, ChunkedUploadMIP)
   std::string mps_path = get_test_mip_path("sudoku.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_mip(problem, settings, false);
@@ -1383,7 +1384,7 @@ TEST_F(ChunkedUploadTests, ConcurrentChunkedUploads)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   std::atomic<int> success_count{0};
@@ -1457,7 +1458,7 @@ TEST_F(ChunkedUploadTests, QuadraticConstraintsUnaryNonZeroRhs)
   ASSERT_TRUE(problem.has_quadratic_constraints());
   EXPECT_EQ(problem.get_quadratic_constraints().size(), 2u);
 
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1500,7 +1501,7 @@ TEST_F(ChunkedUploadTests, QuadraticConstraintsChunkedNonZeroRhs)
   auto problem         = load_problem_from_file(mps_path);
   ASSERT_TRUE(problem.has_quadratic_constraints());
 
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1543,7 +1544,7 @@ TEST_F(ChunkedUploadTests, QuadraticConstraintsEndToEndSocp)
   ASSERT_TRUE(problem.has_quadratic_constraints());
   EXPECT_EQ(problem.get_quadratic_constraints().size(), 2u);
 
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1579,7 +1580,7 @@ TEST_F(ChunkedUploadTests, UnaryFallbackSmallProblem)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1649,7 +1650,7 @@ TEST_F(PathSelectionTests, UnaryUploadLPWithPathLogging)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1688,7 +1689,7 @@ TEST_F(PathSelectionTests, ChunkedUploadLPWithPathLogging)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_lp(problem, settings);
@@ -1729,7 +1730,7 @@ TEST_F(PathSelectionTests, ChunkedUploadAndChunkedDownloadMIP)
 
   std::string mps_path = get_test_mip_path("sudoku.mps");
   auto problem         = load_problem_from_file(mps_path);
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 30.0;
 
   auto result = client->solve_mip(problem, settings, false);
@@ -1770,7 +1771,7 @@ TEST_F(PathSelectionTests, UnaryUploadMIPWithPathLogging)
 
   std::string mps_path = get_test_mip_path("bb_optimality.mps");
   auto problem         = load_problem_from_file(mps_path);
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_mip(problem, settings, false);
@@ -1834,7 +1835,7 @@ TEST_F(ErrorRecoveryTests, ClientHandlesServerCrashDuringSolve)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 120.0;
 
   auto submit_result = client->submit_mip(problem, settings);
@@ -1857,7 +1858,7 @@ TEST_F(ErrorRecoveryTests, SigintDuringRunningJobShutsDownPromptly)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 120.0;
 
   auto submit_result = client->submit_mip(problem, settings);
@@ -1909,7 +1910,7 @@ TEST_F(ErrorRecoveryTests, ClientTimeoutConfiguration)
   std::string mps_path = get_test_mip_path("neos5-free-bound.mps");
   auto problem         = load_problem_from_file(mps_path);
 
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 60.0;
 
   auto submit_result = client->submit_mip(problem, settings);
@@ -1946,7 +1947,7 @@ TEST_F(ErrorRecoveryTests, ChunkedUploadAfterServerRestart)
 
   std::string mps_path = get_test_mip_path("sudoku.mps");
   auto problem         = load_problem_from_file(mps_path);
-  mip_solver_settings_t<int32_t, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result1 = client->solve_mip(problem, settings, false);
@@ -2050,7 +2051,7 @@ TEST_F(TlsServerTests, SolveLP)
 
   std::string mps_path = get_test_lp_path("afiro_original.mps");
   auto problem         = load_problem_from_file(mps_path);
-  pdlp_solver_settings_t<int32_t, double> settings;
+  pdlp_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.0;
 
   auto result = client->solve_lp(problem, settings);

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/mip/heuristics_hyper_params.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
@@ -18,7 +19,7 @@
 
 namespace cuopt::mathematical_optimization::test {
 
-using settings_t = solver_settings_t<int, double>;
+using settings_t = solver_settings_t<cuopt_int_t, double>;
 
 class HeuristicsHyperParamsTest : public ::testing::Test {
  protected:
@@ -114,7 +115,7 @@ TEST_F(HeuristicsHyperParamsTest, PartialConfigKeepsDefaults)
   EXPECT_EQ(hp.population_size, 128);
   EXPECT_DOUBLE_EQ(hp.rins_fix_rate, 0.3);
 
-  mip_heuristics_hyper_params_t<int, double> defaults;
+  mip_heuristics_hyper_params_t<cuopt_int_t, double> defaults;
   EXPECT_EQ(hp.num_cpufj_threads, defaults.num_cpufj_threads);
   EXPECT_DOUBLE_EQ(hp.presolve_time_ratio, defaults.presolve_time_ratio);
   EXPECT_EQ(hp.n_of_minimums_for_exit, defaults.n_of_minimums_for_exit);

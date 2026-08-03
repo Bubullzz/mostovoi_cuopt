@@ -10,6 +10,7 @@
 // Force-include ProbingView.hpp with NDEBUG undefined so the restoration is compiled in.
 #ifdef NDEBUG
 #undef NDEBUG
+#include <cuopt/mathematical_optimization/constants.h>
 #include <papilo/core/ProbingView.hpp>
 #define NDEBUG
 #endif
@@ -1561,14 +1562,14 @@ void papilo_postsolve_deleter<f_t>::operator()(papilo::PostsolveStorage<f_t>* pt
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 template struct papilo_postsolve_deleter<float>;
-template class third_party_presolve_t<int, float>;
-template void papilo_round_trip(simplex::user_problem_t<int, float>&);
+template class third_party_presolve_t<cuopt_int_t, float>;
+template void papilo_round_trip(simplex::user_problem_t<cuopt_int_t, float>&);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
 template struct papilo_postsolve_deleter<double>;
-template class third_party_presolve_t<int, double>;
-template void papilo_round_trip(simplex::user_problem_t<int, double>&);
+template class third_party_presolve_t<cuopt_int_t, double>;
+template void papilo_round_trip(simplex::user_problem_t<cuopt_int_t, double>&);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

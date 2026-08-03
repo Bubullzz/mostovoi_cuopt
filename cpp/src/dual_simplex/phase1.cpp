@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/phase1.hpp>
 
 #include <dual_simplex/basis_solves.hpp>
@@ -88,8 +89,8 @@ i_t create_phase1_problem(const lp_problem_t<i_t, f_t>& lp, lp_problem_t<i_t, f_
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int create_phase1_problem<int, double>(const lp_problem_t<int, double>& lp,
-                                                lp_problem_t<int, double>& out);
+template int create_phase1_problem<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
+                                                lp_problem_t<cuopt_int_t, double>& out);
 
 #endif
 

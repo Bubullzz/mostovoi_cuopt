@@ -58,21 +58,12 @@ typedef float cuopt_float_t;
 typedef double cuopt_float_t;
 #endif
 
-#if CUOPT_INSTANTIATE_INT32
 /**
  * @brief The type of the integer number used by the solver. Use ``cuOptGetIntSize``
- * to get the size of the integer type.
+ * to get the size of the integer type. Defined in ``constants.h`` as ``cuopt_int_t``
+ * (int32_t by default, int64_t when built with ``CUOPT_INDEX_64BIT``).
  */
-typedef int32_t cuopt_int_t;
-#endif
-
-#if CUOPT_INSTANTIATE_INT64
-/**
- * @brief The type of the integer number used by the solver. Use ``cuOptGetIntSize``
- * to get the size of the integer type.
- */
-typedef int64_t cuopt_int_t;
-#endif
+/* cuopt_int_t is typedef'd in constants.h */
 
 /**
  * @brief Get the size of the float type.

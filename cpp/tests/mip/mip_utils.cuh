@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <algorithm>
 #include <cuopt/mathematical_optimization/io/parser.hpp>
 #include <cuopt/mathematical_optimization/mip/solver_settings.hpp>
@@ -15,9 +16,9 @@
 namespace cuopt::mathematical_optimization::test {
 
 static void test_variable_bounds(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& problem,
   const rmm::device_uvector<double>& solution,
-  const cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings)
+  const cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings)
 {
   const double* lower_bound_ptr = problem.get_variable_lower_bounds().data();
   const double* upper_bound_ptr = problem.get_variable_upper_bounds().data();
@@ -43,9 +44,9 @@ static void test_variable_bounds(
 }
 
 static void test_variable_bounds(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& problem,
   const std::vector<double>& solution,
-  const cuopt::mathematical_optimization::mip_solver_settings_t<int, double> settings)
+  const cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> settings)
 {
   const double* lower_bound_ptr = problem.get_variable_lower_bounds().data();
   const double* upper_bound_ptr = problem.get_variable_upper_bounds().data();
@@ -94,7 +95,7 @@ struct violation {
 };
 
 static void test_constraint_sanity_per_row(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
   const rmm::device_uvector<double>& solution,
   double abs_tolerance,
   double rel_tolerance)
@@ -128,7 +129,7 @@ static void test_constraint_sanity_per_row(
 }
 
 static void test_constraint_sanity_per_row(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
   const std::vector<double>& solution,
   double abs_tolerance,
   double rel_tolerance)
@@ -167,14 +168,14 @@ static std::tuple<mip_termination_status_t, double, double> test_mps_file(
   const raft::handle_t handle_{};
 
   auto path = make_path_absolute(test_instance);
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit                  = time_limit;
   settings.heuristics_only             = heuristics_only;
   settings.presolver                   = presolver;
-  mip_solution_t<int, double> solution = solve_mip(&handle_, problem, settings);
+  mip_solution_t<cuopt_int_t, double> solution = solve_mip(&handle_, problem, settings);
   return std::make_tuple(solution.get_termination_status(),
                          solution.get_objective_value(),
                          solution.get_solution_bound());

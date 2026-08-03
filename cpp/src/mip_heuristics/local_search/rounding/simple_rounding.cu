@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "simple_rounding.cuh"
 #include "simple_rounding_kernels.cuh"
 
@@ -171,12 +172,12 @@ void invoke_correct_integers(solution_t<i_t, f_t>& solution, f_t tol)
 }
 
 #define INSTANTIATE(F_TYPE)                                                                  \
-  template bool check_brute_force_rounding<int, F_TYPE>(solution_t<int, F_TYPE> & solution); \
-  template void invoke_random_round_nearest<int, F_TYPE>(solution_t<int, F_TYPE> & solution, \
+  template bool check_brute_force_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution); \
+  template void invoke_random_round_nearest<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution, \
                                                          int n_target_random_rounds);        \
-  template void invoke_round_nearest<int, F_TYPE>(solution_t<int, F_TYPE> & solution);       \
-  template bool invoke_simple_rounding<int, F_TYPE>(solution_t<int, F_TYPE> & solution);     \
-  template void invoke_correct_integers<int, F_TYPE>(solution_t<int, F_TYPE> & solution,     \
+  template void invoke_round_nearest<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution);       \
+  template bool invoke_simple_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution);     \
+  template void invoke_correct_integers<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution,     \
                                                      F_TYPE tol);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT

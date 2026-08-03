@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/io/parser.hpp>
 
 #include <string_view>
@@ -101,10 +102,10 @@ BOUNDS
 ENDATA
 )";
 
-inline cuopt::mathematical_optimization::io::mps_data_model_t<int, double> parse_inline_mps(
+inline cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> parse_inline_mps(
   std::string_view mps_text)
 {
-  return cuopt::mathematical_optimization::io::read_mps_from_string<int, double>(mps_text, false);
+  return cuopt::mathematical_optimization::io::read_mps_from_string<cuopt_int_t, double>(mps_text, false);
 }
 
 }  // namespace cuopt::test::inline_mps

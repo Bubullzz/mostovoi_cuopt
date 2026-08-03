@@ -15,6 +15,7 @@
  * the MPS-parser-to-problem pipeline and legitimately needs a real file.
  */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem_solution.hpp>
 #include <cuopt/mathematical_optimization/cpu_pdlp_warm_start_data.hpp>
@@ -69,14 +70,14 @@ void populate_tiny_problem(ProblemT* problem)
 }
 
 // Build a cpu_lp_solution_t with known values
-static std::unique_ptr<cpu_lp_solution_t<int, double>> make_cpu_lp_solution(bool with_warmstart)
+static std::unique_ptr<cpu_lp_solution_t<cuopt_int_t, double>> make_cpu_lp_solution(bool with_warmstart)
 {
   std::vector<double> primal = {1.0, 2.0, 3.0};
   std::vector<double> dual   = {0.5, 0.6};
   std::vector<double> rc     = {0.1, 0.2, 0.3};
 
   if (!with_warmstart) {
-    return std::make_unique<cpu_lp_solution_t<int, double>>(std::move(primal),
+    return std::make_unique<cpu_lp_solution_t<cuopt_int_t, double>>(std::move(primal),
                                                             std::move(dual),
                                                             std::move(rc),
                                                             pdlp_termination_status_t::Optimal,
@@ -90,7 +91,7 @@ static std::unique_ptr<cpu_lp_solution_t<int, double>> make_cpu_lp_solution(bool
                                                             /*solved_by=*/method_t::PDLP);
   }
 
-  cpu_pdlp_warm_start_data_t<int, double> ws;
+  cpu_pdlp_warm_start_data_t<cuopt_int_t, double> ws;
   ws.current_primal_solution_                  = std::vector<double>(kNVars, 0.1);
   ws.current_dual_solution_                    = std::vector<double>(kNCons, 0.2);
   ws.initial_primal_average_                   = std::vector<double>(kNVars, 0.3);
@@ -109,7 +110,7 @@ static std::unique_ptr<cpu_lp_solution_t<int, double>> make_cpu_lp_solution(bool
   ws.sum_solution_weight_                      = 50.0;
   ws.iterations_since_last_restart_            = 10;
 
-  return std::make_unique<cpu_lp_solution_t<int, double>>(std::move(primal),
+  return std::make_unique<cpu_lp_solution_t<cuopt_int_t, double>>(std::move(primal),
                                                           std::move(dual),
                                                           std::move(rc),
                                                           pdlp_termination_status_t::IterationLimit,
@@ -125,10 +126,10 @@ static std::unique_ptr<cpu_lp_solution_t<int, double>> make_cpu_lp_solution(bool
 }
 
 // Build a cpu_mip_solution_t with known values
-static std::unique_ptr<cpu_mip_solution_t<int, double>> make_cpu_mip_solution()
+static std::unique_ptr<cpu_mip_solution_t<cuopt_int_t, double>> make_cpu_mip_solution()
 {
   std::vector<double> sol = {1.0, 0.0, 1.0};
-  return std::make_unique<cpu_mip_solution_t<int, double>>(std::move(sol),
+  return std::make_unique<cpu_mip_solution_t<cuopt_int_t, double>>(std::move(sol),
                                                            mip_termination_status_t::Optimal,
                                                            /*objective=*/-99.0,
                                                            /*mip_gap=*/0.0,
@@ -143,7 +144,7 @@ static std::unique_ptr<cpu_mip_solution_t<int, double>> make_cpu_mip_solution()
 }
 
 // Build a gpu_lp_solution_t with known device data (no solver needed)
-static gpu_lp_solution_t<int, double> make_gpu_lp_solution()
+static gpu_lp_solution_t<cuopt_int_t, double> make_gpu_lp_solution()
 {
   auto stream = rmm::cuda_stream_per_thread;
 
@@ -158,7 +159,7 @@ static gpu_lp_solution_t<int, double> make_gpu_lp_solution()
   raft::copy(dual.data(), h_dual.data(), kNCons, stream);
   raft::copy(rc.data(), h_rc.data(), kNVars, stream);
 
-  using info_t = optimization_problem_solution_t<int, double>::additional_termination_information_t;
+  using info_t = optimization_problem_solution_t<cuopt_int_t, double>::additional_termination_information_t;
   std::vector<info_t> term_stats(1);
   term_stats[0].primal_objective      = -42.0;
   term_stats[0].dual_objective        = -42.5;
@@ -171,14 +172,14 @@ static gpu_lp_solution_t<int, double> make_gpu_lp_solution()
 
   std::vector<pdlp_termination_status_t> term_status = {pdlp_termination_status_t::Optimal};
 
-  optimization_problem_solution_t<int, double> sol(
+  optimization_problem_solution_t<cuopt_int_t, double> sol(
     primal, dual, rc, "obj", {}, {}, std::move(term_stats), std::move(term_status));
 
-  return gpu_lp_solution_t<int, double>(std::move(sol));
+  return gpu_lp_solution_t<cuopt_int_t, double>(std::move(sol));
 }
 
 // Build a gpu_mip_solution_t with known device data (no solver needed)
-static gpu_mip_solution_t<int, double> make_gpu_mip_solution()
+static gpu_mip_solution_t<cuopt_int_t, double> make_gpu_mip_solution()
 {
   auto stream = rmm::cuda_stream_per_thread;
 
@@ -186,14 +187,14 @@ static gpu_mip_solution_t<int, double> make_gpu_mip_solution()
   std::vector<double> h_sol = {1.0, 0.0, 1.0};
   raft::copy(sol.data(), h_sol.data(), kNVars, stream);
 
-  solver_stats_t<int, double> stats;
+  solver_stats_t<cuopt_int_t, double> stats;
   stats.total_solve_time       = 2.34;
   stats.presolve_time          = 0.1;
   stats.num_nodes              = 42;
   stats.num_simplex_iterations = 500;
   stats.set_solution_bound(-99.0);
 
-  mip_solution_t<int, double> mip_sol(std::move(sol),
+  mip_solution_t<cuopt_int_t, double> mip_sol(std::move(sol),
                                       {},
                                       /*objective=*/-99.0,
                                       /*mip_gap=*/0.0,
@@ -203,7 +204,7 @@ static gpu_mip_solution_t<int, double> make_gpu_mip_solution()
                                       /*max_variable_bound_violation=*/0.0,
                                       stats);
 
-  return gpu_mip_solution_t<int, double>(std::move(mip_sol));
+  return gpu_mip_solution_t<cuopt_int_t, double>(std::move(mip_sol));
 }
 
 // =============================================================================
@@ -227,7 +228,7 @@ class SolutionInterfaceTest : public ::testing::Test {
 TEST_F(SolutionInterfaceTest, lp_solution_throws_on_mip_methods)
 {
   auto sol                                  = make_gpu_lp_solution();
-  lp_solution_interface_t<int, double>* ptr = &sol;
+  lp_solution_interface_t<cuopt_int_t, double>* ptr = &sol;
 
   EXPECT_THROW(ptr->get_mip_gap(), std::logic_error);
   EXPECT_THROW(ptr->get_solution_bound(), std::logic_error);
@@ -236,7 +237,7 @@ TEST_F(SolutionInterfaceTest, lp_solution_throws_on_mip_methods)
 TEST_F(SolutionInterfaceTest, mip_solution_throws_on_lp_methods)
 {
   auto sol                                   = make_gpu_mip_solution();
-  mip_solution_interface_t<int, double>* ptr = &sol;
+  mip_solution_interface_t<cuopt_int_t, double>* ptr = &sol;
 
   EXPECT_THROW(ptr->get_dual_solution(), std::logic_error);
   EXPECT_THROW(ptr->get_dual_objective_value(), std::logic_error);
@@ -246,7 +247,7 @@ TEST_F(SolutionInterfaceTest, mip_solution_throws_on_lp_methods)
 TEST_F(SolutionInterfaceTest, lp_solution_polymorphic_methods)
 {
   auto sol                                                     = make_gpu_lp_solution();
-  optimization_problem_solution_interface_t<int, double>* base = &sol;
+  optimization_problem_solution_interface_t<cuopt_int_t, double>* base = &sol;
 
   EXPECT_FALSE(base->is_mip());
   EXPECT_NO_THROW(base->get_error_status());
@@ -269,7 +270,7 @@ TEST_F(SolutionInterfaceTest, lp_solution_polymorphic_methods)
 TEST_F(SolutionInterfaceTest, mip_solution_polymorphic_methods)
 {
   auto sol                                                     = make_gpu_mip_solution();
-  optimization_problem_solution_interface_t<int, double>* base = &sol;
+  optimization_problem_solution_interface_t<cuopt_int_t, double>* base = &sol;
 
   EXPECT_TRUE(base->is_mip());
   EXPECT_NEAR(base->get_objective_value(), -99.0, 1e-9);
@@ -285,7 +286,7 @@ TEST_F(SolutionInterfaceTest, mip_solution_polymorphic_methods)
 TEST_F(SolutionInterfaceTest, termination_status_int_values)
 {
   auto sol                                                     = make_gpu_lp_solution();
-  optimization_problem_solution_interface_t<int, double>* base = &sol;
+  optimization_problem_solution_interface_t<cuopt_int_t, double>* base = &sol;
 
   int status = base->get_termination_status_int();
   EXPECT_EQ(status, CUOPT_TERMINATION_STATUS_OPTIMAL);
@@ -298,7 +299,7 @@ TEST_F(SolutionInterfaceTest, termination_status_int_values)
 TEST_F(SolutionInterfaceTest, gpu_problem_to_optimization_problem)
 {
   raft::handle_t handle;
-  auto problem = std::make_unique<optimization_problem_t<int, double>>(&handle);
+  auto problem = std::make_unique<optimization_problem_t<cuopt_int_t, double>>(&handle);
   populate_tiny_problem(problem.get());
 
   EXPECT_EQ(problem->get_n_variables(), kNVars);
@@ -334,7 +335,7 @@ TEST_F(SolutionInterfaceTest, gpu_problem_to_optimization_problem)
 TEST_F(SolutionInterfaceTest, cpu_problem_to_optimization_problem)
 {
   raft::handle_t handle;
-  auto problem = std::make_unique<cpu_optimization_problem_t<int, double>>();
+  auto problem = std::make_unique<cpu_optimization_problem_t<cuopt_int_t, double>>();
   populate_tiny_problem(problem.get());
 
   EXPECT_EQ(problem->get_n_variables(), kNVars);
@@ -368,7 +369,7 @@ TEST_F(SolutionInterfaceTest, cpu_problem_to_optimization_problem)
 // This test legitimately uses the MPS parser since it tests that pipeline
 TEST_F(SolutionInterfaceTest, mps_data_model_to_optimization_problem)
 {
-  auto mps_data = cuopt::mathematical_optimization::io::read_mps<int, double>(lp_file_);
+  auto mps_data = cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(lp_file_);
   raft::handle_t handle;
 
   auto problem = mps_data_model_to_optimization_problem(&handle, mps_data);
@@ -402,7 +403,7 @@ TEST_F(SolutionInterfaceTest, mps_data_model_to_optimization_problem)
 
 TEST_F(SolutionInterfaceTest, mps_data_model_to_optimization_problem_quadratic_constraints)
 {
-  auto mps_data = cuopt::mathematical_optimization::io::read_lp_from_string<int, double>(R"LP(
+  auto mps_data = cuopt::mathematical_optimization::io::read_lp_from_string<cuopt_int_t, double>(R"LP(
 Minimize
   obj: x + y
 Subject To
@@ -427,15 +428,15 @@ End
 // Build one CPU problem by copying the model (populate) and another by moving an equal model
 // (adopt), then assert the two are field-for-field identical. Guards the adopt path against
 // silently dropping or mis-moving any member.
-static void expect_adopt_matches_populate(const io::mps_data_model_t<int, double>& model_src)
+static void expect_adopt_matches_populate(const io::mps_data_model_t<cuopt_int_t, double>& model_src)
 {
-  io::mps_data_model_t<int, double> model_for_copy = model_src;
-  io::mps_data_model_t<int, double> model_for_move = model_src;
+  io::mps_data_model_t<cuopt_int_t, double> model_for_copy = model_src;
+  io::mps_data_model_t<cuopt_int_t, double> model_for_move = model_src;
 
-  cpu_optimization_problem_t<int, double> copied;
+  cpu_optimization_problem_t<cuopt_int_t, double> copied;
   populate_from_mps_data_model(&copied, model_for_copy);
 
-  cpu_optimization_problem_t<int, double> moved;
+  cpu_optimization_problem_t<cuopt_int_t, double> moved;
   adopt_from_mps_data_model(&moved, std::move(model_for_move));
 
   // Scalars
@@ -495,13 +496,13 @@ static void expect_adopt_matches_populate(const io::mps_data_model_t<int, double
 // adopt_from_mps_data_model must produce a problem identical to populate_from_mps_data_model.
 TEST_F(SolutionInterfaceTest, adopt_matches_populate_lp_file)
 {
-  const auto model = io::read_mps<int, double>(lp_file_);
+  const auto model = io::read_mps<cuopt_int_t, double>(lp_file_);
   expect_adopt_matches_populate(model);
 }
 
 TEST_F(SolutionInterfaceTest, adopt_matches_populate_quadratic_constraints)
 {
-  const auto model = io::read_lp_from_string<int, double>(R"LP(
+  const auto model = io::read_lp_from_string<cuopt_int_t, double>(R"LP(
 Minimize
   obj: x + y
 Subject To
@@ -562,7 +563,7 @@ TEST_F(SolutionInterfaceTest, cpu_mip_solution_to_python_ret)
 TEST_F(SolutionInterfaceTest, gpu_problem_copy_to_host_methods)
 {
   raft::handle_t handle;
-  auto problem = std::make_unique<optimization_problem_t<int, double>>(&handle);
+  auto problem = std::make_unique<optimization_problem_t<cuopt_int_t, double>>(&handle);
   populate_tiny_problem(problem.get());
 
   std::vector<double> obj(kNVars);
@@ -601,7 +602,7 @@ TEST_F(SolutionInterfaceTest, gpu_problem_copy_to_host_methods)
 
 TEST_F(SolutionInterfaceTest, cpu_problem_copy_to_host_methods)
 {
-  auto problem = std::make_unique<cpu_optimization_problem_t<int, double>>();
+  auto problem = std::make_unique<cpu_optimization_problem_t<cuopt_int_t, double>>();
   populate_tiny_problem(problem.get());
 
   std::vector<double> obj(kNVars);

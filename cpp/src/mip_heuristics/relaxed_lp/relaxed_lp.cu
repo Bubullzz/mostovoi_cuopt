@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "relaxed_lp.cuh"
 
 #include <cuopt/error.hpp>
@@ -200,21 +201,21 @@ bool run_lp_with_vars_fixed(problem_t<i_t, f_t>& op_problem,
 }
 
 #define INSTANTIATE(F_TYPE)                                                                   \
-  template optimization_problem_solution_t<int, F_TYPE> get_relaxed_lp_solution<int, F_TYPE>( \
-    problem_t<int, F_TYPE> & op_problem,                                                      \
-    solution_t<int, F_TYPE> & solution,                                                       \
+  template optimization_problem_solution_t<cuopt_int_t, F_TYPE> get_relaxed_lp_solution<cuopt_int_t, F_TYPE>( \
+    problem_t<cuopt_int_t, F_TYPE> & op_problem,                                                      \
+    solution_t<cuopt_int_t, F_TYPE> & solution,                                                       \
     const relaxed_lp_settings_t& settings);                                                   \
-  template optimization_problem_solution_t<int, F_TYPE> get_relaxed_lp_solution<int, F_TYPE>( \
-    problem_t<int, F_TYPE> & op_problem,                                                      \
+  template optimization_problem_solution_t<cuopt_int_t, F_TYPE> get_relaxed_lp_solution<cuopt_int_t, F_TYPE>( \
+    problem_t<cuopt_int_t, F_TYPE> & op_problem,                                                      \
     rmm::device_uvector<F_TYPE> & assignment,                                                 \
-    lp_state_t<int, F_TYPE> & lp_state,                                                       \
+    lp_state_t<cuopt_int_t, F_TYPE> & lp_state,                                                       \
     const relaxed_lp_settings_t& settings);                                                   \
-  template bool run_lp_with_vars_fixed<int, F_TYPE>(                                          \
-    problem_t<int, F_TYPE> & op_problem,                                                      \
-    solution_t<int, F_TYPE> & solution,                                                       \
+  template bool run_lp_with_vars_fixed<cuopt_int_t, F_TYPE>(                                          \
+    problem_t<cuopt_int_t, F_TYPE> & op_problem,                                                      \
+    solution_t<cuopt_int_t, F_TYPE> & solution,                                                       \
     const rmm::device_uvector<int>& variables_to_fix,                                         \
     relaxed_lp_settings_t& settings,                                                          \
-    bound_presolve_t<int, F_TYPE>* bound_presolve,                                            \
+    bound_presolve_t<cuopt_int_t, F_TYPE>* bound_presolve,                                            \
     bool check_fixed_assignment_feasibility,                                                  \
     bool use_integer_fixed_problem);
 

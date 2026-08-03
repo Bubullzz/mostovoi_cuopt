@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/primal.hpp>
 
 #include <dual_simplex/basis_solves.hpp>
@@ -547,13 +548,13 @@ primal_status_t primal_phase2(i_t phase,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template primal_status_t primal_phase2<int, double>(
+template primal_status_t primal_phase2<cuopt_int_t, double>(
   int phase,
   double start_time,
-  const lp_problem_t<int, double>& lp,
-  const simplex_solver_settings_t<int, double>& settings,
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<variable_status_t>& vstatus,
-  lp_solution_t<int, double>& sol,
+  lp_solution_t<cuopt_int_t, double>& sol,
   int& iter);
 
 #endif

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "cuda_profiler_api.h"
 #include "diversity_manager.cuh"
 
@@ -1019,11 +1020,11 @@ void diversity_manager_t<i_t, f_t>::set_simplex_solution(const std::vector<f_t>&
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class diversity_manager_t<int, float>;
+template class diversity_manager_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class diversity_manager_t<int, double>;
+template class diversity_manager_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

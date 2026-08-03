@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 /* clang-format on */
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/pdhg.hpp>
 #include <pdlp/pdlp.cuh>
@@ -1621,10 +1622,10 @@ rmm::device_uvector<f_t>& pdhg_solver_t<i_t, f_t>::get_dual_solution()
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class pdhg_solver_t<int, float>;
+template class pdhg_solver_t<cuopt_int_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template class pdhg_solver_t<int, double>;
+template class pdhg_solver_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

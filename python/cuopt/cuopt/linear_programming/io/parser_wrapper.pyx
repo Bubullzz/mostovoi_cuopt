@@ -20,7 +20,14 @@ from .parser cimport call_read, call_parse_mps, mps_data_model_t
 import warnings
 
 import numpy as np
+
+IF CUOPT_INDEX_64BIT:
+    CUOPT_INDEX_DTYPE = np.int64
+ELSE:
+    CUOPT_INDEX_DTYPE = np.int32
+
 from cuopt.linear_programming.data_model import DataModel
+from ..cuopt_index cimport cuopt_int_t
 
 
 def type_cast(np_obj, np_type, name):
@@ -32,7 +39,7 @@ def type_cast(np_obj, np_type, name):
 
 # Copies the C++ data model behind `dm` into the Python-side `data_model`.
 # Copies every field on mps_data_model_t into the Python DataModel.
-cdef _marshal_data_model(mps_data_model_t[int, double]* dm, data_model):
+cdef _marshal_data_model(mps_data_model_t[cuopt_int_t, double]* dm, data_model):
     A_values_data = dm.A_.data()
     A_values_size = dm.A_.size()
     cdef double[:] A_values_ = <double[:A_values_size]>A_values_data
@@ -70,14 +77,14 @@ cdef _marshal_data_model(mps_data_model_t[int, double]* dm, data_model):
         Q_indices_data = dm.Q_objective_indices_.data()
         Q_indices = np.asarray(<int[:Q_indices_size]>Q_indices_data).copy()
     else:
-        Q_indices = np.array([], dtype=np.int32)
+        Q_indices = np.array([], dtype=CUOPT_INDEX_DTYPE)
 
     Q_offsets_size = dm.Q_objective_offsets_.size()
     if Q_offsets_size > 0:
         Q_offsets_data = dm.Q_objective_offsets_.data()
         Q_offsets = np.asarray(<int[:Q_offsets_size]>Q_offsets_data).copy()
     else:
-        Q_offsets = np.array([], dtype=np.int32)
+        Q_offsets = np.array([], dtype=CUOPT_INDEX_DTYPE)
 
     variable_lower_bounds_data = dm.variable_lower_bounds_.data()
     variable_lower_bounds_size = dm.variable_lower_bounds_.size()
@@ -135,7 +142,7 @@ cdef _marshal_data_model(mps_data_model_t[int, double]* dm, data_model):
 
     cdef size_t qi
     cdef size_t n_qc = dm.get_quadratic_constraints().size()
-    cdef mps_data_model_t[int, double].quadratic_constraint_t qc
+    cdef mps_data_model_t[cuopt_int_t, double].quadratic_constraint_t qc
     cdef size_t linear_nnz, quadratic_nnz
     cdef double[:] linear_values_view
     cdef int[:] linear_indices_view

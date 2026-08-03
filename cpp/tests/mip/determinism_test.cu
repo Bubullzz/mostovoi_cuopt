@@ -31,8 +31,8 @@ namespace cuopt::mathematical_optimization::test {
 
 namespace {
 
-void expect_solutions_bitwise_equal(const mip_solution_t<int, double>& sol1,
-                                    const mip_solution_t<int, double>& sol2,
+void expect_solutions_bitwise_equal(const mip_solution_t<cuopt_int_t, double>& sol1,
+                                    const mip_solution_t<cuopt_int_t, double>& sol2,
                                     raft::handle_t& handle,
                                     const std::string& label = "")
 {
@@ -56,10 +56,10 @@ class DeterministicBBTest : public ::testing::Test {
 TEST_F(DeterministicBBTest, reproducible_objective)
 {
   auto path    = make_path_absolute("/mip/gen-ip054.mps");
-  auto problem = io::read_mps<int, double>(path, false);
+  auto problem = io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit       = 60.0;
   settings.determinism_mode = CUOPT_MODE_DETERMINISTIC;
   settings.num_cpu_threads  = 8;
@@ -88,10 +88,10 @@ TEST_F(DeterministicBBTest, reproducible_objective)
 TEST_F(DeterministicBBTest, reproducible_infeasibility)
 {
   auto path    = make_path_absolute("/mip/stein9inf.mps");
-  auto problem = io::read_mps<int, double>(path, false);
+  auto problem = io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit       = 60.0;
   settings.determinism_mode = CUOPT_MODE_DETERMINISTIC;
   settings.num_cpu_threads  = 8;
@@ -120,10 +120,10 @@ TEST_F(DeterministicBBTest, reproducible_infeasibility)
 TEST_F(DeterministicBBTest, reproducible_high_contention)
 {
   auto path    = make_path_absolute("/mip/gen-ip054.mps");
-  auto problem = io::read_mps<int, double>(path, false);
+  auto problem = io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit       = 60.0;
   settings.determinism_mode = CUOPT_MODE_DETERMINISTIC;
   settings.num_cpu_threads  = 128;  // High thread count to stress contention
@@ -134,7 +134,7 @@ TEST_F(DeterministicBBTest, reproducible_high_contention)
   std::cout << "Tested with seed " << seed << "\n";
   settings.seed = seed;
 
-  std::vector<mip_solution_t<int, double>> solutions;
+  std::vector<mip_solution_t<cuopt_int_t, double>> solutions;
 
   constexpr int num_runs = 3;
   for (int run = 0; run < num_runs; ++run) {
@@ -155,10 +155,10 @@ TEST_F(DeterministicBBTest, reproducible_high_contention)
 TEST_F(DeterministicBBTest, reproducible_solution_vector)
 {
   auto path    = make_path_absolute("/mip/swath1.mps");
-  auto problem = io::read_mps<int, double>(path, false);
+  auto problem = io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit       = 60.0;
   settings.determinism_mode = CUOPT_MODE_DETERMINISTIC;
   settings.num_cpu_threads  = 8;
@@ -188,7 +188,7 @@ TEST_P(DeterministicBBInstanceTest, deterministic_across_runs)
 {
   auto [instance_path, num_threads, time_limit, work_limit] = GetParam();
   auto path                                                 = make_path_absolute(instance_path);
-  auto problem = io::read_mps<int, double>(path, false);
+  auto problem = io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
 
   // Get a random seed for each run
@@ -196,7 +196,7 @@ TEST_P(DeterministicBBInstanceTest, deterministic_across_runs)
 
   std::cout << "Tested with seed " << seed << "\n";
 
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit       = time_limit;
   settings.determinism_mode = CUOPT_MODE_DETERMINISTIC;
   settings.num_cpu_threads  = num_threads;

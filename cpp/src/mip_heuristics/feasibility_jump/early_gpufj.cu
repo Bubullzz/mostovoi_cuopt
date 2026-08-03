@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "early_gpufj.cuh"
 
 #include <mip_heuristics/feasibility_jump/feasibility_jump.cuh>
@@ -82,11 +83,11 @@ void early_gpufj_t<i_t, f_t>::stop()
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template class early_gpufj_t<int, float>;
+template class early_gpufj_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class early_gpufj_t<int, double>;
+template class early_gpufj_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

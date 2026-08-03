@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "cuopt/mathematical_optimization/mip/solver_settings.hpp"
 
 #include "../utilities/inline_lp_test_utils.hpp"
@@ -31,7 +32,7 @@ struct sc_result_t {
   double sc_value;
 };
 
-optimization_problem_t<int, double> make_sc_problem(raft::handle_t const* handle,
+optimization_problem_t<cuopt_int_t, double> make_sc_problem(raft::handle_t const* handle,
                                                     double sc_lb,
                                                     double sc_ub,
                                                     double row_rhs = 1.0,
@@ -62,7 +63,7 @@ optimization_problem_t<int, double> make_sc_problem(raft::handle_t const* handle
 TEST(mip_solve, semi_continuous_regressions)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.;
 
   const std::vector<sc_result_t> valid_test_instances = {
@@ -92,7 +93,7 @@ TEST(mip_solve, semi_continuous_regressions)
 TEST(mip_solve, semi_continuous_invalid_bounds_rejected)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.;
 
   const std::vector<std::pair<double, double>> invalid_bounds = {
@@ -116,7 +117,7 @@ TEST(mip_solve, semi_continuous_invalid_bounds_rejected)
 TEST(mip_solve, semi_continuous_equal_bounds_supported)
 {
   const raft::handle_t handle_{};
-  mip_solver_settings_t<int, double> settings;
+  mip_solver_settings_t<cuopt_int_t, double> settings;
   settings.time_limit = 10.;
 
   {

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cstdio>
 
 #include <utilities/common_utils.hpp>
@@ -26,7 +27,7 @@ TEST(dual_simplex, chess_set)
   cuopt::init_logger_t log("", true);
   namespace simplex = cuopt::mathematical_optimization::simplex;
   raft::handle_t handle{};
-  simplex::user_problem_t<int, double> user_problem(&handle);
+  simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   // maximize   5*xs + 20*xl
   // subject to  1*xs +  3*xl <= 200
   //             3*xs +  2*xl <= 160
@@ -80,8 +81,8 @@ TEST(dual_simplex, chess_set)
   user_problem.var_types[0] = simplex::variable_type_t::CONTINUOUS;
   user_problem.var_types[1] = simplex::variable_type_t::CONTINUOUS;
 
-  simplex::simplex_solver_settings_t<int, double> settings;
-  simplex::lp_solution_t<int, double> solution(user_problem.num_rows, user_problem.num_cols);
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  simplex::lp_solution_t<cuopt_int_t, double> solution(user_problem.num_rows, user_problem.num_cols);
   EXPECT_EQ((simplex::solve_linear_program(user_problem, settings, solution)),
             simplex::lp_status_t::OPTIMAL);
   const double objective = -solution.objective;
@@ -109,7 +110,7 @@ TEST(dual_simplex, burglar)
   //           take[i] binary for all i
 
   raft::handle_t handle{};
-  cuopt::mathematical_optimization::simplex::user_problem_t<int, double> user_problem(&handle);
+  cuopt::mathematical_optimization::simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   constexpr int m  = 1;
   constexpr int n  = num_items;
   constexpr int nz = num_items;
@@ -155,7 +156,7 @@ TEST(dual_simplex, burglar)
     user_problem.var_types[j] = cuopt::mathematical_optimization::simplex::variable_type_t::INTEGER;
   }
 
-  cuopt::mathematical_optimization::simplex::simplex_solver_settings_t<int, double> settings;
+  cuopt::mathematical_optimization::simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
   std::vector<double> solution(num_items);
   EXPECT_EQ((cuopt::mathematical_optimization::simplex::solve(user_problem, settings, solution)),
             0);
@@ -186,7 +187,7 @@ TEST(dual_simplex, empty_columns)
   //           take[i] binary for all i
 
   raft::handle_t handle{};
-  cuopt::mathematical_optimization::simplex::user_problem_t<int, double> user_problem(&handle);
+  cuopt::mathematical_optimization::simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   constexpr int m  = 1;
   constexpr int n  = num_items;
   constexpr int nz = num_items - 1;
@@ -237,9 +238,9 @@ TEST(dual_simplex, empty_columns)
       cuopt::mathematical_optimization::simplex::variable_type_t::CONTINUOUS;
   }
 
-  cuopt::mathematical_optimization::simplex::simplex_solver_settings_t<int, double> settings;
+  cuopt::mathematical_optimization::simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
 
-  cuopt::mathematical_optimization::simplex::lp_solution_t<int, double> solution(
+  cuopt::mathematical_optimization::simplex::lp_solution_t<cuopt_int_t, double> solution(
     user_problem.num_rows, user_problem.num_cols);
   EXPECT_EQ((cuopt::mathematical_optimization::simplex::solve_linear_program(
               user_problem, settings, solution)),
@@ -269,7 +270,7 @@ TEST(dual_simplex, dual_variable_greater_than)
   //             x0, x1 >= 0
 
   raft::handle_t handle{};
-  cuopt::mathematical_optimization::simplex::user_problem_t<int, double> user_problem(&handle);
+  cuopt::mathematical_optimization::simplex::user_problem_t<cuopt_int_t, double> user_problem(&handle);
   constexpr int m  = 2;
   constexpr int n  = 2;
   constexpr int nz = 4;
@@ -319,8 +320,8 @@ TEST(dual_simplex, dual_variable_greater_than)
   user_problem.num_range_rows = 0;
   user_problem.problem_name   = "dual_variable_greater_than";
 
-  simplex::simplex_solver_settings_t<int, double> settings;
-  simplex::lp_solution_t<int, double> solution(user_problem.num_rows, user_problem.num_cols);
+  simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
+  simplex::lp_solution_t<cuopt_int_t, double> solution(user_problem.num_rows, user_problem.num_cols);
   EXPECT_EQ((simplex::solve_linear_program(user_problem, settings, solution)),
             simplex::lp_status_t::OPTIMAL);
   EXPECT_NEAR(solution.objective, 3.0, 1e-6);

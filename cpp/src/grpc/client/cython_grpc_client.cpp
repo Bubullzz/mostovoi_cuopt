@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/grpc/cython_grpc_client.hpp>
 #include <cuopt/grpc/grpc_client_env.hpp>
 
@@ -114,8 +115,8 @@ bool grpc_python_client_t::connect(std::string& error_out)
 }
 
 grpc_submit_result_t grpc_python_client_t::submit(
-  cuopt::mathematical_optimization::io::data_model_view_t<int, double>* data_model,
-  cuopt::mathematical_optimization::solver_settings_t<int, double>* settings,
+  cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>* data_model,
+  cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* settings,
   bool enable_incumbents)
 {
   grpc_submit_result_t out;
@@ -124,7 +125,7 @@ grpc_submit_result_t grpc_python_client_t::submit(
     return out;
   }
 
-  cuopt::mathematical_optimization::cpu_optimization_problem_t<int, double> cpu_problem;
+  cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double> cpu_problem;
   cuopt::mathematical_optimization::populate_from_data_model_view(
     &cpu_problem, data_model, settings, nullptr);
 
@@ -225,7 +226,7 @@ grpc_result_outcome_t grpc_python_client_t::result(const std::string& job_id, bo
   out.solution = std::make_unique<solver_ret_t>();
 
   if (is_mip) {
-    auto remote = impl_->client.get_mip_result<int, double>(job_id);
+    auto remote = impl_->client.get_mip_result<cuopt_int_t, double>(job_id);
     if (!remote.success) {
       out.error_message = remote.error_message;
       out.solution.reset();
@@ -234,7 +235,7 @@ grpc_result_outcome_t grpc_python_client_t::result(const std::string& job_id, bo
     out.solution->problem_type = cuopt::mathematical_optimization::problem_category_t::MIP;
     out.solution->mip_ret      = remote.solution->to_cpu_mip_ret_t();
   } else {
-    auto remote = impl_->client.get_lp_result<int, double>(job_id);
+    auto remote = impl_->client.get_lp_result<cuopt_int_t, double>(job_id);
     if (!remote.success) {
       out.error_message = remote.error_message;
       out.solution.reset();

@@ -41,7 +41,7 @@ class solver_settings_t;
  */
 // Forced to use an enum instead of an enum class for compatibility with the
 // Cython layer
-enum pdlp_solver_mode_t : int {
+enum pdlp_solver_mode_t : cuopt_int_t {
   Stable1     = CUOPT_PDLP_SOLVER_MODE_STABLE1,
   Stable2     = CUOPT_PDLP_SOLVER_MODE_STABLE2,
   Methodical1 = CUOPT_PDLP_SOLVER_MODE_METHODICAL1,
@@ -61,7 +61,7 @@ enum pdlp_solver_mode_t : int {
  *
  * @note Default method is Concurrent.
  */
-enum method_t : int {
+enum method_t : cuopt_int_t {
   Concurrent  = CUOPT_METHOD_CONCURRENT,
   PDLP        = CUOPT_METHOD_PDLP,
   DualSimplex = CUOPT_METHOD_DUAL_SIMPLEX,
@@ -89,7 +89,7 @@ inline std::string method_to_string(method_t method)
  * DoublePrecision:  Explicitly run in FP64 (same as default for double problems).
  * MixedPrecision:   Use mixed precision SpMV (FP32 matrix with FP64 vectors/compute).
  */
-enum pdlp_precision_t : int {
+enum pdlp_precision_t : cuopt_int_t {
   DefaultPrecision = CUOPT_PDLP_DEFAULT_PRECISION,
   SinglePrecision  = CUOPT_PDLP_SINGLE_PRECISION,
   DoublePrecision  = CUOPT_PDLP_DOUBLE_PRECISION,
@@ -103,7 +103,7 @@ enum pdlp_precision_t : int {
  * KaMinPar: multi-threaded KaMinPar graph partitioner.
  * RoundRobin: round-robin assignment, no graph.
  */
-enum distributed_pdlp_partitioner_t : int {
+enum distributed_pdlp_partitioner_t : cuopt_int_t {
   Auto       = CUOPT_DISTRIBUTED_PDLP_PARTITIONER_AUTO,
   KaMinPar   = CUOPT_DISTRIBUTED_PDLP_PARTITIONER_KAMINPAR,
   RoundRobin = CUOPT_DISTRIBUTED_PDLP_PARTITIONER_ROUND_ROBIN,
@@ -326,7 +326,7 @@ class pdlp_solver_settings_t {
   bool dual_postsolve{true};
   // Concurrent LP/MIP: 1–2 GPUs. Distributed PDLP (method=PDLP): up to the visible device
   // count; -1 selects all visible GPUs. See use_distributed_pdlp.
-  int num_gpus{1};
+  i_t num_gpus{1};
   // Dispatch the LP to the multi-GPU distributed PDLP engine (typically set when
   // method=PDLP and num_gpus>1, or num_gpus=-1).
   bool use_distributed_pdlp{false};

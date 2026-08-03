@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 #include "mip_utils.cuh"
 
@@ -107,8 +108,8 @@ class test_get_solution_callback_t : public cuopt::internals::get_solution_callb
 
 void check_solutions(
   const test_get_solution_callback_t& get_solution_callback,
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
-  const cuopt::mathematical_optimization::mip_solver_settings_t<int, double>& settings)
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
+  const cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double>& settings)
 {
   for (const auto& solution : get_solution_callback.solutions) {
     EXPECT_EQ(solution.first.size(), op_problem.get_variable_lower_bounds().size());
@@ -129,12 +130,12 @@ void test_incumbent_callback(std::string test_instance, bool include_set_callbac
   const raft::handle_t handle_{};
   std::cout << "Running: " << test_instance << std::endl;
   auto path = make_path_absolute(test_instance);
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> mps_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   auto op_problem = mps_data_model_to_optimization_problem(&handle_, mps_problem);
 
-  auto settings       = mip_solver_settings_t<int, double>{};
+  auto settings       = mip_solver_settings_t<cuopt_int_t, double>{};
   settings.time_limit = 30.;
   settings.presolver  = presolver_t::Papilo;
   int user_data       = 42;
@@ -181,12 +182,12 @@ TEST(mip_solve, early_heuristic_incumbent_fallback)
 
   const raft::handle_t handle_{};
   auto path = make_path_absolute("mip/pk1.mps");
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> mps_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   auto op_problem = mps_data_model_to_optimization_problem(&handle_, mps_problem);
 
-  auto settings       = mip_solver_settings_t<int, double>{};
+  auto settings       = mip_solver_settings_t<cuopt_int_t, double>{};
   settings.time_limit = 10.;
   settings.presolver  = presolver_t::Papilo;
   settings.node_limit = 0;
@@ -203,7 +204,7 @@ TEST(mip_solve, early_heuristic_incumbent_fallback)
   EXPECT_TRUE(status == mip_termination_status_t::FeasibleFound ||
               status == mip_termination_status_t::Optimal)
     << "Expected feasible result, got "
-    << mip_solution_t<int, double>::get_termination_status_string(status);
+    << mip_solution_t<cuopt_int_t, double>::get_termination_status_string(status);
   EXPECT_TRUE(std::isfinite(solution.get_objective_value()));
 
   if (!callback_solutions.empty()) { check_solutions(get_cb, mps_problem, settings); }
@@ -217,14 +218,14 @@ TEST(mip_solve, initial_solution_survives_papilo_crush)
 
   const raft::handle_t handle_{};
   auto path = make_path_absolute("mip/pk1.mps");
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(path, false);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> mps_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, false);
   handle_.sync_stream();
   auto op_problem = mps_data_model_to_optimization_problem(&handle_, mps_problem);
   auto stream     = op_problem.get_handle_ptr()->get_stream();
 
   // Step 1: solve to get a reference feasible solution. Pkl is easily solved to optimality
-  auto settings1       = mip_solver_settings_t<int, double>{};
+  auto settings1       = mip_solver_settings_t<cuopt_int_t, double>{};
   settings1.time_limit = 5.;
   settings1.presolver  = presolver_t::Papilo;
   auto result1         = solve_mip(op_problem, settings1);
@@ -241,7 +242,7 @@ TEST(mip_solve, initial_solution_survives_papilo_crush)
   // immediately. The only way we get a good objective is if the MIP start
   // was crushed through PaPILO and accepted by add_user_given_solutions.
   // Early FJ is not strong enough to find the 11 optimal in the given time frame.
-  auto settings2       = mip_solver_settings_t<int, double>{};
+  auto settings2       = mip_solver_settings_t<cuopt_int_t, double>{};
   settings2.time_limit = 5.;
   settings2.presolver  = presolver_t::Papilo;
   settings2.node_limit = 0;
@@ -258,7 +259,7 @@ TEST(mip_solve, initial_solution_survives_papilo_crush)
   EXPECT_TRUE(status2 == mip_termination_status_t::FeasibleFound ||
               status2 == mip_termination_status_t::Optimal)
     << "Crushed MIP start should yield a feasible result, got "
-    << mip_solution_t<int, double>::get_termination_status_string(status2);
+    << mip_solution_t<cuopt_int_t, double>::get_termination_status_string(status2);
   EXPECT_TRUE(std::isfinite(result2.get_objective_value()));
   EXPECT_NEAR(result2.get_objective_value(), reference_obj, 1e-4);
 

@@ -9,6 +9,7 @@ from libcpp.vector cimport vector
 from cuopt.linear_programming.data_model.data_model cimport data_model_view_t
 from cuopt.linear_programming.solver.solver cimport solver_ret_t
 from cuopt.linear_programming.solver_settings.solver_settings cimport (
+from ..cuopt_index cimport cuopt_int_t
     solver_settings_t,
 )
 
@@ -81,8 +82,8 @@ cdef extern from "cuopt/grpc/cython_grpc_client.hpp" namespace "cuopt::cython":
         ) except +
         bint connect(string& error_out)
         grpc_submit_result_t submit(
-            data_model_view_t[int, double]* data_model,
-            solver_settings_t[int, double]* settings,
+            data_model_view_t[cuopt_int_t, double]* data_model,
+            solver_settings_t[cuopt_int_t, double]* settings,
             bint enable_incumbents,
         ) except +
         grpc_status_result_t status(const string& job_id) except +

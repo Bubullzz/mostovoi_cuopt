@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <dual_simplex/basis_solves.hpp>
 #include <dual_simplex/basis_updates.hpp>
 #include <dual_simplex/initial_basis.hpp>
@@ -2451,8 +2452,8 @@ int basis_update_mpf_t<i_t, f_t>::refactor_basis(
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template class basis_update_t<int, double>;
-template class basis_update_mpf_t<int, double>;
+template class basis_update_t<cuopt_int_t, double>;
+template class basis_update_mpf_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

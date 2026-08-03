@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "../linear_programming/utilities/pdlp_test_utilities.cuh"
 
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
@@ -201,7 +202,7 @@ TEST(problem, run_small_tests)
 {
   std::vector<std::pair<int, int>> cnst_var_vals = {{30, 150}, {40, 200}, {50, 300}};
   for (const auto& val : cnst_var_vals) {
-    test_equal_val_bounds<int, double>(val.first, val.second);
+    test_equal_val_bounds<cuopt_int_t, double>(val.first, val.second);
   }
 }
 
@@ -290,11 +291,11 @@ TEST(problem, get_set_host_user_problem_roundtrip_preserves_problem)
 {
   std::vector<std::pair<int, int>> cnst_var_vals = {{5, 20}, {20, 80}, {40, 200}};
   for (const auto& [nc, nv] : cnst_var_vals) {
-    test_roundtrip_equivalence<int, double>(nc, nv);
+    test_roundtrip_equivalence<cuopt_int_t, double>(nc, nv);
   }
 }
 
-static void fill_problem(optimization_problem_t<int, double>& op_problem)
+static void fill_problem(optimization_problem_t<cuopt_int_t, double>& op_problem)
 {
   // Set A_CSR_matrix
   double A_host[]    = {1.0};
@@ -320,9 +321,9 @@ TEST(problem, setting_both_rhs_and_constraints_bounds)
   // Check constraints lower/upper bounds after having filled the row type and rhs
   {
     raft::handle_t handle;
-    optimization_problem_t<int, double> op_problem(&handle);
+    optimization_problem_t<cuopt_int_t, double> op_problem(&handle);
     fill_problem(op_problem);
-    cuopt::mathematical_optimization::mip::problem_t<int, double> problem(op_problem);
+    cuopt::mathematical_optimization::mip::problem_t<cuopt_int_t, double> problem(op_problem);
 
     const auto constraints_lower_bounds =
       host_copy(problem.constraint_lower_bounds, handle.get_stream());
@@ -336,13 +337,13 @@ TEST(problem, setting_both_rhs_and_constraints_bounds)
   // Check constraints lower/upper bounds after having set both
   {
     raft::handle_t handle;
-    optimization_problem_t<int, double> op_problem(&handle);
+    optimization_problem_t<cuopt_int_t, double> op_problem(&handle);
     fill_problem(op_problem);
     double lower[] = {2.0};
     double upper[] = {3.0};
     op_problem.set_constraint_lower_bounds(lower, 1);
     op_problem.set_constraint_upper_bounds(upper, 1);
-    cuopt::mathematical_optimization::mip::problem_t<int, double> problem(op_problem);
+    cuopt::mathematical_optimization::mip::problem_t<cuopt_int_t, double> problem(op_problem);
 
     const auto constraints_lower_bounds =
       host_copy(problem.constraint_lower_bounds, handle.get_stream());
@@ -356,13 +357,13 @@ TEST(problem, setting_both_rhs_and_constraints_bounds)
   // Set upper / lower before
   {
     raft::handle_t handle;
-    optimization_problem_t<int, double> op_problem(&handle);
+    optimization_problem_t<cuopt_int_t, double> op_problem(&handle);
     double lower[] = {2.0};
     double upper[] = {3.0};
     op_problem.set_constraint_lower_bounds(lower, 1);
     op_problem.set_constraint_upper_bounds(upper, 1);
     fill_problem(op_problem);
-    cuopt::mathematical_optimization::mip::problem_t<int, double> problem(op_problem);
+    cuopt::mathematical_optimization::mip::problem_t<cuopt_int_t, double> problem(op_problem);
 
     const auto constraints_lower_bounds =
       host_copy(problem.constraint_lower_bounds, handle.get_stream());
@@ -380,8 +381,8 @@ TEST(optimization_problem_t_DeathTest, test_check_problem_validity)
   GTEST_FLAG_SET(death_test_style, "threadsafe");
 
   raft::handle_t handle;
-  auto op_problem        = optimization_problem_t<int, double>(&handle);
-  using custom_problem_t = cuopt::mathematical_optimization::mip::problem_t<int, double>;
+  auto op_problem        = optimization_problem_t<cuopt_int_t, double>(&handle);
+  using custom_problem_t = cuopt::mathematical_optimization::mip::problem_t<cuopt_int_t, double>;
 
   // Check if assert if nothing
   EXPECT_DEATH({ custom_problem_t problem(op_problem); }, "");

@@ -5,6 +5,7 @@
 
 #ifdef CUOPT_ENABLE_GRPC
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include "grpc_incumbent_proto.hpp"
 #include "grpc_pipe_serialization.hpp"
 #include "grpc_server_types.hpp"
@@ -88,9 +89,9 @@ bool init_worker_cuda_environment(int worker_id)
 // ---------------------------------------------------------------------------
 
 struct DeserializedJob {
-  cuopt::mathematical_optimization::cpu_optimization_problem_t<int, double> problem;
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> lp_settings;
-  cuopt::mathematical_optimization::mip_solver_settings_t<int, double> mip_settings;
+  cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double> problem;
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> lp_settings;
+  cuopt::mathematical_optimization::mip_solver_settings_t<cuopt_int_t, double> mip_settings;
   bool enable_incumbents = true;
   bool success           = false;
 };
@@ -410,7 +411,7 @@ static SolveResult run_mip_solve(DeserializedJob& dj,
 
     auto host_solution = device_to_host<double>(gpu_solution.get_solution());
 
-    cuopt::mathematical_optimization::cpu_mip_solution_t<int, double> cpu_solution(
+    cuopt::mathematical_optimization::cpu_mip_solution_t<cuopt_int_t, double> cpu_solution(
       std::move(host_solution),
       gpu_solution.get_termination_status(),
       gpu_solution.get_objective_value(),
@@ -482,7 +483,7 @@ static SolveResult run_lp_solve(DeserializedJob& dj,
     auto cpu_ws = cuopt::mathematical_optimization::convert_to_cpu_warmstart(
       gpu_solution.get_pdlp_warm_start_data(), handle.get_stream());
 
-    cuopt::mathematical_optimization::cpu_lp_solution_t<int, double> cpu_solution(
+    cuopt::mathematical_optimization::cpu_lp_solution_t<cuopt_int_t, double> cpu_solution(
       std::move(host_primal),
       std::move(host_dual),
       std::move(host_reduced_cost),

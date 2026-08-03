@@ -6,6 +6,7 @@
 // Plain C++ translation unit (not .cu): this file contains no device code, and
 // KaMinPar's public header (<kaminpar.h>) is C++20 host code that pulls in TBB.
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <pdlp/distributed_pdlp/partitioner.hpp>
 
 #include <utilities/logger.hpp>
@@ -45,11 +46,8 @@ std::vector<i_t> round_robin_partitioner_t<i_t, f_t>::partition(
   for (std::size_t i = 0; i < nvtx; ++i) {
     parts[i] = static_cast<i_t>(i % static_cast<std::size_t>(input.nb_parts));
   }
-  validate_partition(parts,
-                     static_cast<int>(input.nb_cstr),
-                     static_cast<int>(input.nb_vars),
-                     static_cast<int>(input.nb_parts),
-                     "round_robin_partitioner");
+  validate_partition(
+    parts, input.nb_cstr, input.nb_vars, input.nb_parts, "round_robin_partitioner");
   return parts;
 }
 
@@ -171,16 +169,13 @@ std::vector<i_t> kaminpar_partitioner_t<i_t, f_t>::partition(
     parts[i] = static_cast<i_t>(block_of[i]);
   }
 
-  validate_partition(parts,
-                     static_cast<int>(nb_cstr),
-                     static_cast<int>(nb_vars),
-                     static_cast<int>(input.nb_parts),
-                     "kaminpar_partitioner");
+  validate_partition(parts, nb_cstr, nb_vars, input.nb_parts, "kaminpar_partitioner");
   return parts;
 }
 
+template <typename i_t>
 void validate_partition(
-  std::vector<int> const& parts, int nb_cstr, int nb_vars, int nb_parts, char const* context)
+  std::vector<i_t> const& parts, i_t nb_cstr, i_t nb_vars, i_t nb_parts, char const* context)
 {
   const std::size_t expected =
     static_cast<std::size_t>(nb_cstr) + static_cast<std::size_t>(nb_vars);
@@ -220,9 +215,9 @@ std::unique_ptr<partitioner_i<i_t, f_t>> make_partitioner(partitioner_kind_t kin
   return nullptr;
 }
 
-template class round_robin_partitioner_t<int, double>;
-template class kaminpar_partitioner_t<int, double>;
-template std::unique_ptr<partitioner_i<int, double>> make_partitioner<int, double>(
+template class round_robin_partitioner_t<cuopt_int_t, double>;
+template class kaminpar_partitioner_t<cuopt_int_t, double>;
+template std::unique_ptr<partitioner_i<cuopt_int_t, double>> make_partitioner<cuopt_int_t, double>(
   partitioner_kind_t);
 
 }  // namespace cuopt::mathematical_optimization::pdlp

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <mip_heuristics/mip_constants.hpp>
 #include "diversity/diversity_manager.cuh"
 #include "local_search/local_search.cuh"
@@ -538,11 +539,11 @@ solution_t<i_t, f_t> mip_solver_t<i_t, f_t>::run_solver()
 
 // Original feasibility jump has only double
 #if MIP_INSTANTIATE_FLOAT
-template class mip_solver_t<int, float>;
+template class mip_solver_t<cuopt_int_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class mip_solver_t<int, double>;
+template class mip_solver_t<cuopt_int_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip
