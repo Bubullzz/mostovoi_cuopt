@@ -1987,11 +1987,11 @@ optimization_problem_solution_t<i_t, f_t> solve_lp(
 
     if (!settings_const.inside_mip) {
       CUOPT_LOG_INFO(
-        "Solving a problem with %d constraints, %d variables (%d integers), and %d nonzeros",
-        op_problem.get_n_constraints(),
-        op_problem.get_n_variables(),
-        0,
-        op_problem.get_nnz());
+        "Solving a problem with %lld constraints, %lld variables (%lld integers), and %lld nonzeros",
+        (long long)op_problem.get_n_constraints(),
+        (long long)op_problem.get_n_variables(),
+        0LL,
+        (long long)op_problem.get_nnz());
       op_problem.print_scaling_information();
     }
 

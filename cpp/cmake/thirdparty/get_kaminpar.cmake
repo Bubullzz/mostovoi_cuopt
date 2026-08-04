@@ -58,6 +58,8 @@ function(find_and_configure_kaminpar)
             "KAMINPAR_ENABLE_TBB_MALLOC OFF"
             # Large LP constraint graphs can exceed 2^31 directed edges.
             "KAMINPAR_64BIT_EDGE_IDS ON"
+            # Edge cut can exceed INT_MAX for large graphs; use int64_t weights.
+            "KAMINPAR_64BIT_WEIGHTS ON"
             "INSTALL_KAMINPAR OFF"
             # Build KaMinPar as a STATIC library that is embedded into libcuopt.so (linked
             # by file in cpp/CMakeLists.txt). The wheel build configures with

@@ -632,7 +632,9 @@ target_include_directories(cuopt_objs SYSTEM PRIVATE
 #                                   with the KAMINPAR_64BIT_* options in get_kaminpar.cmake;
 #                                   otherwise the public API types (e.g. copy_graph's span<>
 #                                   widths) mismatch the prebuilt archive => undefined refs.
-target_compile_definitions(cuopt_objs PRIVATE TBB_PREVIEW_GLOBAL_CONTROL KAMINPAR_64BIT_EDGE_IDS)
+#   * KAMINPAR_64BIT_WEIGHTS      - selects EdgeWeight/NodeWeight = int64 in <kaminpar.h>.
+#                                   Required when edge-cut values exceed INT_MAX (large graphs).
+target_compile_definitions(cuopt_objs PRIVATE TBB_PREVIEW_GLOBAL_CONTROL KAMINPAR_64BIT_EDGE_IDS KAMINPAR_64BIT_WEIGHTS)
 # Real (non-imported) target only exists when KaMinPar is built from source via CPM;
 # force it to build before the objects that include its headers since it is EXCLUDE_FROM_ALL.
 if (TARGET KaMinPar)

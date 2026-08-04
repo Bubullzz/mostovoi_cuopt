@@ -379,11 +379,11 @@ mip_solution_t<i_t, f_t> solve_mip_helper(optimization_problem_t<i_t, f_t>& op_p
     problem_checking_t<i_t, f_t>::check_initial_solution_representation(op_problem, settings);
 
     CUOPT_LOG_INFO(
-      "Solving a problem with %d constraints, %d variables (%d integers), and %d nonzeros",
-      op_problem.get_n_constraints(),
-      op_problem.get_n_variables(),
-      op_problem.get_n_integers(),
-      op_problem.get_nnz());
+      "Solving a problem with %lld constraints, %lld variables (%lld integers), and %lld nonzeros",
+      (long long)op_problem.get_n_constraints(),
+      (long long)op_problem.get_n_variables(),
+      (long long)op_problem.get_n_integers(),
+      (long long)op_problem.get_nnz());
 
     // Reformulate semi-continuous variables (x = 0 OR L <= x <= U) before Papilo presolve.
     // Uses deterministic CPU bounds strengthening to derive tight upper bounds for SC vars with
