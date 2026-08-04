@@ -41,6 +41,27 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   assert(raft::device_setter::get_current_device() == device_id &&
          "Right device must be set before building the shard");
 
+  const std::size_t shard_nnz    = rank_data.h_A_values.size();
+  const std::size_t shard_nnz_at = rank_data.h_A_t_values.size();
+  const std::size_t est_gpu_bytes =
+    shard_nnz * (sizeof(f_t) + sizeof(i_t)) +
+    shard_nnz_at * (sizeof(f_t) + sizeof(i_t)) +
+    (rank_data.total_cstr_size + 1) * sizeof(i_t) +
+    (rank_data.total_var_size + 1) * sizeof(i_t) +
+    (rank_data.total_var_size + rank_data.total_cstr_size) * sizeof(f_t) * 8;
+  CUOPT_LOG_INFO(
+    "Shard GPU=%d: owned_cstr=%lld total_cstr=%lld owned_var=%lld total_var=%lld "
+    "shard_nnz=%zu shard_nnz_At=%zu estimated_gpu_bytes=%zu (%.2f GB)",
+    device_id,
+    (long long)rank_data.owned_cstr_size,
+    (long long)rank_data.total_cstr_size,
+    (long long)rank_data.owned_var_size,
+    (long long)rank_data.total_var_size,
+    shard_nnz,
+    shard_nnz_at,
+    est_gpu_bytes,
+    est_gpu_bytes / 1e9);
+
   // ---- 0. Problem-level scalars, taken straight from the global mps. ----
   // Objective coefficients / offset / scaling factor are passed through
   // unchanged; the max -> min conversion (negating all three) happens once,
@@ -78,6 +99,8 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   }
 
   // ---- 2. Populate opt_problem (constructed in init list) on this shard's device. ----
+  CUOPT_LOG_INFO("Shard GPU=%d: uploading A (%zu NNZ, %zu bytes) to device", device_id, shard_nnz,
+    shard_nnz * (sizeof(f_t) + sizeof(i_t)));
   opt_problem.set_csr_constraint_matrix(rank_data.h_A_values.data(),
                                         static_cast<i_t>(rank_data.h_A_values.size()),
                                         rank_data.h_A_col_indices.data(),
@@ -100,6 +123,7 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   opt_problem.set_problem_category(problem_category_t::LP);
 
   // ---- 3. Build problem_t from opt_problem (UNSCALED). ----
+  CUOPT_LOG_INFO("Shard GPU=%d: building problem_t (computes A_T on device)", device_id);
   sub_problem.emplace(opt_problem);
 
   // ---- 4. Override reverse_* with the real local A_T from rank_data. ----
@@ -125,6 +149,7 @@ pdlp_shard_t<i_t, f_t>::pdlp_shard_t(int device_id,
   handle.sync_stream(stream_view);
 
   // ---- 5. Build sub_pdlp (single-GPU mode). ----
+  CUOPT_LOG_INFO("Shard GPU=%d: building pdlp_solver_t", device_id);
   // is_distributed_sub_pdlp=true has two effects in pdlp_solver_t's ctor:
   //   * skip the CSR/CSC transpose validity check -- A and A_T here are two
   //     independent local slices, not transposes (A has all owned rows and
