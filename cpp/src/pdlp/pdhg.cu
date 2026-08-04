@@ -451,7 +451,7 @@ template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::spmvop_At_y()
 {
 #if CUOPT_CUSPARSE_VER_12_8_UP
-  if (is_cusparse_runtime_spmvop_supported()) {
+  if (is_cusparse_runtime_spmvop_supported<i_t>()) {
     cusparse_spmvop_run(handle_ptr_->get_cusparse_handle(),
                         cusparse_view_.spmv_op_plan_A_t_,
                         reusable_device_scalar_value_1_.data(),
@@ -479,7 +479,7 @@ template <typename i_t, typename f_t>
 void pdhg_solver_t<i_t, f_t>::spmvop_A_x()
 {
 #if CUOPT_CUSPARSE_VER_12_8_UP
-  if (is_cusparse_runtime_spmvop_supported()) {
+  if (is_cusparse_runtime_spmvop_supported<i_t>()) {
     cusparse_spmvop_run(handle_ptr_->get_cusparse_handle(),
                         cusparse_view_.spmv_op_plan_A_,
                         reusable_device_scalar_value_1_.data(),

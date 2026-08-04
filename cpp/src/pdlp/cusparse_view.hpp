@@ -355,8 +355,15 @@ void my_cusparsespmm_preprocess(cusparseHandle_t handle,
 bool is_cusparse_runtime_mixed_precision_supported();
 
 // False if cuSparse version < 12.8 or runtime cuSPARSE does not export SpMVOp symbols. True
-// otherwise.
+// otherwise. Also returns false for 64-bit index types (cusparseSpMVOp only supports 32-bit).
 bool is_cusparse_runtime_spmvop_supported();
+
+template <typename i_t>
+bool is_cusparse_runtime_spmvop_supported()
+{
+  if constexpr (sizeof(i_t) > 4) { return false; }
+  return is_cusparse_runtime_spmvop_supported();
+}
 
 #if CUOPT_CUSPARSE_VER_12_8_UP
 // Dispatches to the runtime cusparseSpMVOp via dlsym so callers (e.g., pdhg.cu) never

@@ -1388,7 +1388,7 @@ template <typename i_t, typename f_t>
 void cusparse_view_t<i_t, f_t>::create_spmv_op_plans(bool is_reflected)
 {
 #if CUOPT_CUSPARSE_VER_12_8_UP
-  if (!is_cusparse_runtime_spmvop_supported() || !(std::is_same_v<f_t, double>)) { return; }
+  if (!is_cusparse_runtime_spmvop_supported<i_t>() || !(std::is_same_v<f_t, double>)) { return; }
   static const auto buffer_size =
     dynamic_load_runtime::function<cusparseSpMVOp_bufferSize_sig>("cusparseSpMVOp_bufferSize");
   CUSPARSE_CHECK(cusparseSetStream(handle_ptr_->get_cusparse_handle(), handle_ptr_->get_stream()));
