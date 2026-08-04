@@ -152,13 +152,17 @@ papilo::Problem<f_t> build_papilo_problem(io::mps_data_model_t<i_t, f_t> const& 
   }
 
   std::vector<papilo::RowFlags> h_row_flags(constr_lb.size());
-  std::vector<std::tuple<i_t, i_t, f_t>> h_entries;
+  // papilo::Triplet is fixed to 32-bit indices; callers gate on
+  // third_party_presolve_fits_index_width so the narrowing below is safe.
+  std::vector<papilo::Triplet<f_t>> h_entries;
   for (size_t i = 0; i < constr_lb.size(); ++i) {
     const i_t row_start   = offsets[i];
     const i_t row_end     = offsets[i + 1];
     const i_t num_entries = row_end - row_start;
-    for (size_t j = 0; j < num_entries; ++j) {
-      h_entries.push_back(std::make_tuple(i, indices[row_start + j], coefficients[row_start + j]));
+    for (i_t j = 0; j < num_entries; ++j) {
+      h_entries.push_back(std::make_tuple(static_cast<int>(i),
+                                          static_cast<int>(indices[row_start + j]),
+                                          coefficients[row_start + j]));
     }
 
     if (constr_lb[i] == -std::numeric_limits<f_t>::infinity()) {
@@ -320,14 +324,15 @@ papilo::Problem<f_t> build_papilo_problem(const simplex::user_problem_t<i_t, f_t
   // SparseStorage with the MIP fill-in headroom, exactly like the optimization_problem_t overload.
   // The default ProblemBuilder path (addColEntries) omits that headroom, which leaves papilo's
   // in-place presolve in a state where DualInfer can assert on a row it reduced.
-  std::vector<std::tuple<i_t, i_t, f_t>> h_entries;
+  std::vector<papilo::Triplet<f_t>> h_entries;
   h_entries.reserve(nnz);
   const std::vector<i_t>& col_start = problem.A.col_start;
   const std::vector<i_t>& row_index = problem.A.i;
   const std::vector<f_t>& values    = problem.A.x;
   for (i_t j = 0; j < num_cols; ++j) {
     for (i_t p = col_start[j]; p < col_start[j + 1]; ++p) {
-      h_entries.push_back(std::make_tuple(row_index[p], j, values[p]));
+      h_entries.push_back(
+        std::make_tuple(static_cast<int>(row_index[p]), static_cast<int>(j), values[p]));
     }
   }
 
@@ -485,10 +490,21 @@ io::mps_data_model_t<i_t, f_t> build_reduced_mps_from_pslp(Presolver* pslp_preso
       return mps;
     }
 
+    // PSLP's indices are int32, so a 64-bit index build has to widen them first.
+    [[maybe_unused]] std::vector<i_t> widened_indices, widened_offsets;
+    std::span<const i_t> indices_span, offsets_span;
+    if constexpr (std::is_same_v<i_t, int>) {
+      indices_span = std::span<const i_t>(reduced->Ai, static_cast<size_t>(nnz));
+      offsets_span = std::span<const i_t>(reduced->Ap, static_cast<size_t>(n_rows + 1));
+    } else {
+      widened_indices.assign(reduced->Ai, reduced->Ai + nnz);
+      widened_offsets.assign(reduced->Ap, reduced->Ap + n_rows + 1);
+      indices_span = std::span<const i_t>(widened_indices.data(), widened_indices.size());
+      offsets_span = std::span<const i_t>(widened_offsets.data(), widened_offsets.size());
+    }
+
     mps.set_csr_constraint_matrix(
-      std::span<const f_t>(reduced->Ax, static_cast<size_t>(nnz)),
-      std::span<const i_t>(reduced->Ai, static_cast<size_t>(nnz)),
-      std::span<const i_t>(reduced->Ap, static_cast<size_t>(n_rows + 1)));
+      std::span<const f_t>(reduced->Ax, static_cast<size_t>(nnz)), indices_span, offsets_span);
 
     if (maximize) {
       std::vector<f_t> h_obj_coeffs(reduced->c, reduced->c + n_cols);
@@ -569,8 +585,17 @@ io::mps_data_model_t<i_t, f_t> build_reduced_mps_from_papilo(
   assert(offsets[nrows] == nnz);
   const int* cols   = constraint_matrix.getConstraintMatrix().getColumns();
   const f_t* coeffs = constraint_matrix.getConstraintMatrix().getValues();
+  // papilo's column indices are int32, so a 64-bit index build has to widen them first.
+  [[maybe_unused]] std::vector<i_t> widened_cols;
+  std::span<const i_t> cols_span;
+  if constexpr (std::is_same_v<i_t, int>) {
+    cols_span = std::span<const i_t>(&cols[start], static_cast<size_t>(nnz));
+  } else {
+    widened_cols.assign(&cols[start], &cols[start] + nnz);
+    cols_span = std::span<const i_t>(widened_cols.data(), widened_cols.size());
+  }
   mps.set_csr_constraint_matrix(std::span<const f_t>(&coeffs[start], static_cast<size_t>(nnz)),
-                                std::span<const i_t>(&cols[start], static_cast<size_t>(nnz)),
+                                cols_span,
                                 std::span<const i_t>(offsets.data(), offsets.size()));
 
   // Col bounds + var_types: same copy-then-fixup pattern.
@@ -769,14 +794,29 @@ third_party_presolve_status_t third_party_presolve_t<i_t, f_t>::apply_pslp(
     const auto& indices      = mps.get_constraint_matrix_indices();
     const auto& offsets      = mps.get_constraint_matrix_offsets();
 
+    // PSLP's C API is fixed to 32-bit indices, so a 64-bit index build hands it narrowed copies.
+    // apply_presolve_from_mps_data has already validated that the dimensions fit.
+    std::vector<int> narrowed_indices, narrowed_offsets;
+    const int* pslp_indices = nullptr;
+    const int* pslp_offsets = nullptr;
+    if constexpr (std::is_same_v<i_t, int>) {
+      pslp_indices = indices.data();
+      pslp_offsets = offsets.data();
+    } else {
+      narrowed_indices.assign(indices.begin(), indices.end());
+      narrowed_offsets.assign(offsets.begin(), offsets.end());
+      pslp_indices = narrowed_indices.data();
+      pslp_offsets = narrowed_offsets.data();
+    }
+
     Settings* settings = default_settings();
     settings->verbose  = false;
     settings->max_time = time_limit;
 
     auto start_time      = std::chrono::high_resolution_clock::now();
     Presolver* presolver = new_presolver(coefficients.data(),
-                                         indices.data(),
-                                         offsets.data(),
+                                         pslp_indices,
+                                         pslp_offsets,
                                          n_rows,
                                          n_cols,
                                          nnz,
@@ -981,6 +1021,13 @@ third_party_presolve_t<i_t, f_t>::apply_presolve_from_mps_data(
                 error_type_t::ValidationError,
                 "Presolve does not support mps_data_models with quadratic constraints");
 
+  // Both backends index with int32, so the callers must not reach here with a larger problem.
+  cuopt_expects(third_party_presolve_fits_index_width<i_t>(
+                  mps.get_n_variables(), mps.get_n_constraints(), mps.get_nnz()),
+                error_type_t::ValidationError,
+                "Presolve does not support problems with more than INT_MAX rows, columns or "
+                "nonzeros");
+
   // PSLP branch:  apply_pslp -> reduced mps.
   if (presolver == cuopt::mathematical_optimization::presolver_t::PSLP) {
     const f_t original_obj_offset = mps.get_objective_offset();
@@ -1059,6 +1106,12 @@ third_party_presolve_status_t third_party_presolve_t<i_t, f_t>::apply_to_subprob
   const i_t orig_cols = problem.num_cols;
   const i_t orig_rows = problem.num_rows;
   const i_t orig_nnz  = problem.A.nnz();
+
+  // papilo is fixed to 32-bit indices; leave the subproblem untouched rather than truncate.
+  if (!third_party_presolve_fits_index_width<i_t>(orig_cols, orig_rows, orig_nnz)) {
+    settings.log.debug("Skipping presolve: subproblem exceeds INT_MAX rows, columns or nonzeros");
+    return third_party_presolve_status_t::UNCHANGED;
+  }
 
   papilo::Problem<f_t> papilo_problem = build_papilo_problem(problem);
 

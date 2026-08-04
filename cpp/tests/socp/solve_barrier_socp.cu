@@ -69,7 +69,7 @@ TEST(barrier, cone_metadata_reindexed_when_slack_is_inserted_before_cones)
   settings.dualize       = 0;
   settings.scale_columns = false;
 
-  std::vector<int> new_slacks;
+  std::vector<cuopt_int_t> new_slacks;
   dualize_info_t<cuopt_int_t, double> dualize_info;
   lp_problem_t<cuopt_int_t, double> original_lp(user_problem.handle_ptr, 1, 1, 1);
   convert_user_problem(user_problem, settings, original_lp, new_slacks, dualize_info);
@@ -134,7 +134,7 @@ TEST(barrier, presolve_reindexes_cone_start_after_empty_column_removal)
   settings.dualize          = 0;
   settings.scale_columns    = false;
 
-  std::vector<int> new_slacks;
+  std::vector<cuopt_int_t> new_slacks;
   dualize_info_t<cuopt_int_t, double> dualize_info;
   lp_problem_t<cuopt_int_t, double> original_lp(user_problem.handle_ptr, 1, 1, 1);
   convert_user_problem(user_problem, settings, original_lp, new_slacks, dualize_info);
@@ -144,7 +144,7 @@ TEST(barrier, presolve_reindexes_cone_start_after_empty_column_removal)
   ASSERT_EQ(presolve(original_lp, settings, presolved_lp, presolve_info), 0);
 
   EXPECT_EQ(presolved_lp.num_cols, 3);
-  EXPECT_EQ(presolved_lp.second_order_cone_dims, std::vector<int>({3}));
+  EXPECT_EQ(presolved_lp.second_order_cone_dims, std::vector<cuopt_int_t>({3}));
   EXPECT_EQ(presolved_lp.cone_var_start, 0);
 
   lp_problem_t<cuopt_int_t, double> barrier_lp(user_problem.handle_ptr,
@@ -200,7 +200,7 @@ TEST(barrier, presolve_keeps_direct_free_variables_before_cones)
   settings.dualize          = 0;
   settings.scale_columns    = false;
 
-  std::vector<int> new_slacks;
+  std::vector<cuopt_int_t> new_slacks;
   dualize_info_t<cuopt_int_t, double> dualize_info;
   lp_problem_t<cuopt_int_t, double> original_lp(user_problem.handle_ptr, 1, 1, 1);
   convert_user_problem(user_problem, settings, original_lp, new_slacks, dualize_info);
@@ -211,7 +211,7 @@ TEST(barrier, presolve_keeps_direct_free_variables_before_cones)
 
   EXPECT_EQ(presolved_lp.num_cols, 5);
   EXPECT_EQ(presolved_lp.cone_var_start, 2);
-  EXPECT_EQ(presolved_lp.second_order_cone_dims, std::vector<int>({3}));
+  EXPECT_EQ(presolved_lp.second_order_cone_dims, std::vector<cuopt_int_t>({3}));
   EXPECT_TRUE(presolve_info.free_variable_pairs.empty());
   ASSERT_EQ(presolve_info.direct_free_variables.size(), 2);
   EXPECT_EQ(presolve_info.direct_free_variables[0], 0);

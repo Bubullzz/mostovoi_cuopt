@@ -155,7 +155,7 @@ struct inequality_t {
   void print() const
   {
     for (i_t k = 0; k < size(); k++) {
-      printf("%g x%d ", coeff(k), index(k));
+      printf("%g x%lld ", coeff(k), (long long)(index(k)));
     }
     printf("\nrhs %g\n", rhs);
   }
@@ -194,7 +194,8 @@ void print_cut_info(const simplex::simplex_solver_settings_t<i_t, f_t>& settings
 {
   if (cut_info.has_cuts()) {
     for (i_t i = 0; i < MAX_CUT_TYPE; i++) {
-      settings.log.printf("%s cuts : %d\n", cut_info.cut_type_names[i], cut_info.num_cuts[i]);
+      settings.log.printf(
+        "%s cuts : %lld\n", cut_info.cut_type_names[i], (long long)(cut_info.num_cuts[i]));
     }
   }
 }
@@ -208,7 +209,8 @@ void print_cut_types(const std::string& prefix,
   cut_info.record_cut_types(cut_types);
   settings.log.printf("%s: ", prefix.c_str());
   for (i_t i = 0; i < MAX_CUT_TYPE; i++) {
-    settings.log.printf("%s cuts: %d\n", cut_info.cut_type_names[i], cut_info.num_cuts[i]);
+    settings.log.printf(
+      "%s cuts: %lld\n", cut_info.cut_type_names[i], (long long)(cut_info.num_cuts[i]));
   }
 }
 

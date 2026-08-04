@@ -2834,7 +2834,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   }
   while (true) {
 #ifdef CUPDLP_DEBUG_MODE
-    printf("Step: %d\n", total_pdlp_iterations_);
+    printf("Step: %lld\n", (long long)(total_pdlp_iterations_));
 #endif
     bool is_major_iteration =
       (((total_pdlp_iterations_) % settings_.hyper_params.major_iteration == 0) &&
@@ -3047,8 +3047,8 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
     }
 
 #ifdef CUPDLP_DEBUG_MODE
-    printf("Is Major %d\n",
-           (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
+    printf("Is Major %lld\n",
+           (long long)((total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0));
 #endif
     take_step(total_pdlp_iterations_,
               (total_pdlp_iterations_ + 1) % settings_.hyper_params.major_iteration == 0);
@@ -3432,7 +3432,7 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
       if (residual_norm.value(stream_view_) < tolerance) break;
     }
 #ifdef CUPDLP_DEBUG_MODE
-    printf("iter_count %d\n", sing_iters);
+    printf("iter_count %lld\n", (long long)(sing_iters));
 #endif
 
     const f_t step_size = scaling_factor / std::sqrt(sigma_max_sq.value(stream_view_));

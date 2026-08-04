@@ -72,10 +72,10 @@ i_t create_phase1_problem(const lp_problem_t<i_t, f_t>& lp, lp_problem_t<i_t, f_
            positive_infeasible.size(),
            negative_infeasible.size(),
            free.size());
-    printf("Created a phase 1 problem with %d rows and %d columns and %d nonzeros\n",
-           out.num_rows,
-           out.num_cols,
-           out.A.col_start[out.num_cols]);
+    printf("Created a phase 1 problem with %lld rows and %lld columns and %lld nonzeros\n",
+           (long long)(out.num_rows),
+           (long long)(out.num_cols),
+           (long long)(out.A.col_start[out.num_cols]));
   }
   out.objective    = objective;
   out.obj_constant = 0;
@@ -89,8 +89,8 @@ i_t create_phase1_problem(const lp_problem_t<i_t, f_t>& lp, lp_problem_t<i_t, f_
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int create_phase1_problem<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                                lp_problem_t<cuopt_int_t, double>& out);
+template cuopt_int_t create_phase1_problem<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp, lp_problem_t<cuopt_int_t, double>& out);
 
 #endif
 

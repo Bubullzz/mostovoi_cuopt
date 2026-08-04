@@ -76,7 +76,7 @@ solve_lp_batch_fixed(
   raft::handle_t const* handle_ptr,
   const cuopt::mathematical_optimization::io::mps_data_model_t<i_t, f_t>& mps_data_model,
   cuopt::mathematical_optimization::pdlp_solver_settings_t<i_t, f_t> settings,
-  i_t batch_size,
+  int batch_size,
   const std::vector<f_t>& per_climber_objective_coefficients  = {},
   const std::vector<f_t>& per_climber_constraint_lower_bounds = {},
   const std::vector<f_t>& per_climber_constraint_upper_bounds = {},
@@ -177,8 +177,8 @@ static void test_constraint_sanity(
 {
   const std::vector<double> primal_vars = host_copy(primal_solution, primal_solution.stream());
   const std::vector<double>& values     = op_problem.get_constraint_matrix_values();
-  const std::vector<int>& indices       = op_problem.get_constraint_matrix_indices();
-  const std::vector<int>& offsets       = op_problem.get_constraint_matrix_offsets();
+  const std::vector<cuopt_int_t>& indices       = op_problem.get_constraint_matrix_indices();
+  const std::vector<cuopt_int_t>& offsets       = op_problem.get_constraint_matrix_offsets();
   const std::vector<double>& constraint_lower_bounds = op_problem.get_constraint_lower_bounds();
   const std::vector<double>& constraint_upper_bounds = op_problem.get_constraint_upper_bounds();
   const std::vector<double>& variable_lower_bounds   = op_problem.get_variable_lower_bounds();

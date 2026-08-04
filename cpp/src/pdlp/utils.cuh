@@ -10,6 +10,7 @@
 #include <optional>
 #include <pdlp/pdlp_constants.hpp>
 #include <pdlp/restart_strategy/pdlp_restart_strategy.cuh>
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/macros.cuh>
 
 #include <random>

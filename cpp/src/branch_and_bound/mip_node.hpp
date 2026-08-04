@@ -258,17 +258,17 @@ class mip_node_t {
 
       if (current_node->children[0] == nullptr && current_node->children[1] == nullptr &&
           current_node->depth < 10) {
-        printf("Node %d with no children at depth %d lower bound %e. status %d\n",
-               current_node->node_id,
-               current_node->depth,
+        printf("Node %lld with no children at depth %lld lower bound %e. status %lld\n",
+               (long long)(current_node->node_id),
+               (long long)(current_node->depth),
                current_node->lower_bound,
-               current_node->status);
+               (long long)(current_node->status));
         if (current_node->parent != nullptr) {
-          printf("Parent status %d. Sibiling status %d\n",
-                 current_node->parent->status,
-                 current_node->parent->children[0].get() != this
-                   ? current_node->parent->children[0]->status
-                   : current_node->parent->children[1]->status);
+          printf("Parent status %lld. Sibiling status %lld\n",
+                 (long long)(current_node->parent->status),
+                 (long long)(current_node->parent->children[0].get() != this
+                               ? current_node->parent->children[0]->status
+                               : current_node->parent->children[1]->status));
         }
       }
     }
@@ -434,7 +434,8 @@ class search_tree_t {
                      const f_t val)
   {
     if (write_graphviz) {
-      log.printf("Node%d [label=\"%s %.16e\"]\n", node_ptr->node_id, label.c_str(), val);
+      log.printf(
+        "Node%lld [label=\"%s %.16e\"]\n", (long long)(node_ptr->node_id), label.c_str(), val);
     }
   }
 
@@ -446,10 +447,10 @@ class search_tree_t {
                      const f_t bound)
   {
     if (write_graphviz) {
-      log.printf("Node%d -> Node%d [label=\"x%d %s %e\"]\n",
-                 origin_ptr->node_id,
-                 dest_ptr->node_id,
-                 branch_var,
+      log.printf("Node%lld -> Node%lld [label=\"x%lld %s %e\"]\n",
+                 (long long)(origin_ptr->node_id),
+                 (long long)(dest_ptr->node_id),
+                 (long long)(branch_var),
                  branch_dir == branch_direction_t::DOWN ? "<=" : ">=",
                  bound);
     }

@@ -492,7 +492,7 @@ template <typename i_t, typename f_t>
 void problem_t<i_t, f_t>::compute_transpose_of_problem()
 {
   raft::common::nvtx::range fun_scope("compute_transpose_of_problem");
-  csrsort_cusparse(coefficients, variables, offsets, n_constraints, n_variables, handle_ptr);
+  csrsort(coefficients, variables, offsets, n_constraints, n_variables, handle_ptr);
   RAFT_CUBLAS_TRY(raft::linalg::detail::cublassetpointermode(
     handle_ptr->get_cublas_handle(), CUBLAS_POINTER_MODE_DEVICE, handle_ptr->get_stream()));
   RAFT_CUSPARSE_TRY(raft::sparse::detail::cusparsesetpointermode(
@@ -887,7 +887,7 @@ void problem_t<i_t, f_t>::compute_n_integer_vars()
   integer_indices.resize(n_variables, handle_ptr->get_stream());
   auto end =
     thrust::copy_if(handle_ptr->get_thrust_policy(),
-                    thrust::make_counting_iterator(0),
+                    thrust::make_counting_iterator(i_t(0)),
                     thrust::make_counting_iterator(i_t(variable_types.size())),
                     variable_types.begin(),
                     integer_indices.begin(),
@@ -932,7 +932,7 @@ void problem_t<i_t, f_t>::compute_binary_var_table()
 
   binary_indices.resize(n_variables, handle_ptr->get_stream());
   auto end = thrust::copy_if(handle_ptr->get_thrust_policy(),
-                             thrust::make_counting_iterator(0),
+                             thrust::make_counting_iterator(i_t(0)),
                              thrust::make_counting_iterator(i_t(is_binary_variable.size())),
                              is_binary_variable.begin(),
                              binary_indices.begin(),
@@ -941,7 +941,7 @@ void problem_t<i_t, f_t>::compute_binary_var_table()
 
   nonbinary_indices.resize(n_variables, handle_ptr->get_stream());
   end = thrust::copy_if(handle_ptr->get_thrust_policy(),
-                        thrust::make_counting_iterator(0),
+                        thrust::make_counting_iterator(i_t(0)),
                         thrust::make_counting_iterator(i_t(is_binary_variable.size())),
                         is_binary_variable.begin(),
                         nonbinary_indices.begin(),
@@ -1371,7 +1371,7 @@ void problem_t<i_t, f_t>::recompute_objective_integrality()
 
   objective_is_integral =
     thrust::all_of(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(n_variables),
                    [v = view()] __device__(i_t var_idx) -> bool {
                      if (v.objective_coefficients[var_idx] == 0) return true;
@@ -1384,7 +1384,7 @@ void problem_t<i_t, f_t>::recompute_objective_integrality()
 
   bool objvars_all_integral =
     thrust::all_of(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(n_variables),
                    [v = view()] __device__(i_t var_idx) -> bool {
                      if (v.objective_coefficients[var_idx] == 0) return true;
@@ -1405,7 +1405,7 @@ void problem_t<i_t, f_t>::recompute_objective_integrality()
       CUOPT_LOG_INFO("Scaling objective coefficients by %.0f to allow integrality", scaling_factor);
       thrust::for_each(
         handle_ptr->get_thrust_policy(),
-        thrust::make_counting_iterator(0),
+        thrust::make_counting_iterator(i_t(0)),
         thrust::make_counting_iterator(n_variables),
         [objective_coefficients = make_span(objective_coefficients),
          scaling_factor] __device__(i_t idx) { objective_coefficients[idx] *= scaling_factor; });
@@ -1552,8 +1552,8 @@ void problem_t<i_t, f_t>::substitute_variables(const std::vector<i_t>& var_indic
                zero_value);
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + d_var_indices.size(),
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + d_var_indices.size(),
     [variable_fix_mask                   = make_span(fixing_helpers.variable_fix_mask),
      var_indices                         = make_span(d_var_indices),
      n_variables                         = n_variables,
@@ -1585,7 +1585,7 @@ void problem_t<i_t, f_t>::substitute_variables(const std::vector<i_t>& var_indic
   f_t initial_value{0.};
 
   auto input_transform_it = thrust::make_transform_iterator(
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     [coefficients           = make_span(coefficients),
      variables              = make_span(variables),
      variable_fix_mask      = make_span(fixing_helpers.variable_fix_mask),
@@ -1639,8 +1639,8 @@ void problem_t<i_t, f_t>::substitute_variables(const std::vector<i_t>& var_indic
   RAFT_CHECK_CUDA(handle_ptr->get_stream());
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + n_constraints,
     [lower_bounds     = make_span(constraint_lower_bounds),
      upper_bounds     = make_span(constraint_upper_bounds),
      reduction_in_rhs = make_span(fixing_helpers.reduction_in_rhs)] __device__(i_t cstr_idx) {
@@ -1652,7 +1652,7 @@ void problem_t<i_t, f_t>::substitute_variables(const std::vector<i_t>& var_indic
   // now remove the duplicate substituted variables by summing their coefficients on one and
   // assigning a dummy variable on another
   thrust::for_each(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(n_constraints),
                    [variables              = make_span(variables),
                     coefficients           = make_span(coefficients),
@@ -1718,7 +1718,7 @@ void problem_t<i_t, f_t>::fix_given_variables(problem_t<i_t, f_t>& original_prob
   f_t initial_value{0.};
 
   auto input_transform_it = thrust::make_transform_iterator(
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     [coefficients      = make_span(original_problem.coefficients),
      variables         = make_span(original_problem.variables),
      variable_fix_mask = make_span(fixing_helpers.variable_fix_mask),
@@ -1763,8 +1763,8 @@ void problem_t<i_t, f_t>::fix_given_variables(problem_t<i_t, f_t>& original_prob
   RAFT_CHECK_CUDA(handle_ptr->get_stream());
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + n_constraints,
     [lower_bounds          = make_span(constraint_lower_bounds),
      upper_bounds          = make_span(constraint_upper_bounds),
      original_lower_bounds = make_span(original_problem.constraint_lower_bounds),
@@ -1779,7 +1779,7 @@ void problem_t<i_t, f_t>::fix_given_variables(problem_t<i_t, f_t>& original_prob
 template <typename i_t, typename f_t>
 void problem_t<i_t, f_t>::sort_rows_by_variables(const raft::handle_t* handle_ptr)
 {
-  csrsort_cusparse(coefficients, variables, offsets, n_constraints, n_variables, handle_ptr);
+  csrsort(coefficients, variables, offsets, n_constraints, n_variables, handle_ptr);
 }
 
 template <typename i_t, typename f_t>
@@ -1806,8 +1806,8 @@ problem_t<i_t, f_t> problem_t<i_t, f_t>::get_problem_after_fixing_vars(
     "variables_to_fix should be sorted!");
 
   i_t* result_end = thrust::set_difference(handle_ptr->get_thrust_policy(),
-                                           thrust::make_counting_iterator(0),
-                                           thrust::make_counting_iterator(0) + n_variables,
+                                           thrust::make_counting_iterator(i_t(0)),
+                                           thrust::make_counting_iterator(i_t(0)) + n_variables,
                                            variables_to_fix.begin(),
                                            variables_to_fix.end(),
                                            variable_map.begin());
@@ -1948,7 +1948,7 @@ template <typename i_t, typename f_t>
 void problem_t<i_t, f_t>::test_problem_fixing_time()
 {
   rmm::device_uvector<f_t> assignment(n_variables, handle_ptr->get_stream());
-  i_t n_vars_to_test = std::min(n_variables - 1, 200);
+  i_t n_vars_to_test = std::min<i_t>(n_variables - 1, 200);
   rmm::device_uvector<i_t> indices(n_vars_to_test, handle_ptr->get_stream());
   thrust::fill(handle_ptr->get_thrust_policy(), assignment.begin(), assignment.end(), 0.);
   thrust::sequence(handle_ptr->get_thrust_policy(), indices.begin(), indices.end(), 0);
@@ -2481,8 +2481,8 @@ void problem_t<i_t, f_t>::update_variable_bounds(const std::vector<i_t>& var_ind
   auto d_ub_values   = device_copy(ub_values, handle_ptr->get_stream());
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + d_var_indices.size(),
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + d_var_indices.size(),
     [lb_values       = make_span(d_lb_values),
      ub_values       = make_span(d_ub_values),
      variable_bounds = make_span(variable_bounds),

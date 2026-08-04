@@ -112,7 +112,8 @@ std::unique_ptr<solver_ret_t> call_solve(
     rmm::cuda_stream stream(static_cast<rmm::cuda_stream::flags>(flags));
     const raft::handle_t handle_{stream};
 
-    auto problem = cuopt::mathematical_optimization::optimization_problem_t<cuopt_int_t, double>(&handle_);
+    auto problem =
+      cuopt::mathematical_optimization::optimization_problem_t<cuopt_int_t, double>(&handle_);
     cuopt::mathematical_optimization::populate_from_data_model_view(
       &problem, data_model, solver_settings, &handle_);
 
@@ -178,7 +179,8 @@ std::unique_ptr<solver_ret_t> call_solve(
 
   } else {
     // CPU memory backend: pure data container, no CUDA resources needed
-    auto cpu_problem = cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double>();
+    auto cpu_problem =
+      cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double>();
     cuopt::mathematical_optimization::populate_from_data_model_view(
       &cpu_problem, data_model, solver_settings, nullptr);
 
@@ -222,14 +224,14 @@ static int compute_max_thread(
   // Approximate the necessary memory for each problem
   std::size_t needed_memory = 0;
   for (const auto data_model : data_models) {
-    const int nb_variables   = data_model->get_objective_coefficients().size();
-    const int nb_constraints = data_model->get_constraint_bounds().size();
+    const auto nb_variables   = data_model->get_objective_coefficients().size();
+    const auto nb_constraints = data_model->get_constraint_bounds().size();
     // Currently we roughly need 8 times more memory than the size of each structure in the
     // problem representation
     needed_memory += ((nb_variables * 3 * sizeof(double)) + (nb_constraints * 3 * sizeof(double)) +
                       data_model->get_constraint_matrix_values().size() * sizeof(double) +
-                      data_model->get_constraint_matrix_indices().size() * sizeof(int) +
-                      data_model->get_constraint_matrix_offsets().size() * sizeof(int)) *
+                      data_model->get_constraint_matrix_indices().size() * sizeof(cuopt_int_t) +
+                      data_model->get_constraint_matrix_offsets().size() * sizeof(cuopt_int_t)) *
                      8;
   }
 
@@ -242,7 +244,8 @@ static int compute_max_thread(
 }
 
 std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> solve_batch_remote(
-  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*> data_models,
+  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*>
+    data_models,
   cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* solver_settings)
 {
   cuopt_expects(
@@ -254,7 +257,8 @@ std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> solve_batch_remote
 }
 
 std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> call_batch_solve(
-  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*> data_models,
+  std::vector<cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>*>
+    data_models,
   cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* solver_settings)
 {
   raft::common::nvtx::range fun_scope("Call batch solve");
@@ -277,12 +281,12 @@ std::pair<std::vector<std::unique_ptr<solver_ret_t>>, double> call_batch_solve(
   // Limit parallelism as too much stream overlap gets too slow
   const int max_thread = compute_max_thread(data_models);
 
-  if (solver_settings->get_parameter<int>(CUOPT_METHOD) == CUOPT_METHOD_CONCURRENT) {
+  if (solver_settings->get_parameter<cuopt_int_t>(CUOPT_METHOD) == CUOPT_METHOD_CONCURRENT) {
     CUOPT_LOG_INFO("Concurrent mode not supported for batch solve. Using PDLP instead. ");
     CUOPT_LOG_INFO(
       "Set the CUOPT_METHOD parameter to CUOPT_METHOD_PDLP or CUOPT_METHOD_DUAL_SIMPLEX to avoid "
       "this warning.");
-    solver_settings->set_parameter(CUOPT_METHOD, CUOPT_METHOD_PDLP);
+    solver_settings->set_parameter<cuopt_int_t>(CUOPT_METHOD, CUOPT_METHOD_PDLP);
   }
 
   const bool is_batch_mode = true;

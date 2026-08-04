@@ -127,8 +127,8 @@ template <typename Op>
 void setup_two_var_unconstrained_qp(Op& op)
 {
   double A_values_host[] = {};
-  int A_indices_host[]   = {};
-  int A_offsets_host[]   = {0};
+  cuopt_int_t A_indices_host[]   = {};
+  cuopt_int_t A_offsets_host[]   = {0};
   op.set_csr_constraint_matrix(A_values_host, 0, A_indices_host, 0, A_offsets_host, 1);
 
   double lb_host[] = {0.0, 0.0};
@@ -151,8 +151,8 @@ template <typename Op>
 void setup_three_var_unconstrained_qp(Op& op)
 {
   double A_values_host[] = {};
-  int A_indices_host[]   = {};
-  int A_offsets_host[]   = {0};
+  cuopt_int_t A_indices_host[]   = {};
+  cuopt_int_t A_offsets_host[]   = {0};
   op.set_csr_constraint_matrix(A_values_host, 0, A_indices_host, 0, A_offsets_host, 1);
 
   double lb_host[] = {0.0, 0.0, 0.0};
@@ -185,8 +185,8 @@ TEST(mps_writer_op, write_to_mps_diagonal_qp_quadobj_matches_symmetrized_hessian
   setup_two_var_unconstrained_qp(op);
 
   double Q_values_host[] = {1.0, 1.0};
-  int Q_indices_host[]   = {0, 1};
-  int Q_offsets_host[]   = {0, 1, 2};
+  cuopt_int_t Q_indices_host[]   = {0, 1};
+  cuopt_int_t Q_offsets_host[]   = {0, 1, 2};
   op.set_quadratic_objective_matrix(Q_values_host, 2, Q_indices_host, 2, Q_offsets_host, 3);
 
   std::string const path = std::string(::testing::TempDir()) + "qp_diag_write.mps";
@@ -226,8 +226,8 @@ TEST(mps_writer_op, write_to_mps_nonsymmetric_Q_quadobj_matches_Q_plus_Q_transpo
   setup_three_var_unconstrained_qp(op);
 
   double Q_values_host[] = {1.0, 2.0, 3.0, 4.0, 5.0, 7.0, 8.0};
-  int Q_indices_host[]   = {0, 1, 0, 1, 2, 1, 2};
-  int Q_offsets_host[]   = {0, 2, 5, 7};
+  cuopt_int_t Q_indices_host[]   = {0, 1, 0, 1, 2, 1, 2};
+  cuopt_int_t Q_offsets_host[]   = {0, 2, 5, 7};
   op.set_quadratic_objective_matrix(Q_values_host, 7, Q_indices_host, 7, Q_offsets_host, 4);
 
   std::string const path = std::string(::testing::TempDir()) + "qp_nonsym_sparse_write.mps";

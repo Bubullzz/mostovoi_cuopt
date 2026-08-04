@@ -40,26 +40,30 @@ void csc_matrix_t<i_t, f_t>::scale_columns(const std::vector<f_t, Allocator>& sc
 // NOTE: matrix_vector_multiply is now templated on VectorX and VectorY.
 // Since it's defined inline in the header, no explicit instantiation is needed here.
 
-template int matrix_transpose_vector_multiply<int,
-                                              double,
-                                              PinnedHostAllocator<double>,
-                                              PinnedHostAllocator<double>>(
+template cuopt_int_t matrix_transpose_vector_multiply<cuopt_int_t,
+                                                      double,
+                                                      PinnedHostAllocator<double>,
+                                                      PinnedHostAllocator<double>>(
   const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
   std::vector<double, PinnedHostAllocator<double>>& y);
 
-template int
-matrix_transpose_vector_multiply<int, double, PinnedHostAllocator<double>, std::allocator<double>>(
+template cuopt_int_t matrix_transpose_vector_multiply<cuopt_int_t,
+                                                      double,
+                                                      PinnedHostAllocator<double>,
+                                                      std::allocator<double>>(
   const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, PinnedHostAllocator<double>>& x,
   double beta,
   std::vector<double, std::allocator<double>>& y);
 
-template int
-matrix_transpose_vector_multiply<int, double, std::allocator<double>, PinnedHostAllocator<double>>(
+template cuopt_int_t matrix_transpose_vector_multiply<cuopt_int_t,
+                                                      double,
+                                                      std::allocator<double>,
+                                                      PinnedHostAllocator<double>>(
   const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, std::allocator<double>>& x,

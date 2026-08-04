@@ -43,7 +43,7 @@ static void init_handler(const raft::handle_t* handle_ptr)
     handle_ptr->get_cusparse_handle(), CUSPARSE_POINTER_MODE_DEVICE, handle_ptr->get_stream()));
 }
 
-std::tuple<std::vector<int>, std::vector<double>, std::vector<double>> select_k_random(
+std::tuple<std::vector<cuopt_int_t>, std::vector<double>, std::vector<double>> select_k_random(
   mip::problem_t<cuopt_int_t, double>& problem, int sample_size)
 {
   auto seed = std::random_device{}();
@@ -59,7 +59,7 @@ std::tuple<std::vector<int>, std::vector<double>, std::vector<double>> select_k_
                    }),
     int_var_id.end());
   sample_size = std::min(sample_size, static_cast<int>(int_var_id.size()));
-  std::vector<int> random_int_vars;
+  std::vector<cuopt_int_t> random_int_vars;
   std::mt19937 m{seed};
   std::sample(
     int_var_id.begin(), int_var_id.end(), std::back_inserter(random_int_vars), sample_size, m);
@@ -78,7 +78,7 @@ std::tuple<std::vector<int>, std::vector<double>, std::vector<double>> select_k_
 }
 
 std::pair<std::vector<thrust::pair<cuopt_int_t, double>>, std::vector<thrust::pair<cuopt_int_t, double>>>
-convert_probe_tuple(std::tuple<std::vector<int>, std::vector<double>, std::vector<double>>& probe)
+convert_probe_tuple(std::tuple<std::vector<cuopt_int_t>, std::vector<double>, std::vector<double>>& probe)
 {
   std::vector<thrust::pair<cuopt_int_t, double>> probe_first;
   std::vector<thrust::pair<cuopt_int_t, double>> probe_second;
@@ -120,7 +120,7 @@ std::tuple<std::vector<double>, std::vector<double>, std::vector<double>, std::v
 multi_probe_results(
   mip::multi_probe_t<cuopt_int_t, double>& prb,
   mip::problem_t<cuopt_int_t, double>& problem,
-  const std::tuple<std::vector<int>, std::vector<double>, std::vector<double>>& probe_tuple)
+  const std::tuple<std::vector<cuopt_int_t>, std::vector<double>, std::vector<double>>& probe_tuple)
 {
   prb.solve(problem, probe_tuple);
   auto stream = problem.handle_ptr->get_stream();

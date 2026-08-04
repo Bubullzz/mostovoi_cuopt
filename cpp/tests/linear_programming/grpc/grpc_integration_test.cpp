@@ -761,7 +761,7 @@ TEST_F(DefaultServerTests, SolveInfeasibleLP)
   std::vector<double> var_lb   = {1.0};
   std::vector<double> var_ub   = {0.0};
   std::vector<double> obj      = {1.0};
-  std::vector<int32_t> offsets = {0};
+  std::vector<cuopt_int_t> offsets = {0};
 
   problem.set_variable_lower_bounds(var_lb.data(), 1);
   problem.set_variable_upper_bounds(var_ub.data(), 1);

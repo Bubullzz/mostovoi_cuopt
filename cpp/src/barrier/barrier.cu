@@ -86,11 +86,13 @@ bool validate_barrier_cone_layout(const lp_problem_t<i_t, f_t>& problem,
 
   for (i_t j = problem.cone_var_start; j < cone_end; ++j) {
     if (problem.lower[j] != 0.0 && problem.lower[j] > -inf) {
-      settings.log.printf("Error: explicit lower bound on conic variable %d is not supported\n", j);
+      settings.log.printf("Error: explicit lower bound on conic variable %lld is not supported\n",
+                          (long long)(j));
       return false;
     }
     if (problem.upper[j] < inf) {
-      settings.log.printf("Error: explicit upper bound on conic variable %d is not supported\n", j);
+      settings.log.printf("Error: explicit upper bound on conic variable %lld is not supported\n",
+                          (long long)(j));
       return false;
     }
   }
@@ -107,15 +109,15 @@ template <typename f_t>
 }
 
 // out[i] = is_direct_free_linear[i] ? 0 : a[i] * b[i]
-template <typename f_t>
+template <typename i_t, typename f_t>
 [[maybe_unused]] static void pairwise_multiply_skip_direct_free_linear(
-  f_t* a, f_t* b, int* is_direct_free_linear, f_t* out, int size, rmm::cuda_stream_view stream)
+  f_t* a, f_t* b, i_t* is_direct_free_linear, f_t* out, i_t size, rmm::cuda_stream_view stream)
 {
   cub::DeviceTransform::Transform(
     cuda::std::make_tuple(a, b, is_direct_free_linear),
     out,
     size,
-    [] __host__ __device__(f_t x_j, f_t d_j, int free_j) { return free_j ? f_t{0} : x_j * d_j; },
+    [] __host__ __device__(f_t x_j, f_t d_j, i_t free_j) { return free_j ? f_t{0} : x_j * d_j; },
     stream.value());
 }
 
@@ -370,7 +372,8 @@ class iteration_data_t {
                  lp.num_cols,
                  stream_view_);
       if (n_direct_free_linear > 0) {
-        settings.log.printf("Free variables              : %d\n", n_direct_free_linear);
+        settings.log.printf("Free variables              : %lld\n",
+                            (long long)(n_direct_free_linear));
       }
     }
 
@@ -401,8 +404,10 @@ class iteration_data_t {
           // Check to ensure that Q is positive semi-definite
           for (i_t j = 0; j < lp.num_cols; j++) {
             if (Qdiag[j] < 0.0) {
-              settings_.log.printf(
-                "Q is not positive semidefinite: Q(%d, %d) = %e\n", j, j, Qdiag[j]);
+              settings_.log.printf("Q is not positive semidefinite: Q(%lld, %lld) = %e\n",
+                                   (long long)(j),
+                                   (long long)(j),
+                                   Qdiag[j]);
               indefinite_Q = true;
               return;
             }
@@ -466,7 +471,7 @@ class iteration_data_t {
         if (lp.upper[j] < inf) { upper_bounds[n_upper_bounds++] = j; }
       }
       if (n_upper_bounds > 0) {
-        settings.log.printf("Upper bounds                : %d\n", n_upper_bounds);
+        settings.log.printf("Upper bounds                : %lld\n", (long long)(n_upper_bounds));
       }
     }
 
@@ -504,17 +509,17 @@ class iteration_data_t {
         if (settings.concurrent_halt != nullptr && *settings.concurrent_halt == 1) { return; }
 #ifdef PRINT_INFO
         for (i_t j : dense_columns_unordered) {
-          settings.log.printf("Dense column %6d\n", j);
+          settings.log.printf("Dense column %6lld\n", (long long)(j));
         }
 #endif
         float64_t column_density_time = toc(start_column_density);
         if (!settings.eliminate_dense_columns) { dense_columns_unordered.clear(); }
         n_dense_columns = static_cast<i_t>(dense_columns_unordered.size());
         if (n_dense_columns > 0) {
-          settings.log.printf("Dense columns               : %d\n", n_dense_columns);
+          settings.log.printf("Dense columns               : %lld\n", (long long)(n_dense_columns));
         }
         if (n_dense_rows > 0) {
-          settings.log.printf("Dense rows                  : %d\n", n_dense_rows);
+          settings.log.printf("Dense rows                  : %lld\n", (long long)(n_dense_rows));
         }
         settings.log.printf("Density estimator time      : %.2fs\n", column_density_time);
         if ((settings.augmented != 0) &&
@@ -788,16 +793,16 @@ class iteration_data_t {
                                       device_augmented,
                                       stream_view_);
 
-      settings_.log.debug("augmented nz %d (gpu build)\n", total_nnz);
+      settings_.log.debug("augmented nz %lld (gpu build)\n", (long long)(total_nnz));
       cuopt_assert(A.col_start[n] == AT.col_start[m], "A nz != AT nz");
       handle_ptr->sync_stream();
 
 #ifdef CHECK_SYMMETRY
       csc_matrix_t<i_t, f_t> augmented_transpose(1, 1, 1);
       augmented.transpose(augmented_transpose);
-      settings_.log.printf("Aug nnz %d Aug^T nnz %d\n",
-                           augmented.col_start[factorization_size],
-                           augmented_transpose.col_start[factorization_size]);
+      settings_.log.printf("Aug nnz %lld Aug^T nnz %lld\n",
+                           (long long)(augmented.col_start[factorization_size]),
+                           (long long)(augmented_transpose.col_start[factorization_size]));
       augmented.check_matrix();
       augmented_transpose.check_matrix();
       csc_matrix_t<i_t, f_t> error(factorization_size, factorization_size, 1);
@@ -1067,8 +1072,13 @@ class iteration_data_t {
         for (i_t k = 0; k < n_dense_columns; k++) {
           for (i_t h = 0; h < n_dense_columns; h++) {
             if (std::abs(H(k, h) - H(h, k)) > 1e-10) {
-              settings_.log.printf(
-                "H(%d, %d) = %e, H(%d, %d) = %e\n", k, h, H(k, h), h, k, H(h, k));
+              settings_.log.printf("H(%lld, %lld) = %e, H(%lld, %lld) = %e\n",
+                                   (long long)(k),
+                                   (long long)(h),
+                                   H(k, h),
+                                   (long long)(h),
+                                   (long long)(k),
+                                   H(h, k));
             }
           }
         }
@@ -1245,8 +1255,11 @@ class iteration_data_t {
           for (i_t p = col_start; p < col_end; p++) {
             if (std::abs(error2.x[p]) > 1e-6) {
               large_nz++;
-              settings_.log.printf(
-                "large_nz (%d,%d) %e. m %d\n", error2.i[p], j, error2.x[p], AD.m);
+              settings_.log.printf("large_nz (%lld,%lld) %e. m %lld\n",
+                                   (long long)(error2.i[p]),
+                                   (long long)(j),
+                                   error2.x[p],
+                                   (long long)(AD.m));
             }
           }
         }
@@ -1276,7 +1289,9 @@ class iteration_data_t {
             i_t j = dense_columns[k];
             row_error += std::abs(VTei[k] - AD_dense(i, k));
           }
-          if (row_error > 1e-10) { settings_.log.printf("row_error %d = %e\n", i, row_error); }
+          if (row_error > 1e-10) {
+            settings_.log.printf("row_error %lld = %e\n", (long long)(i), row_error);
+          }
           max_row_error = std::max(max_row_error, row_error);
 
           dense_vector_t<i_t, f_t> u(AD.m);
@@ -1485,7 +1500,9 @@ class iteration_data_t {
 #ifdef HISTOGRAM
     settings.log.printf("Col Nz  # cols\n");
     for (i_t k = 0; k < m; k++) {
-      if (histogram[k] > 0) { settings.log.printf("%6d %6d\n", k, histogram[k]); }
+      if (histogram[k] > 0) {
+        settings.log.printf("%6lld %6lld\n", (long long)(k), (long long)(histogram[k]));
+      }
     }
     settings.log.printf("\n");
 #endif
@@ -1509,7 +1526,9 @@ class iteration_data_t {
 #ifdef HISTOGRAM
     settings.log.printf("Row Nz  # rows\n");
     for (i_t k = 0; k < n; k++) {
-      if (histogram_row[k] > 0) { settings.log.printf("%6d %6d\n", k, histogram_row[k]); }
+      if (histogram_row[k] > 0) {
+        settings.log.printf("%6lld %6lld\n", (long long)(k), (long long)(histogram_row[k]));
+      }
     }
 #endif
 
@@ -1617,12 +1636,12 @@ class iteration_data_t {
       cumulative_nonzeros[k] = static_cast<f_t>(nnz_C);
 #ifdef PRINT_INFO
       if (n - k < 10) {
-        settings.log.printf("Cumulative nonzeros %ld %6.2e k %6d delta nz %ld col %6d\n",
+        settings.log.printf("Cumulative nonzeros %ld %6.2e k %6lld delta nz %ld col %6lld\n",
                             nnz_C,
                             cumulative_nonzeros[k],
-                            k,
+                            (long long)(k),
                             delta_nz[j],
-                            j);
+                            (long long)(j));
       }
 #endif
     }
@@ -1642,12 +1661,12 @@ class iteration_data_t {
       if (ratio > .01) {
 #ifdef DEBUG
         settings.log.printf(
-          "Column: nz %10d cumulative nz %6.2e estimated delta nz %6.2e percent %.2f col %6d\n",
-          col_nz,
+          "Column: nz %10lld cumulative nz %6.2e estimated delta nz %6.2e percent %.2f col %6lld\n",
+          (long long)(col_nz),
           cumulative_nonzeros[k],
           delta_nz_j,
           ratio,
-          j);
+          (long long)(j));
 #endif
         columns_to_remove.push_back(j);
       }
@@ -2104,7 +2123,7 @@ void cholesky_debug_check(const iteration_data_t<i_t, f_t>& data,
     test_rhs_norm2 += test_rhs[i] * test_rhs[i];
   }
   f_t rel_err_norm2 = sqrt(err_norm2) / sqrt(soln_norm2);
-  printf("Cholesky check: status = %d\n", cholesky_status);
+  printf("Cholesky check: status = %lld\n", (long long)(cholesky_status));
   printf("test_vec norm2 = %e, test_soln norm2 = %e, diff norm2 = %e, test_rhs norm2 = %e \n",
          sqrt(testvec_norm2),
          sqrt(soln_norm2),
@@ -2284,7 +2303,7 @@ int barrier_solver_t<i_t, f_t>::initial_point(iteration_data_t<i_t, f_t>& data)
     i_t solve_status = data.solve_adat(rhs_x, q);
     if (solve_status != 0) { return status; }
 #ifdef PRINT_INFO
-    settings.log.printf("Initial solve status %d\n", solve_status);
+    settings.log.printf("Initial solve status %lld\n", (long long)(solve_status));
     settings.log.printf("||q|| = %.16e\n", vector_norm2<i_t, f_t>(q));
 #endif
 
@@ -3751,7 +3770,7 @@ void barrier_solver_t<i_t, f_t>::compute_next_iterate(iteration_data_t<i_t, f_t>
   if (num_free_variables > 0 && data.Q.n == 0) {
     auto d_free_variable_pairs = device_copy(presolve_info.free_variable_pairs, stream_view_);
     thrust::for_each(rmm::exec_policy(stream_view_),
-                     thrust::make_counting_iterator(0),
+                     thrust::make_counting_iterator(i_t(0)),
                      thrust::make_counting_iterator(num_free_variables),
                      [span_free_variable_pairs = cuopt::make_span(d_free_variable_pairs),
                       span_x                   = cuopt::make_span(data.d_x_),
@@ -3981,8 +4000,9 @@ lp_status_t barrier_solver_t<i_t, f_t>::check_for_suboptimal_solution(
                      data.cusparse_view_,
                      solution);
     settings.log.printf("\n");
-    settings.log.printf(
-      "Suboptimal solution found in %d iterations and %.2f seconds\n", iter, toc(start_time));
+    settings.log.printf("Suboptimal solution found in %lld iterations and %.2f seconds\n",
+                        (long long)(iter),
+                        toc(start_time));
     settings.log.printf("Objective %+.8e\n", compute_user_objective(lp, primal_objective));
     settings.log.printf("Primal infeasibility (abs/rel): %8.2e/%8.2e\n",
                         primal_residual_norm,
@@ -4020,8 +4040,9 @@ lp_status_t barrier_solver_t<i_t, f_t>::check_for_suboptimal_solution(
                      data.cusparse_view_,
                      solution);
     settings.log.printf("\n");
-    settings.log.printf(
-      "Suboptimal solution found in %d iterations and %.2f seconds\n", iter, toc(start_time));
+    settings.log.printf("Suboptimal solution found in %lld iterations and %.2f seconds\n",
+                        (long long)(iter),
+                        toc(start_time));
     settings.log.printf("Objective %+.8e\n", compute_user_objective(lp, primal_objective_save));
     settings.log.printf("Primal infeasibility (abs/rel): %8.2e/%8.2e\n",
                         data.primal_residual_norm_save,
@@ -4056,23 +4077,26 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
     i_t m = lp.num_rows;
 
     solution.resize(m, n);
-    settings.log.printf(
-      "Barrier solver: %d constraints, %d variables, %ld nonzeros\n", m, n, lp.A.col_start[n]);
+    settings.log.printf("Barrier solver: %lld constraints, %lld variables, %ld nonzeros\n",
+                        (long long)(m),
+                        (long long)(n),
+                        lp.A.col_start[n]);
 
     settings.log.printf("\n");
 
     if (lp.Q.n > 0) {
-      settings.log.printf("Quadratic objective matrix  : %d nonzeros\n", lp.Q.row_start[lp.Q.n]);
+      settings.log.printf("Quadratic objective matrix  : %lld nonzeros\n",
+                          (long long)(lp.Q.row_start[lp.Q.n]));
     }
     if (lp.second_order_cone_dims.size() > 0) {
-      settings.log.printf("Second-order cones          : %d\n",
-                          static_cast<int>(lp.second_order_cone_dims.size()));
+      settings.log.printf("Second-order cones          : %lld\n",
+                          (long long)(static_cast<int>(lp.second_order_cone_dims.size())));
     }
 
     // Compute the number of free variables
     i_t num_free_variables = presolve_info.free_variable_pairs.size() / 2;
     if (num_free_variables > 0) {
-      settings.log.printf("Free variables              : %d\n", num_free_variables);
+      settings.log.printf("Free variables              : %lld\n", (long long)(num_free_variables));
     }
 
     // Compute the number of upper bounds
@@ -4202,8 +4226,8 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
     settings.log.printf(
       "Iter   Primal              Dual                Primal   Dual    Compl.   Elapsed\n");
     float64_t elapsed_time = toc(start_time);
-    settings.log.printf("%3d   %+.12e %+.12e %.2e %.2e %.2e %.1f\n",
-                        iter,
+    settings.log.printf("%3lld   %+.12e %+.12e %.2e %.2e %.2e %.1f\n",
+                        (long long)(iter),
                         compute_user_objective(lp, primal_objective),
                         compute_user_objective(lp, dual_objective),
                         relative_primal_residual,
@@ -4347,9 +4371,9 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
             relative_complementarity_residual < data.relative_complementarity_residual_save &&
             primal_objective == primal_objective && dual_objective == dual_objective) {
           settings.log.debug(
-            "Saving solution at iter %d: feasibility %.2e, optimality %.2e, complementarity "
+            "Saving solution at iter %lld: feasibility %.2e, optimality %.2e, complementarity "
             "%.2e\n",
-            iter,
+            (long long)(iter),
             relative_primal_residual,
             relative_dual_residual,
             relative_complementarity_residual);
@@ -4391,8 +4415,8 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
                                              solution);
       }
 
-      settings.log.printf("%3d   %+.12e %+.12e %.2e %.2e %.2e %.1f\n",
-                          iter,
+      settings.log.printf("%3lld   %+.12e %+.12e %.2e %.2e %.2e %.1f\n",
+                          (long long)(iter),
                           compute_user_objective(lp, primal_objective),
                           compute_user_objective(lp, dual_objective),
                           relative_primal_residual,
@@ -4411,8 +4435,9 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
 
       if (converged) {
         settings.log.printf("\n");
-        settings.log.printf(
-          "Optimal solution found in %d iterations and %.3fs\n", iter, toc(start_time));
+        settings.log.printf("Optimal solution found in %lld iterations and %.3fs\n",
+                            (long long)(iter),
+                            toc(start_time));
         settings.log.printf("Objective %+.8e\n", compute_user_objective(lp, primal_objective));
         settings.log.printf("Primal infeasibility (abs/rel): %8.2e/%8.2e\n",
                             primal_residual_norm,
@@ -4488,7 +4513,8 @@ lp_status_t barrier_solver_t<i_t, f_t>::solve(f_t start_time, lp_solution_t<i_t,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 template bool validate_barrier_cone_layout<cuopt_int_t, double>(
-  const lp_problem_t<cuopt_int_t, double>& problem, const simplex_solver_settings_t<cuopt_int_t, double>& settings);
+  const lp_problem_t<cuopt_int_t, double>& problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings);
 template class barrier_solver_t<cuopt_int_t, double>;
 template class sparse_cholesky_base_t<cuopt_int_t, double>;
 template class sparse_cholesky_cudss_t<cuopt_int_t, double>;

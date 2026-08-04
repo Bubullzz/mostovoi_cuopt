@@ -397,7 +397,7 @@ void lb_constraint_prop_t<i_t, f_t>::collapse_crossing_bounds(
   auto original_ub     = make_span(orig_problem.variable_upper_bounds);
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     thrust::make_counting_iterator((i_t)variable_bounds.size()),
     [variable_bounds,
      original_lb,
@@ -438,7 +438,7 @@ void lb_constraint_prop_t<i_t, f_t>::restore_original_bounds_on_unfixed(
   auto variable_bounds = make_span_2(problem->variable_bounds);
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     thrust::make_counting_iterator(problem->n_variables),
     [variable_bounds, op_v = original_problem.view()] __device__(i_t var_idx) {
       auto var_bnd = variable_bounds[var_idx];
@@ -647,7 +647,7 @@ void lb_constraint_prop_t<i_t, f_t>::sort_by_interval_and_frac(
   subsection_offsets.set_element(n_subsections, vars.size(), problem.handle_ptr->get_stream());
   thrust::for_each(
     problem.handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     thrust::make_counting_iterator((i_t)vars.size() - 1),
     [offsets = make_span(subsection_offsets), variable_bounds, vars, assgn] __device__(i_t idx) {
       i_t var_1             = vars[idx];
@@ -675,8 +675,8 @@ void lb_constraint_prop_t<i_t, f_t>::sort_by_interval_and_frac(
     });
   // if there are any empty sections fill their offsets as the previous offset
   thrust::for_each(problem.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
-                   thrust::make_counting_iterator(1),
+                   thrust::make_counting_iterator(i_t(0)),
+                   thrust::make_counting_iterator(i_t(1)),
                    [offsets = subsection_offsets.data()] __device__(i_t idx) {
                      i_t last_existing_offset = 0;
                      for (i_t i = n_subsections; i > 0; --i) {

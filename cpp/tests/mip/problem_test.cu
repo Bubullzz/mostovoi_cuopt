@@ -299,8 +299,8 @@ static void fill_problem(optimization_problem_t<cuopt_int_t, double>& op_problem
 {
   // Set A_CSR_matrix
   double A_host[]    = {1.0};
-  int indices_host[] = {0};
-  int offset_host[]  = {0, 1};
+  cuopt_int_t indices_host[] = {0};
+  cuopt_int_t offset_host[]  = {0, 1};
   op_problem.set_csr_constraint_matrix(A_host, 1, indices_host, 1, offset_host, 2);
 
   // Set c

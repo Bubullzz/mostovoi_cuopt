@@ -281,8 +281,8 @@ void clamp_within_var_bounds(rmm::device_uvector<f_t>& assignment,
   f_t* assignment_ptr = assignment.data();
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_variables,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_variables,
     [assignment_ptr, variable_bound = problem_ptr->variable_bounds.data()] __device__(i_t idx) {
       auto bound = variable_bound[idx];
       if (assignment_ptr[idx] < get_lower(bound)) {
@@ -301,8 +301,8 @@ void clamp_within_constraint_bounds(rmm::device_uvector<f_t>& dual_solution,
   cuopt_assert(dual_solution.size() == problem_ptr->n_constraints, "Size mismatch!");
   f_t* dual_solution_ptr = dual_solution.data();
   thrust::for_each(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
-                   thrust::make_counting_iterator(0) + problem_ptr->n_constraints,
+                   thrust::make_counting_iterator(i_t(0)),
+                   thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_constraints,
                    [dual_solution_ptr,
                     lower_bound = problem_ptr->constraint_lower_bounds.data(),
                     upper_bound = problem_ptr->constraint_upper_bounds.data()] __device__(i_t idx) {
@@ -416,8 +416,8 @@ bool has_variable_bounds_violation(const raft::handle_t* handle_ptr,
 {
   return thrust::any_of(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_variables,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_variables,
     has_variable_bounds_violation_functor<i_t, f_t>(assignment.data(), problem_ptr->view()));
 }
 

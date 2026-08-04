@@ -605,17 +605,19 @@ __global__ void load_balancing_sanity_checks(const __grid_constant__
     i_t candidate_count = v.jump_candidate_count[var_idx];
     for (i_t i = offset_begin + threadIdx.x; i < offset_begin + candidate_count; i += blockDim.x) {
       if (!(v.candidate_arrived_workids[i] == warp_count)) {
-        printf("(iter %d) [%d]: %d vs %d\n",
-               *v.iterations,
-               var_idx,
-               v.candidate_arrived_workids[i],
-               warp_count);
+        printf("(iter %lld) [%lld]: %lld vs %lld\n",
+               (long long)(*v.iterations),
+               (long long)(var_idx),
+               (long long)(v.candidate_arrived_workids[i]),
+               (long long)(warp_count));
         __trap();
       }
 
       if (!isfinite(v.jump_move_delta_check[var_idx])) {
-        printf(
-          "--- (iter %d) [%d]: delta %g\n", *v.iterations, var_idx, v.jump_candidates[i].delta);
+        printf("--- (iter %lld) [%lld]: delta %g\n",
+               (long long)(*v.iterations),
+               (long long)(var_idx),
+               v.jump_candidates[i].delta);
         cuopt_assert(isnan(v.jump_candidates[i].delta), "invalid delta");
         __trap();
       }
@@ -632,9 +634,9 @@ __global__ void load_balancing_sanity_checks(const __grid_constant__
 
     f_t rel_error = abs((delta_1 - delta_2) / delta_1);
     if (rel_error > 1e-3) {
-      printf("(iter %d) [%d]: was %g, is %g, error %g\n",
-             *v.iterations,
-             var_idx,
+      printf("(iter %lld) [%lld]: was %g, is %g, error %g\n",
+             (long long)(*v.iterations),
+             (long long)(var_idx),
              delta_1,
              delta_2,
              rel_error);
@@ -644,10 +646,10 @@ __global__ void load_balancing_sanity_checks(const __grid_constant__
     if (!(score_1 == score_1.invalid() && score_2 == score_2.invalid()) &&
         !(v.pb.integer_equal(score_1.base, score_2.base) &&
           v.pb.integer_equal(score_1.bonus, score_2.bonus))) {
-      printf("(iter %d) [%d, int:%d]: delta %g/%g was %f/%f, is %f/%f\n",
-             *v.iterations,
-             var_idx,
-             v.pb.is_integer_var(var_idx),
+      printf("(iter %lld) [%lld, int:%lld]: delta %g/%g was %f/%f, is %f/%f\n",
+             (long long)(*v.iterations),
+             (long long)(var_idx),
+             (long long)(v.pb.is_integer_var(var_idx)),
              delta_1,
              delta_2,
              score_1.base,

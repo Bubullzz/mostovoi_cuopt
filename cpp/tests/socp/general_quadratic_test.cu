@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -33,7 +34,7 @@ using simplex::solve_linear_program_with_barrier;
 using simplex::user_problem_t;
 using simplex::variable_type_t;
 
-using i_t  = int;
+using i_t  = cuopt_int_t;
 using f_t  = double;
 using qc_t = optimization_problem_interface_t<i_t, f_t>::quadratic_constraint_t;
 

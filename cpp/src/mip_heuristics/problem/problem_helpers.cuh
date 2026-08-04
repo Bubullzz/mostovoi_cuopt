@@ -16,11 +16,13 @@
 #include <utilities/copy_helpers.hpp>
 
 #include <cuda_runtime_api.h>
+#include <thrust/binary_search.h>
 #include <thrust/count.h>
 #include <thrust/functional.h>
 #include <thrust/gather.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/logical.h>
+#include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <thrust/tuple.h>
 
@@ -268,7 +270,7 @@ static bool check_var_bounds_sanity(const mip::problem_t<i_t, f_t>& problem)
 {
   bool crossing_bounds_detected =
     thrust::any_of(problem.handle_ptr->get_thrust_policy(),
-                   thrust::counting_iterator(0),
+                   thrust::counting_iterator(i_t(0)),
                    thrust::counting_iterator((i_t)problem.variable_bounds.size()),
                    [tolerance = problem.tolerances.presolve_absolute_tolerance,
                     var_bnd   = make_span(problem.variable_bounds)] __device__(i_t index) -> bool {
@@ -283,7 +285,7 @@ static bool check_constraint_bounds_sanity(const mip::problem_t<i_t, f_t>& probl
 {
   bool crossing_bounds_detected =
     thrust::any_of(problem.handle_ptr->get_thrust_policy(),
-                   thrust::counting_iterator(0),
+                   thrust::counting_iterator(i_t(0)),
                    thrust::counting_iterator((i_t)problem.constraint_lower_bounds.size()),
                    [tolerance = problem.tolerances.presolve_absolute_tolerance,
                     lb        = make_span(problem.constraint_lower_bounds),
@@ -298,7 +300,7 @@ static void round_bounds(mip::problem_t<i_t, f_t>& problem)
 {
   // round bounds to integer for integer variables
   thrust::for_each(problem.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(problem.n_variables),
                    [bounds = make_span(problem.variable_bounds),
                     types  = make_span(problem.variable_types)] __device__(i_t index) {
@@ -315,13 +317,6 @@ static bool check_bounds_sanity(const mip::problem_t<i_t, f_t>& problem)
 {
   return check_var_bounds_sanity<i_t, f_t>(problem) &&
          check_constraint_bounds_sanity<i_t, f_t>(problem);
-}
-
-static void check_cusparse_status(cusparseStatus_t status)
-{
-  if (status != CUSPARSE_STATUS_SUCCESS) {
-    throw std::runtime_error("CUSPARSE error: " + std::string(cusparseGetErrorString(status)));
-  }
 }
 
 template <typename i_t, typename f_t>
@@ -351,52 +346,44 @@ __global__ void kernel_convert_greater_to_less(raft::device_span<f_t> coefficien
   }
 }
 
+// Sorts the column indices within each row and permutes the values to match.
+// cusparseXcsrsort is 32-bit only, so this is done with thrust to stay valid for 64-bit indices.
 template <typename i_t, typename f_t>
-static void csrsort_cusparse(rmm::device_uvector<f_t>& values,
-                             rmm::device_uvector<i_t>& indices,
-                             rmm::device_uvector<i_t>& offsets,
-                             i_t rows,
-                             i_t cols,
-                             const raft::handle_t* handle_ptr)
+static void csrsort(rmm::device_uvector<f_t>& values,
+                    rmm::device_uvector<i_t>& indices,
+                    rmm::device_uvector<i_t>& offsets,
+                    i_t rows,
+                    i_t cols,
+                    const raft::handle_t* handle_ptr)
 {
   // skip if the matrix is empty
   if (values.size() == 0) { return; }
 
-  auto stream = offsets.stream();
-  cusparseHandle_t handle;
-  cusparseCreate(&handle);
-  cusparseSetStream(handle, stream);
+  auto stream   = offsets.stream();
+  auto policy   = handle_ptr->get_thrust_policy();
+  const i_t nnz = values.size();
 
-  i_t nnz = values.size();
-  i_t m   = rows;
-  i_t n   = cols;
+  // Row of each nonzero, so that one lexicographic (row, column) sort keeps nonzeros inside
+  // their row while ordering the columns. upper_bound yields row + 1, which orders identically.
+  rmm::device_uvector<i_t> row_of_nnz(nnz, stream);
+  thrust::upper_bound(policy,
+                      offsets.begin(),
+                      offsets.begin() + rows + 1,
+                      thrust::make_counting_iterator(i_t(0)),
+                      thrust::make_counting_iterator(nnz),
+                      row_of_nnz.begin());
 
-  cusparseMatDescr_t matA;
-  cusparseCreateMatDescr(&matA);
-  cusparseSetMatIndexBase(matA, CUSPARSE_INDEX_BASE_ZERO);
-  cusparseSetMatType(matA, CUSPARSE_MATRIX_TYPE_GENERAL);
+  rmm::device_uvector<i_t> permutation(nnz, stream);
+  thrust::sequence(policy, permutation.begin(), permutation.end());
 
-  size_t pBufferSizeInBytes = 0;
-  check_cusparse_status(cusparseXcsrsort_bufferSizeExt(
-    handle, m, n, nnz, offsets.data(), indices.data(), &pBufferSizeInBytes));
-  rmm::device_uvector<uint8_t> pBuffer(pBufferSizeInBytes, stream);
-  cuopt_assert(((intptr_t)pBuffer.data() % 128) == 0,
-               "CUSPARSE buffer size is not aligned to 128 bytes");
-  rmm::device_uvector<i_t> P(nnz, stream);
-  thrust::sequence(handle_ptr->get_thrust_policy(), P.begin(), P.end());
-
-  check_cusparse_status(cusparseXcsrsort(
-    handle, m, n, nnz, matA, offsets.data(), indices.data(), P.data(), pBuffer.data()));
+  auto keys = thrust::make_zip_iterator(thrust::make_tuple(row_of_nnz.begin(), indices.begin()));
+  thrust::stable_sort_by_key(policy, keys, keys + nnz, permutation.begin());
 
   // apply the permutation to the values
   rmm::device_uvector<f_t> values_sorted(nnz, stream);
   thrust::gather(
-    handle_ptr->get_thrust_policy(), P.begin(), P.end(), values.begin(), values_sorted.begin());
-  thrust::copy(
-    handle_ptr->get_thrust_policy(), values_sorted.begin(), values_sorted.end(), values.begin());
-
-  cusparseDestroyMatDescr(matA);
-  cusparseDestroy(handle);
+    policy, permutation.begin(), permutation.end(), values.begin(), values_sorted.begin());
+  thrust::copy(policy, values_sorted.begin(), values_sorted.end(), values.begin());
 
   check_csr_representation(values, offsets, indices, handle_ptr, cols, rows);
 }

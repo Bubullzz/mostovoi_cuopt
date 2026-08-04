@@ -46,7 +46,7 @@ class bound_prop_recombiner_t : public recombiner_t<i_t, f_t> {
     // this is to give two possibilities to round in case of conflict
     thrust::for_each(
       guiding.handle_ptr->get_thrust_policy(),
-      thrust::make_counting_iterator(0),
+      thrust::make_counting_iterator(i_t(0)),
       thrust::make_counting_iterator(guiding.problem_ptr->n_variables),
       [guiding_view, other_view, probing_values = probing_values.data()] __device__(i_t idx) {
         f_t guiding_val = guiding_view.assignment[idx];

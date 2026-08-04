@@ -117,7 +117,7 @@ struct fj_settings_t {
 };
 
 struct fj_move_t {
-  int var_idx;
+  cuopt_int_t var_idx;
   double value;
 
   bool operator<(const fj_move_t& rhs) const

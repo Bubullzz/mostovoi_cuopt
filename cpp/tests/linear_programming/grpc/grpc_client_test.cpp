@@ -1821,8 +1821,8 @@ TEST(MapperRoundtrip, ProblemWithVariableTypes)
   std::vector<double> con_lb = {1.0};
   std::vector<double> con_ub = {1e20};
   std::vector<double> A_vals = {1.0, 1.0, 1.0};
-  std::vector<int32_t> A_idx = {0, 1, 2};
-  std::vector<int32_t> A_off = {0, 3};
+  std::vector<cuopt_int_t> A_idx = {0, 1, 2};
+  std::vector<cuopt_int_t> A_off = {0, 3};
 
   orig.set_objective_coefficients(obj.data(), 3);
   orig.set_maximize(true);
@@ -2308,14 +2308,14 @@ using QC = optimization_problem_interface_t<cuopt_int_t, double>::quadratic_cons
 
 // Q is canonical COO: parallel (rows, cols, vals), one entry per variable pair
 // with row <= col (upper-triangular).
-QC make_qc(int32_t row_index,
+QC make_qc(cuopt_int_t row_index,
            std::string name,
            char row_type,
            double rhs,
            std::vector<double> lin_vals,
-           std::vector<int32_t> lin_idx,
-           std::vector<int32_t> q_rows,
-           std::vector<int32_t> q_cols,
+           std::vector<cuopt_int_t> lin_idx,
+           std::vector<cuopt_int_t> q_rows,
+           std::vector<cuopt_int_t> q_cols,
            std::vector<double> q_vals)
 {
   QC qc;
@@ -2392,8 +2392,8 @@ void seed_minimal_problem(cpu_optimization_problem_t<cuopt_int_t, double>& probl
   std::vector<double> var_lb = {0.0, 0.0, 0.0};
   std::vector<double> var_ub = {10.0, 10.0, 10.0};
   std::vector<double> A_vals = {1.0, 1.0, 1.0};
-  std::vector<int32_t> A_idx = {0, 1, 2};
-  std::vector<int32_t> A_off = {0, 3};
+  std::vector<cuopt_int_t> A_idx = {0, 1, 2};
+  std::vector<cuopt_int_t> A_off = {0, 3};
   std::vector<double> b_lb   = {1.0};
   std::vector<double> b_ub   = {1e20};
   problem.set_objective_coefficients(obj.data(), 3);
@@ -2467,9 +2467,9 @@ TEST(MapperRoundtrip, QuadraticConstraintsChunkedPath)
   constexpr int n0_q      = 100;  // 100 COO entries (rows/cols int, vals double)
   constexpr int n1_linear = 32;
   std::vector<double> lv0(n0_linear);
-  std::vector<int32_t> li0(n0_linear);
-  std::vector<int32_t> qr0(n0_q);
-  std::vector<int32_t> qc0(n0_q);
+  std::vector<cuopt_int_t> li0(n0_linear);
+  std::vector<cuopt_int_t> qr0(n0_q);
+  std::vector<cuopt_int_t> qc0(n0_q);
   std::vector<double> qv0(n0_q);
   for (int i = 0; i < n0_linear; ++i) {
     lv0[i] = 0.5 * i + 1.0;
@@ -2487,7 +2487,7 @@ TEST(MapperRoundtrip, QuadraticConstraintsChunkedPath)
   ASSERT_EQ(q_idx, n0_q);
 
   std::vector<double> lv1(n1_linear);
-  std::vector<int32_t> li1(n1_linear);
+  std::vector<cuopt_int_t> li1(n1_linear);
   for (int i = 0; i < n1_linear; ++i) {
     lv1[i] = 100.0 + i;
     li1[i] = n1_linear - 1 - i;

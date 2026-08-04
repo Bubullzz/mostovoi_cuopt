@@ -53,7 +53,7 @@ void conditional_bound_strengthening_t<i_t, f_t>::resize(problem_t<i_t, f_t>& pr
   } catch (std::bad_alloc& e) {
     select_constraint_pairs_host(problem);
   }
-  async_fill(locks_per_constraint, 0, problem.handle_ptr->get_stream());
+  async_fill(locks_per_constraint, i_t(0), problem.handle_ptr->get_stream());
 }
 
 template <typename i_t, typename f_t>
@@ -90,10 +90,10 @@ void spgemm_cusparse([[maybe_unused]] rmm::device_uvector<i_t>& offsetsA,
   cusparseCreate(&handle);
   cusparseSetStream(handle, stream);
 
-  int m    = offsetsA.size() - 1;
-  int n    = offsetsB.size() - 1;
-  int nnzA = colsA.size();
-  int nnzB = colsB.size();
+  i_t m    = static_cast<i_t>(offsetsA.size() - 1);
+  i_t n    = static_cast<i_t>(offsetsB.size() - 1);
+  i_t nnzA = static_cast<i_t>(colsA.size());
+  i_t nnzB = static_cast<i_t>(colsB.size());
 
   offsetsC.resize(m + 1, stream);
 
@@ -248,17 +248,17 @@ void conditional_bound_strengthening_t<i_t, f_t>::select_constraint_pairs_host(
   auto reverse_constraints = cuopt::host_copy(problem.reverse_constraints, stream);
   auto reverse_offsets     = cuopt::host_copy(problem.reverse_offsets, stream);
 
-  std::vector<int2> constraint_pairs_h(max_pair_per_row * problem.n_constraints, {-1, -1});
-  std::unordered_set<int> cnstr_pair;
+  std::vector<pair_t> constraint_pairs_h(max_pair_per_row * problem.n_constraints, {-1, -1});
+  std::unordered_set<i_t> cnstr_pair;
 
-  i_t num_tasks = std::max(omp_get_num_threads() - 2, 1);
+  int num_tasks = std::max(omp_get_num_threads() - 2, 1);
 
   CUOPT_LOG_INFO("Selecting constraint pairs with %d tasks", num_tasks);
 #pragma omp taskloop num_tasks(num_tasks) private(cnstr_pair) default(shared) \
   priority(CUOPT_DEFAULT_TASK_PRIORITY)
   for (i_t cnstr = 0; cnstr < problem.n_constraints; ++cnstr) {
     for (i_t jj = offsets[cnstr]; jj < offsets[cnstr + 1]; ++jj) {
-      int var = variables[jj];
+      i_t var = variables[jj];
       for (i_t kk = reverse_offsets[var]; kk < reverse_offsets[var + 1]; ++kk) {
         if (reverse_constraints[kk] != cnstr) { cnstr_pair.insert(reverse_constraints[kk]); }
         if (cnstr_pair.size() == max_pair_per_row) { break; }
@@ -267,7 +267,7 @@ void conditional_bound_strengthening_t<i_t, f_t>::select_constraint_pairs_host(
       if (cnstr_pair.size() == max_pair_per_row) { break; }
     }
 
-    int counter = 0;
+    i_t counter = 0;
     for (auto& temp : cnstr_pair) {
       constraint_pairs_h[cnstr * max_pair_per_row + counter++] = {cnstr, temp};
     }
@@ -310,16 +310,16 @@ void conditional_bound_strengthening_t<i_t, f_t>::select_constraint_pairs_device
                   offsetsC,
                   colsC,
                   valsC);
-  std::vector<int2> constraint_pairs_h;
+  std::vector<pair_t> constraint_pairs_h;
   offsets_h = cuopt::host_copy(offsetsC, stream);
   cols_h    = cuopt::host_copy(colsC, stream);
 
   constraint_pairs_h.reserve(max_pair_per_row * problem.n_constraints);
-  for (int i = 0; i < problem.n_constraints; ++i) {
-    int cnstr_i = i;
-    int cnt     = 0;
-    for (int jj = offsets_h[i]; jj < offsets_h[i + 1]; ++jj) {
-      int cnstr_j = cols_h[jj];
+  for (i_t i = 0; i < problem.n_constraints; ++i) {
+    i_t cnstr_i = i;
+    i_t cnt     = 0;
+    for (i_t jj = offsets_h[i]; jj < offsets_h[i + 1]; ++jj) {
+      i_t cnstr_j = cols_h[jj];
       cuopt_expects(cnstr_j < problem.n_constraints && cnstr_j >= 0,
                     error_type_t::RuntimeError,
                     "Constraint index should be in range");
@@ -498,15 +498,16 @@ DI i_t binary_lookup(raft::device_span<i_t> arr, i_t begin, i_t end, i_t val)
 }
 
 template <typename i_t, typename f_t, int TPB>
-__global__ void update_constraint_bounds_kernel(typename problem_t<i_t, f_t>::view_t pb,
-                                                raft::device_span<int2> constraint_pairs,
-                                                raft::device_span<i_t> lock_per_constraint)
+__global__ void update_constraint_bounds_kernel(
+  typename problem_t<i_t, f_t>::view_t pb,
+  raft::device_span<typename cuopt::type_2<i_t>::type> constraint_pairs,
+  raft::device_span<i_t> lock_per_constraint)
 {
   auto constraint_pair = constraint_pairs[blockIdx.x];
-  int constr_i         = get_lower(constraint_pair);
+  i_t constr_i         = get_lower(constraint_pair);
   if (constr_i == -1) { return; }
 
-  int constr_j = get_upper(constraint_pair);
+  i_t constr_j = get_upper(constraint_pair);
 
   // FIXME:: for now handle only the constraints that fit in shared
   i_t offset_j                  = pb.offsets[constr_j];

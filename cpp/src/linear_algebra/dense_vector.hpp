@@ -134,11 +134,15 @@ class dense_vector_t : public std::vector<f_t, Allocator> {
   {
     const i_t n = this->size();
     if (static_cast<i_t>(b.size()) != n) {
-      printf("Error: b.size() %d != n %d\n", static_cast<i_t>(b.size()), n);
+      printf("Error: b.size() %lld != n %lld\n",
+             (long long)(static_cast<i_t>(b.size())),
+             (long long)(n));
       exit(1);
     }
     if (static_cast<i_t>(c.size()) != n) {
-      printf("Error: c.size() %d != n %d\n", static_cast<i_t>(c.size()), n);
+      printf("Error: c.size() %lld != n %lld\n",
+             (long long)(static_cast<i_t>(c.size())),
+             (long long)(n));
       exit(1);
     }
     for (i_t i = 0; i < n; i++) {

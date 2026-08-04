@@ -376,7 +376,7 @@ i_t csr_matrix_t<i_t, f_t>::append_rows(const csr_matrix_t<i_t, f_t>& C)
   const i_t old_nz = this->row_start[old_m];
   const i_t C_row  = C.m;
   if (C.n > n) {
-    printf("append_rows error: C.n %d n %d\n", C.n, n);
+    printf("append_rows error: C.n %lld n %lld\n", (long long)(C.n), (long long)(n));
     return -1;
   }
   const i_t C_nz   = C.row_start[C_row];
@@ -444,23 +444,32 @@ void csc_matrix_t<i_t, f_t>::print_matrix(FILE* fid) const
   for (i_t j = 0; j < this->n; ++j) {
     i_t p2 = this->col_start[j + 1];
     for (i_t p = this->col_start[j]; p < p2; ++p) {
-      fprintf(fid, "%d %d %.16e;\n", this->i[p] + 1, j + 1, this->x[p]);
+      fprintf(
+        fid, "%lld %lld %.16e;\n", (long long)(this->i[p] + 1), (long long)(j + 1), this->x[p]);
     }
   }
   fprintf(fid, "];\n");
-  fprintf(fid, "A = sparse(ijx(:, 1), ijx(:, 2), ijx(:, 3), %d, %d);\n", this->m, this->n);
+  fprintf(fid,
+          "A = sparse(ijx(:, 1), ijx(:, 2), ijx(:, 3), %lld, %lld);\n",
+          (long long)(this->m),
+          (long long)(this->n));
 }
 
 template <typename i_t, typename f_t>
 void csc_matrix_t<i_t, f_t>::write_matrix_market(FILE* fid) const
 {
   fprintf(fid, "%%%%MatrixMarket matrix coordinate real general\n");
-  fprintf(fid, "%d %d %d\n", this->m, this->n, this->col_start[this->n]);
+  fprintf(fid,
+          "%lld %lld %lld\n",
+          (long long)(this->m),
+          (long long)(this->n),
+          (long long)(this->col_start[this->n]));
   for (i_t j = 0; j < this->n; ++j) {
     const i_t col_beg = this->col_start[j];
     const i_t col_end = this->col_start[j + 1];
     for (i_t p = col_beg; p < col_end; ++p) {
-      fprintf(fid, "%d %d %.16e\n", this->i[p] + 1, j + 1, this->x[p]);
+      fprintf(
+        fid, "%lld %lld %.16e\n", (long long)(this->i[p] + 1), (long long)(j + 1), this->x[p]);
     }
   }
 }
@@ -580,28 +589,31 @@ i_t csc_matrix_t<i_t, f_t>::check_matrix(std::string matrix_name) const
   std::vector<i_t> row_marker(this->m, -1);
   for (i_t j = 0; j < this->n; ++j) {
     if (j >= col_start.size()) {
-      printf("Col start too small size %ld n %d\n", col_start.size(), this->n);
+      printf("Col start too small size %ld n %lld\n", col_start.size(), (long long)(this->n));
       return -1;
     }
     const i_t col_start = this->col_start[j];
     const i_t col_end   = this->col_start[j + 1];
     if (col_start > col_end || col_start > this->col_start[this->n]) {
-      printf("CSC error: column pointers. col start %d col end %d nz %d\n",
-             col_start,
-             col_end,
-             this->col_start[this->n]);
+      printf("CSC error: column pointers. col start %lld col end %lld nz %lld\n",
+             (long long)(col_start),
+             (long long)(col_end),
+             (long long)(this->col_start[this->n]));
       return -1;
     }
     for (i_t p = col_start; p < col_end; ++p) {
       const i_t i = this->i[p];
       if (i < 0 || i >= this->m) {
-        printf("CSC error (%s) : row index %d not in range [0, %d]\n",
+        printf("CSC error (%s) : row index %lld not in range [0, %lld]\n",
                matrix_name.c_str(),
-               i,
-               this->m - 1);
+               (long long)(i),
+               (long long)(this->m - 1));
       }
       if (row_marker[i] == j) {
-        printf("CSC error (%s) : repeated row index %d in column %d\n", matrix_name.c_str(), i, j);
+        printf("CSC error (%s) : repeated row index %lld in column %lld\n",
+               matrix_name.c_str(),
+               (long long)(i),
+               (long long)(j));
         return -1;
       }
       row_marker[i] = j;
@@ -646,11 +658,16 @@ i_t csr_matrix_t<i_t, f_t>::check_matrix(std::string matrix_name) const
     for (i_t p = row_start; p < row_end; ++p) {
       const i_t j = this->j[p];
       if (j < 0 || j >= this->n) {
-        printf("CSR Error: column index %d not in range [0, %d)\n", j, this->n);
+        printf("CSR Error: column index %lld not in range [0, %lld)\n",
+               (long long)(j),
+               (long long)(this->n));
         return -1;
       }
       if (col_marker[j] == i) {
-        printf("CSR Error (%s) : repeated column index %d in row %d\n", matrix_name.c_str(), j, i);
+        printf("CSR Error (%s) : repeated column index %lld in row %lld\n",
+               matrix_name.c_str(),
+               (long long)(j),
+               (long long)(i));
         return -1;
       }
       col_marker[j] = i;
@@ -951,54 +968,57 @@ template class csc_matrix_t<cuopt_int_t, double>;
 
 template class csr_matrix_t<cuopt_int_t, double>;
 
-template void cumulative_sum<cuopt_int_t>(std::vector<cuopt_int_t>& inout, std::vector<cuopt_int_t>& output);
+template void cumulative_sum<cuopt_int_t>(std::vector<cuopt_int_t>& inout,
+                                          std::vector<cuopt_int_t>& output);
 
 template cuopt_int_t coo_to_csc<cuopt_int_t, double>(const std::vector<cuopt_int_t>& Ai,
-                                     const std::vector<cuopt_int_t>& Aj,
-                                     const std::vector<double>& Ax,
-                                     csc_matrix_t<cuopt_int_t, double>& A);
+                                                     const std::vector<cuopt_int_t>& Aj,
+                                                     const std::vector<double>& Ax,
+                                                     csc_matrix_t<cuopt_int_t, double>& A);
 
-template cuopt_int_t scatter<cuopt_int_t, double>(
-  const csc_matrix_t<cuopt_int_t, double>& A,
-  cuopt_int_t j,
-                                  double beta,
-                                  std::vector<cuopt_int_t>& workspace,
-                                  std::vector<double>& x, cuopt_int_t mark,
-                                  csc_matrix_t<cuopt_int_t, double>& C, cuopt_int_t nz);
+template cuopt_int_t scatter<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                                  cuopt_int_t j,
+                                                  double beta,
+                                                  std::vector<cuopt_int_t>& workspace,
+                                                  std::vector<double>& x,
+                                                  cuopt_int_t mark,
+                                                  csc_matrix_t<cuopt_int_t, double>& C,
+                                                  cuopt_int_t nz);
 
-template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A, cuopt_int_t j,
-                                         double alpha,
-                                         std::vector<double>& x);
+template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                                 cuopt_int_t j,
+                                                 double alpha,
+                                                 std::vector<double>& x);
 
-template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A, cuopt_int_t j,
-                                         double alpha,
-                                         std::vector<double>& x,
-                                         std::vector<cuopt_int_t>& mark,
-                                         std::vector<cuopt_int_t>& indices);
+template void scatter_dense<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                                 cuopt_int_t j,
+                                                 double alpha,
+                                                 std::vector<double>& x,
+                                                 std::vector<cuopt_int_t>& mark,
+                                                 std::vector<cuopt_int_t>& indices);
 
 template cuopt_int_t multiply<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                   const csc_matrix_t<cuopt_int_t, double>& B,
-                                   csc_matrix_t<cuopt_int_t, double>& C);
+                                                   const csc_matrix_t<cuopt_int_t, double>& B,
+                                                   csc_matrix_t<cuopt_int_t, double>& C);
 
 template cuopt_int_t add<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                              const csc_matrix_t<cuopt_int_t, double>& B,
-                              double alpha,
-                              double beta,
-                              csc_matrix_t<cuopt_int_t, double>& C);
+                                              const csc_matrix_t<cuopt_int_t, double>& B,
+                                              double alpha,
+                                              double beta,
+                                              csc_matrix_t<cuopt_int_t, double>& C);
 
 template double sparse_dot<cuopt_int_t, double>(const std::vector<cuopt_int_t>& xind,
-                                        const std::vector<double>& xval,
-                                        const csc_matrix_t<cuopt_int_t, double>& Y,
-                                        cuopt_int_t y_col);
+                                                const std::vector<double>& xval,
+                                                const csc_matrix_t<cuopt_int_t, double>& Y,
+                                                cuopt_int_t y_col);
 
 // NOTE: matrix_vector_multiply is now templated on VectorX and VectorY.
 // Since it's defined inline in the header, no explicit instantiation is needed here.
 
-template cuopt_int_t matrix_transpose_vector_multiply<
-  cuopt_int_t,
-  double,
-  std::allocator<double>,
-  std::allocator<double>>(
+template cuopt_int_t matrix_transpose_vector_multiply<cuopt_int_t,
+                                                      double,
+                                                      std::allocator<double>,
+                                                      std::allocator<double>>(
   const csc_matrix_t<cuopt_int_t, double>& A,
   double alpha,
   const std::vector<double, std::allocator<double>>& x,

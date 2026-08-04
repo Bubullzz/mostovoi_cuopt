@@ -16,6 +16,7 @@
 #include <cuda/std/functional>
 #include <mip_heuristics/logger.cuh>
 #include <mip_heuristics/mip_constants.hpp>
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/copy_helpers.hpp>
 #include <utilities/seed_generator.cuh>
 
@@ -64,8 +65,8 @@ f_t bounds_repair_t<i_t, f_t>::get_ii_violation(problem_t<i_t, f_t>& problem)
   // calculate the violation and mark of violated constraints
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem.n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem.n_constraints,
     [pb_v                 = problem.view(),
      violated_cstr_map    = violated_cstr_map.data(),
      min_act              = bound_presolve.upd.min_activity.data(),
@@ -90,8 +91,8 @@ f_t bounds_repair_t<i_t, f_t>::get_ii_violation(problem_t<i_t, f_t>& problem)
       cstr_violations_down[cstr_idx] = curr_cstr_violation_down;
     });
   auto iter           = thrust::copy_if(handle_ptr->get_thrust_policy(),
-                              thrust::make_counting_iterator(0),
-                              thrust::make_counting_iterator(0) + problem.n_constraints,
+                              thrust::make_counting_iterator(i_t(0)),
+                              thrust::make_counting_iterator(i_t(0)) + problem.n_constraints,
                               violated_cstr_map.data(),
                               violated_constraints.data(),
                               cuda::std::identity{});

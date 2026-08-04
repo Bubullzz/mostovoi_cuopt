@@ -1310,7 +1310,7 @@ TEST(pdlp_class, first_primal_feasible_batch_different_rhs_stable3)
   std::fill(per_climber_lb.begin() + op_problem.get_n_constraints(), per_climber_lb.end(), 1000.0);
   std::fill(per_climber_ub.begin() + op_problem.get_n_constraints(), per_climber_ub.end(), 1000.0);
 
-  auto sol = solve_lp_batch_fixed(&handle_,
+  auto sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                   op_problem,
                                   solver_settings,
                                   batch_size,
@@ -1374,7 +1374,7 @@ TEST(pdlp_class, all_primal_feasible_batch_different_rhs_stable3)
   std::fill(per_climber_lb.begin() + op_problem.get_n_constraints(), per_climber_lb.end(), 1000.0);
   std::fill(per_climber_ub.begin() + op_problem.get_n_constraints(), per_climber_ub.end(), 1000.0);
 
-  auto sol = solve_lp_batch_fixed(&handle_,
+  auto sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                   op_problem,
                                   solver_settings,
                                   batch_size,
@@ -1519,7 +1519,7 @@ TEST(pdlp_class, first_primal_feasible_and_per_constraint_residual_batch_differe
   std::fill(per_climber_lb.begin() + op_problem.get_n_constraints(), per_climber_lb.end(), 1000.0);
   std::fill(per_climber_ub.begin() + op_problem.get_n_constraints(), per_climber_ub.end(), 1000.0);
 
-  auto sol = solve_lp_batch_fixed(&handle_,
+  auto sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                   op_problem,
                                   solver_settings,
                                   batch_size,
@@ -1586,7 +1586,7 @@ TEST(pdlp_class, all_primal_feasible_and_per_constraint_residual_batch_different
   std::fill(per_climber_lb.begin() + op_problem.get_n_constraints(), per_climber_lb.end(), 1000.0);
   std::fill(per_climber_ub.begin() + op_problem.get_n_constraints(), per_climber_ub.end(), 1000.0);
 
-  auto sol = solve_lp_batch_fixed(&handle_,
+  auto sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                   op_problem,
                                   solver_settings,
                                   batch_size,
@@ -1653,7 +1653,7 @@ TEST(pdlp_class, all_primal_feasible_and_per_constraint_residual_batch_many_diff
   std::vector<double> ref_objectives(batch_size);
   std::vector<pdlp_termination_status_t> ref_statuses(batch_size);
   std::vector<std::vector<double>> ref_primal_solutions(batch_size);
-  std::vector<int> ref_iteration_counts(batch_size);
+  std::vector<cuopt_int_t> ref_iteration_counts(batch_size);
   std::vector<cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>> ref_problems;
   ref_problems.reserve(batch_size);
 
@@ -1688,7 +1688,7 @@ TEST(pdlp_class, all_primal_feasible_and_per_constraint_residual_batch_many_diff
     EXPECT_EQ(ref_statuses[i], pdlp_termination_status_t::PrimalFeasible) << "climber " << i;
   }
 
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         batch_size,
@@ -1764,7 +1764,7 @@ TEST(pdlp_class, all_primal_feasible_and_per_constraint_residual_batch_many_diff
   std::vector<double> ref_objectives(batch_size);
   std::vector<pdlp_termination_status_t> ref_statuses(batch_size);
   std::vector<std::vector<double>> ref_primal_solutions(batch_size);
-  std::vector<int> ref_iteration_counts(batch_size);
+  std::vector<cuopt_int_t> ref_iteration_counts(batch_size);
   std::vector<cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>> ref_problems;
   ref_problems.reserve(batch_size);
 
@@ -1799,7 +1799,7 @@ TEST(pdlp_class, all_primal_feasible_and_per_constraint_residual_batch_many_diff
     EXPECT_EQ(ref_statuses[i], pdlp_termination_status_t::PrimalFeasible) << "climber " << i;
   }
 
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         batch_size,
@@ -2377,7 +2377,7 @@ TEST(pdlp_class, simple_batch_different_objectives)
   per_climber_objectives.insert(
     per_climber_objectives.end(), modified_obj.begin(), modified_obj.end());
 
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         /*batch_size=*/2,
@@ -2428,7 +2428,7 @@ TEST(pdlp_class, simple_batch_different_offsets)
   }
 
   // Solve as batch via fixed path with per-climber objective offsets.
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         /*batch_size=*/static_cast<int>(offsets.size()),
@@ -2485,7 +2485,7 @@ TEST(pdlp_class, simple_batch_different_objectives_and_offsets)
   per_climber_objectives.insert(per_climber_objectives.end(), obj_c1.begin(), obj_c1.end());
   per_climber_objectives.insert(per_climber_objectives.end(), obj_c2.begin(), obj_c2.end());
 
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         /*batch_size=*/2,
@@ -2555,7 +2555,7 @@ TEST(pdlp_class, simple_batch_different_constraint_bounds)
   }
 
   // Solve as a batch via fixed path with per-climber constraint bounds.
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         /*batch_size=*/static_cast<int>(batch_size),
@@ -2665,7 +2665,7 @@ TEST(pdlp_class, simple_batch_everything_different)
                                           std::get<2>(specs[c].new_bound)});
   }
 
-  auto batch_sol = solve_lp_batch_fixed(&handle_,
+  auto batch_sol = solve_lp_batch_fixed<cuopt_int_t, double>(&handle_,
                                         op_problem,
                                         solver_settings,
                                         /*batch_size=*/static_cast<int>(batch_size),
@@ -3278,7 +3278,7 @@ TEST(pdlp_class, strong_branching_test)
   cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
     cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, true);
 
-  const std::vector<int> fractional     = {1, 2, 4};
+  const std::vector<cuopt_int_t> fractional     = {1, 2, 4};
   const std::vector<double> root_soln_x = {0.891, 0.109, 0.636429};
 
   auto solver_settings             = pdlp_solver_settings_t<cuopt_int_t, double>{};
@@ -3385,7 +3385,7 @@ TEST(pdlp_class, strong_branching_user_api)
   cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
     cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, true);
 
-  const std::vector<int> fractional     = {1, 2, 4};
+  const std::vector<cuopt_int_t> fractional     = {1, 2, 4};
   const std::vector<double> root_soln_x = {0.891, 0.109, 0.636429};
 
   auto solver_settings             = pdlp_solver_settings_t<cuopt_int_t, double>{};
@@ -4191,7 +4191,7 @@ TEST(pdlp_class, shared_sb_view_batch_pre_solved)
   cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
     cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, true);
 
-  const std::vector<int> fractional     = {1, 2, 4};
+  const std::vector<cuopt_int_t> fractional     = {1, 2, 4};
   const std::vector<double> root_soln_x = {0.891, 0.109, 0.636429};
   const int n_fractional                = fractional.size();
   const int batch_size                  = n_fractional * 2;  // 6
@@ -4251,7 +4251,7 @@ TEST(pdlp_class, shared_sb_view_concurrent_mark)
   cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
     cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, true);
 
-  const std::vector<int> fractional     = {1, 2, 4};
+  const std::vector<cuopt_int_t> fractional     = {1, 2, 4};
   const std::vector<double> root_soln_x = {0.891, 0.109, 0.636429};
   const int n_fractional                = fractional.size();
   const int batch_size                  = n_fractional * 2;
@@ -4323,7 +4323,7 @@ TEST(pdlp_class, shared_sb_view_all_infeasible)
   cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
     cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(path, true);
 
-  const std::vector<int> fractional     = {1, 2, 4};
+  const std::vector<cuopt_int_t> fractional     = {1, 2, 4};
   const std::vector<double> root_soln_x = {0.891, 0.109, 0.636429};
   const int n_fractional                = fractional.size();
   const int batch_size                  = n_fractional;

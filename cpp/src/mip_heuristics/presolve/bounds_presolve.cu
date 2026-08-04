@@ -335,7 +335,7 @@ void bound_presolve_t<i_t, f_t>::calc_and_set_updated_constraint_bounds(problem_
   calculate_activity_on_problem_bounds(pb);
 
   thrust::for_each(pb.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(pb.n_constraints),
                    [pb      = pb.view(),
                     min_act = make_span(upd.min_activity),

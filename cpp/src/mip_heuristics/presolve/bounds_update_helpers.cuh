@@ -8,6 +8,7 @@
 #include <thrust/pair.h>
 #include <mip_heuristics/problem/problem.cuh>
 #include <mip_heuristics/utils.cuh>
+#include <utilities/atomic_helpers.cuh>
 #include "bounds_update_data.cuh"
 
 namespace cuopt::mathematical_optimization::mip {

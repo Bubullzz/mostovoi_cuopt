@@ -8,6 +8,7 @@
 #pragma once
 
 #include <mip_heuristics/problem/problem.cuh>
+#include <utilities/atomic_helpers.cuh>
 
 namespace cuopt::mathematical_optimization::mip {
 

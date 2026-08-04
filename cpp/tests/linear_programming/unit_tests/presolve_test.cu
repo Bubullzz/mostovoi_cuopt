@@ -37,8 +37,8 @@ namespace cuopt::mathematical_optimization::test {
 
 // Helper function to compute constraint residuals for the original problem
 static void compute_constraint_residuals(const std::vector<double>& coefficients,
-                                         const std::vector<int>& indices,
-                                         const std::vector<int>& offsets,
+                                         const std::vector<cuopt_int_t>& indices,
+                                         const std::vector<cuopt_int_t>& offsets,
                                          const std::vector<double>& solution,
                                          std::vector<double>& residuals)
 {
@@ -47,7 +47,7 @@ static void compute_constraint_residuals(const std::vector<double>& coefficients
   // CSR SpMV: A * x
   for (size_t i = 0; i < n_constraints; ++i) {
     residuals[i] = 0.0;
-    for (int j = offsets[i]; j < offsets[i + 1]; ++j) {
+    for (cuopt_int_t j = offsets[i]; j < offsets[i + 1]; ++j) {
       residuals[i] += coefficients[j] * solution[indices[j]];
     }
   }
@@ -106,8 +106,8 @@ static void check_variable_bounds(const std::vector<double>& solution,
 }
 
 static void compute_transpose_matvec(const std::vector<double>& values,
-                                     const std::vector<int>& indices,
-                                     const std::vector<int>& offsets,
+                                     const std::vector<cuopt_int_t>& indices,
+                                     const std::vector<cuopt_int_t>& offsets,
                                      const std::vector<double>& y,
                                      int n_cols,
                                      std::vector<double>& result)
@@ -121,7 +121,7 @@ static void compute_transpose_matvec(const std::vector<double>& values,
   result.assign(n_cols, 0.0);
   std::vector<double> kahan_compensation(n_cols, 0.0);
   for (size_t i = 0; i < n_rows; ++i) {
-    for (int j = offsets[i]; j < offsets[i + 1]; ++j) {
+    for (cuopt_int_t j = offsets[i]; j < offsets[i + 1]; ++j) {
       int col = indices[j];
       assert(col >= 0 && col < n_cols);
       double delta            = values[j] * y[i];

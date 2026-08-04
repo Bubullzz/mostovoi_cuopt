@@ -23,7 +23,7 @@ TEST(second_order_cone_kernels, topology_and_scratch_layout)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 2, 5};
+  std::vector<cuopt_int_t> cone_dimensions{3, 2, 5};
   rmm::device_uvector<double> x(10, stream);
   rmm::device_uvector<double> z(10, stream);
 
@@ -37,9 +37,9 @@ TEST(second_order_cone_kernels, topology_and_scratch_layout)
   EXPECT_EQ(cuopt::host_copy(cones.cone_offsets, stream), (std::vector<std::size_t>{0, 3, 5, 10}));
   EXPECT_EQ(cuopt::host_copy(cones.cone_dimensions, stream), cone_dimensions);
   EXPECT_EQ(cuopt::host_copy(cones.element_cone_ids, stream),
-            (std::vector<int>{0, 0, 0, 1, 1, 2, 2, 2, 2, 2}));
+            (std::vector<cuopt_int_t>{0, 0, 0, 1, 1, 2, 2, 2, 2, 2}));
   EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.small_cone_ids, stream),
-            (std::vector<int>{0, 1, 2}));
+            (std::vector<cuopt_int_t>{0, 1, 2}));
   EXPECT_TRUE(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream).empty());
   EXPECT_TRUE(cones.segmented_sum.large_cone_ids.empty());
   EXPECT_TRUE(cones.segmented_sum.large_cone_offsets.empty());
@@ -65,17 +65,17 @@ TEST(second_order_cone_kernels, segmented_sum_uses_all_cone_size_buckets)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{65, 3, 66, 32769};
+  std::vector<cuopt_int_t> cone_dimensions{65, 3, 66, 32769};
   rmm::device_uvector<double> x(32903, stream);
   rmm::device_uvector<double> z(32903, stream);
   cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
-  EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.small_cone_ids, stream), (std::vector<int>{1}));
+  EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.small_cone_ids, stream), (std::vector<cuopt_int_t>{1}));
   EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream),
-            (std::vector<int>{0, 2}));
-  EXPECT_EQ(cones.segmented_sum.large_cone_ids, (std::vector<int>{3}));
+            (std::vector<cuopt_int_t>{0, 2}));
+  EXPECT_EQ(cones.segmented_sum.large_cone_ids, (std::vector<cuopt_int_t>{3}));
   EXPECT_EQ(cones.segmented_sum.large_cone_offsets, (std::vector<std::size_t>{134}));
-  EXPECT_EQ(cones.segmented_sum.large_cone_dimensions, (std::vector<int>{32769}));
+  EXPECT_EQ(cones.segmented_sum.large_cone_dimensions, (std::vector<cuopt_int_t>{32769}));
 
   std::vector<double> values_host(cones.n_cone_entries, 1.0);
   rmm::device_uvector<double> values(values_host.size(), stream);
@@ -96,7 +96,7 @@ TEST(second_order_cone_kernels, nt_scaling_matches_host_reference)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 65, 32769};
+  std::vector<cuopt_int_t> cone_dimensions{3, 65, 32769};
   std::size_t n_cone_entries = 0;
   for (const auto dim : cone_dimensions) {
     n_cone_entries += static_cast<std::size_t>(dim);
@@ -208,7 +208,7 @@ TEST(second_order_cone_kernels, nt_scaling_many_small_one_medium_cone)
   auto stream = rmm::cuda_stream_default;
 
   // chainsing-like topology: many small cones plus one dim-1000 medium cone (warp_cone_dim=64).
-  std::vector<int> cone_dimensions;
+  std::vector<cuopt_int_t> cone_dimensions;
   cone_dimensions.reserve(21);
   for (int i = 0; i < 20; ++i) {
     cone_dimensions.push_back(3);
@@ -238,7 +238,7 @@ TEST(second_order_cone_kernels, nt_scaling_many_small_one_medium_cone)
   auto z = cuopt::device_copy(z_host, stream);
   cone_data_t<cuopt_int_t, double> cones(cone_dimensions, cuopt::make_span(x), cuopt::make_span(z), stream);
 
-  EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream), (std::vector<int>{20}));
+  EXPECT_EQ(cuopt::host_copy(cones.segmented_sum.medium_cone_ids, stream), (std::vector<cuopt_int_t>{20}));
   EXPECT_EQ(cones.n_sparse_cones, 1);
 
   launch_nt_scaling(cones, stream);
@@ -312,7 +312,7 @@ TEST(second_order_cone_kernels, cone_step_length_many_small_one_sparse_medium_co
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions;
+  std::vector<cuopt_int_t> cone_dimensions;
   for (int i = 0; i < 20; ++i) {
     cone_dimensions.push_back(3);
   }
@@ -370,7 +370,7 @@ TEST(second_order_cone_kernels, cone_step_length_keeps_iterate_in_cone)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 65, 32769, 40000};
+  std::vector<cuopt_int_t> cone_dimensions{3, 65, 32769, 40000};
   std::size_t n_cone_entries = 0;
   for (const auto dim : cone_dimensions) {
     n_cone_entries += static_cast<std::size_t>(dim);
@@ -524,7 +524,7 @@ TEST(second_order_cone_kernels, scaling_operators_match_host_reference)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 65, 32769};
+  std::vector<cuopt_int_t> cone_dimensions{3, 65, 32769};
   std::size_t n_cone_entries = 0;
   for (const auto dim : cone_dimensions) {
     n_cone_entries += static_cast<std::size_t>(dim);
@@ -653,7 +653,7 @@ TEST(second_order_cone_kernels, combined_cone_rhs_matches_host_reference)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 65, 32769};
+  std::vector<cuopt_int_t> cone_dimensions{3, 65, 32769};
   std::size_t n_cone_entries = 0;
   for (const auto dim : cone_dimensions) {
     n_cone_entries += static_cast<std::size_t>(dim);
@@ -816,7 +816,7 @@ TEST(second_order_cone_kernels, sparse_cone_classification)
   auto stream = rmm::cuda_stream_default;
 
   // threshold=5: cones of dim 3,2 are dense; dim 6,32769 are sparse
-  std::vector<int> cone_dimensions{3, 6, 2, 32769};
+  std::vector<cuopt_int_t> cone_dimensions{3, 6, 2, 32769};
   rmm::device_uvector<double> x(32780, stream);
   rmm::device_uvector<double> z(32780, stream);
 
@@ -831,8 +831,8 @@ TEST(second_order_cone_kernels, sparse_cone_classification)
   EXPECT_EQ(cones.d.size(), 2u);
   EXPECT_EQ(cones.sparse_v.size(), 32775u);
   EXPECT_EQ(cones.sparse_u.size(), 32775u);
-  EXPECT_EQ(cuopt::host_copy(cones.sparse_cone_ids, stream), (std::vector<int>{1, 3}));
-  EXPECT_EQ(cuopt::host_copy(cones.sparse_cone_dims, stream), (std::vector<int>{6, 32769}));
+  EXPECT_EQ(cuopt::host_copy(cones.sparse_cone_ids, stream), (std::vector<cuopt_int_t>{1, 3}));
+  EXPECT_EQ(cuopt::host_copy(cones.sparse_cone_dims, stream), (std::vector<cuopt_int_t>{6, 32769}));
 }
 
 namespace {
@@ -869,7 +869,7 @@ TEST(second_order_cone_kernels, update_scaling_sparse_matches_reference)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 6};
+  std::vector<cuopt_int_t> cone_dimensions{3, 6};
   rmm::device_uvector<double> x(9, stream);
   rmm::device_uvector<double> z(9, stream);
 
@@ -928,7 +928,7 @@ TEST(second_order_cone_kernels, update_scaling_sparse_two_cones)
   auto stream = rmm::cuda_stream_default;
 
   // sparse cones: dim 6 (offset 3) and dim 5 (offset 9)
-  std::vector<int> cone_dimensions{3, 6, 5};
+  std::vector<cuopt_int_t> cone_dimensions{3, 6, 5};
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
 

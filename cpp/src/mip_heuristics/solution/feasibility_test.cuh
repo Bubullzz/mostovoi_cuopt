@@ -23,8 +23,8 @@ __global__ void test_feasibility_kernel(typename solution_t<i_t, f_t>::view_t so
   bool feasible     = val > sol.problem.constraint_lower_bounds[c] - abs_tolerance &&
                   val < sol.problem.constraint_upper_bounds[c] + abs_tolerance;
   if (!feasible) {
-    printf("c %d is infeasible val %f lower %f upper %f\n",
-           c,
+    printf("c %lld is infeasible val %f lower %f upper %f\n",
+           (long long)(c),
            val,
            sol.problem.constraint_lower_bounds[c],
            sol.problem.constraint_upper_bounds[c]);
@@ -42,29 +42,29 @@ __global__ void test_variable_bounds_kernel(typename solution_t<i_t, f_t>::view_
   f_t val       = sol.assignment[v];
   bool feasible = true;
   if (!isfinite(val)) {
-    printf("inf var %d val %f l %f u %f integer %d\n",
-           v,
+    printf("inf var %lld val %f l %f u %f integer %lld\n",
+           (long long)(v),
            val,
            get_lower(sol.problem.variable_bounds[v]),
            get_upper(sol.problem.variable_bounds[v]),
-           sol.problem.is_integer_var(v));
+           (long long)(sol.problem.is_integer_var(v)));
   }
   cuopt_assert(isfinite(val), "assignment should be finite!");
   if (check_integer && sol.problem.is_integer_var(v)) {
     if (!sol.problem.is_integer(val)) {
       feasible = false;
-      printf("var %d val %f\n", v, val);
+      printf("var %lld val %f\n", (long long)(v), val);
     }
     cuopt_assert(sol.problem.is_integer(val), "The variable must be integer");
   }
   if (!sol.problem.check_variable_within_bounds(v, val)) {
     feasible = false;
-    printf("oob var %d val %f l %f u %f integer %d\n",
-           v,
+    printf("oob var %lld val %f l %f u %f integer %lld\n",
+           (long long)(v),
            val,
            get_lower(sol.problem.variable_bounds[v]),
            get_upper(sol.problem.variable_bounds[v]),
-           sol.problem.is_integer_var(v));
+           (long long)(sol.problem.is_integer_var(v)));
   }
   cuopt_assert(feasible, "Variables should be feasible");
   if (is_feasible != nullptr) { *is_feasible = feasible; }

@@ -95,11 +95,12 @@ inline cuopt::init_logger_t dummy_logger(
  * @param mps_reader MPS reader implementation selected by the CLI
  * @param settings Merged solver settings (config file loaded in main, then CLI overrides applied)
  */
-int run_single_file(const std::string& file_path,
-                    const std::string& initial_solution_file,
-                    bool solve_relaxation,
-                    cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
-                    cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>& settings)
+int run_single_file(
+  const std::string& file_path,
+  const std::string& initial_solution_file,
+  bool solve_relaxation,
+  cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
+  cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>& settings)
 {
   cuopt::init_logger_t log(settings.get_parameter<std::string>(CUOPT_LOG_FILE),
                            settings.get_parameter<bool>(CUOPT_LOG_TO_CONSOLE));
@@ -130,17 +131,18 @@ int run_single_file(const std::string& file_path,
   // Create handle only for GPU memory backend (avoid CUDA init on CPU-only hosts)
   auto memory_backend = cuopt::mathematical_optimization::get_memory_backend_type();
   std::unique_ptr<raft::handle_t> handle_ptr;
-  std::unique_ptr<cuopt::mathematical_optimization::optimization_problem_interface_t<cuopt_int_t, double>>
+  std::unique_ptr<
+    cuopt::mathematical_optimization::optimization_problem_interface_t<cuopt_int_t, double>>
     problem_interface;
 
   if (memory_backend == cuopt::mathematical_optimization::memory_backend_t::GPU) {
-    handle_ptr = std::make_unique<raft::handle_t>();
-    problem_interface =
-      std::make_unique<cuopt::mathematical_optimization::optimization_problem_t<cuopt_int_t, double>>(
-        handle_ptr.get());
+    handle_ptr        = std::make_unique<raft::handle_t>();
+    problem_interface = std::make_unique<
+      cuopt::mathematical_optimization::optimization_problem_t<cuopt_int_t, double>>(
+      handle_ptr.get());
   } else {
-    problem_interface =
-      std::make_unique<cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double>>();
+    problem_interface = std::make_unique<
+      cuopt::mathematical_optimization::cpu_optimization_problem_t<cuopt_int_t, double>>();
   }
 
   // Distributed PDLP is used for large problems that don't fit on a single GPU.
@@ -486,7 +488,7 @@ int main(int argc, char* argv[])
 
   if (memory_backend == cuopt::mathematical_optimization::memory_backend_t::GPU) {
     int device_count   = raft::device_setter::get_device_count();
-    int requested_gpus = settings.get_parameter<int>(CUOPT_NUM_GPUS);
+    int requested_gpus = settings.get_parameter<cuopt_int_t>(CUOPT_NUM_GPUS);
     if (requested_gpus == -1) {
       requested_gpus                        = device_count;
       settings.get_pdlp_settings().num_gpus = requested_gpus;

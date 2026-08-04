@@ -32,22 +32,26 @@ void set_primal_variables_on_bounds(const lp_problem_t<i_t, f_t>& lp,
     if (vstatus[j] == variable_status_t::BASIC) { continue; }
     if (vstatus[j] == variable_status_t::NONBASIC_FIXED) {
       if (std::abs(lp.lower[j] - x[j]) > diff_tol) {
-        settings.log.debug("Changing x %d from %e to %e. Nonbasic fixed\n", j, x[j], lp.lower[j]);
+        settings.log.debug(
+          "Changing x %lld from %e to %e. Nonbasic fixed\n", (long long)(j), x[j], lp.lower[j]);
       }
       x[j] = lp.lower[j];
     } else if (vstatus[j] == variable_status_t::NONBASIC_LOWER) {
       if (std::abs(lp.lower[j] - x[j]) > diff_tol) {
-        settings.log.debug("Changing x %d from %e to %e. Nonbasic lower\n", j, x[j], lp.lower[j]);
+        settings.log.debug(
+          "Changing x %lld from %e to %e. Nonbasic lower\n", (long long)(j), x[j], lp.lower[j]);
       }
       x[j] = lp.lower[j];
     } else if (vstatus[j] == variable_status_t::NONBASIC_UPPER) {
       if (std::abs(lp.upper[j] - x[j]) > diff_tol) {
-        settings.log.debug("Changing x %d from %e to %e. Nonbasic upper\n", j, x[j], lp.upper[j]);
+        settings.log.debug(
+          "Changing x %lld from %e to %e. Nonbasic upper\n", (long long)(j), x[j], lp.upper[j]);
       }
       x[j] = lp.upper[j];
     } else if (vstatus[j] == variable_status_t::NONBASIC_FREE) {
       if (std::abs(x[j]) > diff_tol) {
-        settings.log.debug("Changing x %d from %e to %e. Nonbasic free\n", j, x[j], 0.0);
+        settings.log.debug(
+          "Changing x %lld from %e to %e. Nonbasic free\n", (long long)(j), x[j], 0.0);
       }
       x[j] = 0;  // Set nonbasic free variables to 0 this overwrites previous lines
     } else {
@@ -213,8 +217,8 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       const f_t infeas = -x[j] + lp.lower[j];
       primal_inf += infeas;
       if (infeas > 1e-6) {
-        settings.log.debug("x %d infeas %e lo %e val %e up %e vstatus %hhd\n",
-                           j,
+        settings.log.debug("x %lld infeas %e lo %e val %e up %e vstatus %hhd\n",
+                           (long long)(j),
                            infeas,
                            lp.lower[j],
                            x[j],
@@ -227,8 +231,8 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       const f_t infeas = x[j] - lp.upper[j];
       primal_inf += infeas;
       if (infeas > 1e-6) {
-        settings.log.debug("x %d infeas %e lo %e val %e up %e vstatus %hhd\n",
-                           j,
+        settings.log.debug("x %lld infeas %e lo %e val %e up %e vstatus %hhd\n",
+                           (long long)(j),
                            infeas,
                            lp.lower[j],
                            x[j],
@@ -278,11 +282,11 @@ primal_status_t primal_phase2(i_t phase,
   std::vector<f_t> incoming_x                     = x;
   std::vector<variable_status_t> incoming_vstatus = vstatus;
 
-  settings.log.printf("Primal Simplex Phase %d\n", phase);
-  settings.log.printf("Solving a problem with %d constraints %d variables %d nonzeros\n",
-                      lp.num_rows,
-                      lp.num_cols,
-                      lp.A.col_start[lp.num_cols]);
+  settings.log.printf("Primal Simplex Phase %lld\n", (long long)(phase));
+  settings.log.printf("Solving a problem with %lld constraints %lld variables %lld nonzeros\n",
+                      (long long)(lp.num_rows),
+                      (long long)(lp.num_cols),
+                      (long long)(lp.A.col_start[lp.num_cols]));
 
   get_basis_from_vstatus(m, vstatus, basic_list, nonbasic_list, superbasic_list);
   assert(superbasic_list.size() == 0);
@@ -316,7 +320,8 @@ primal_status_t primal_phase2(i_t phase,
     return toc(start_time) > settings.time_limit ? primal_status_t::TIME_LIMIT
                                                  : primal_status_t::NUMERICAL;
   } else if (rank != m) {
-    settings.log.debug("Failed to factorize basis. rank %d m %d\n", rank, m);
+    settings.log.debug(
+      "Failed to factorize basis. rank %lld m %lld\n", (long long)(rank), (long long)(m));
     basis_repair(lp.A,
                  settings,
                  lp.lower,
@@ -345,7 +350,9 @@ primal_status_t primal_phase2(i_t phase,
     } else if (rank == TIME_LIMIT_RETURN) {
       return primal_status_t::TIME_LIMIT;
     } else if (rank < 0) {
-      settings.log.printf("Failed to factorize basis after repair. rank %d m %d\n", rank, m);
+      settings.log.printf("Failed to factorize basis after repair. rank %lld m %lld\n",
+                          (long long)(rank),
+                          (long long)(m));
       return toc(start_time) > settings.time_limit ? primal_status_t::TIME_LIMIT
                                                    : primal_status_t::NUMERICAL;
     } else {
@@ -439,11 +446,11 @@ primal_status_t primal_phase2(i_t phase,
       f_t primal_inf = primal_infeasibility(lp, settings, vstatus, x);
       settings.log.printf(
         "Optimal solution found. Objective %e. Dual infeas %e. Primal "
-        "infeasibility %e. Iterations %d\n",
+        "infeasibility %e. Iterations %lld\n",
         compute_user_objective(lp, obj),
         dual_inf,
         primal_inf,
-        iter);
+        (long long)(iter));
       return primal_status_t::OPTIMAL;
     }
 
@@ -529,14 +536,14 @@ primal_status_t primal_phase2(i_t phase,
 
     const f_t obj        = compute_objective(lp, x);
     const f_t primal_inf = primal_infeasibility(lp, settings, vstatus, x);
-    settings.log.printf("%3d %.10e %.2e %.2e %.2e %d %d\n",
-                        iter,
+    settings.log.printf("%3lld %.10e %.2e %.2e %.2e %lld %lld\n",
+                        (long long)(iter),
                         compute_user_objective(lp, obj),
                         primal_inf,
                         dual_inf,
                         step_length,
-                        entering_index,
-                        leaving_index);
+                        (long long)(entering_index),
+                        (long long)(leaving_index));
 
     iter++;
   }
@@ -549,13 +556,13 @@ primal_status_t primal_phase2(i_t phase,
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
 template primal_status_t primal_phase2<cuopt_int_t, double>(
-  int phase,
+  cuopt_int_t phase,
   double start_time,
   const lp_problem_t<cuopt_int_t, double>& lp,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<variable_status_t>& vstatus,
   lp_solution_t<cuopt_int_t, double>& sol,
-  int& iter);
+  cuopt_int_t& iter);
 
 #endif
 

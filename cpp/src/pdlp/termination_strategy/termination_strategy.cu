@@ -229,14 +229,14 @@ __global__ void check_termination_criteria_kernel(
 #ifdef PDLP_VERBOSE_MODE
   if (idx == 0) {
     printf(
-      "Gap : %lf <= %lf [%d] (tolerance.absolute_gap_tolerance %lf + "
+      "Gap : %lf <= %lf [%lld] (tolerance.absolute_gap_tolerance %lf + "
       "tolerance.relative_gap_tolerance %lf * convergence_information.abs_objective %lf)\n",
       convergence_information.gap[idx],
       tolerance.absolute_gap_tolerance +
         tolerance.relative_gap_tolerance * convergence_information.abs_objective[idx],
-      convergence_information.gap[idx] <=
-        tolerance.absolute_gap_tolerance +
-          tolerance.relative_gap_tolerance * convergence_information.abs_objective[idx],
+      (long long)(convergence_information.gap[idx] <=
+                  tolerance.absolute_gap_tolerance +
+                    tolerance.relative_gap_tolerance * convergence_information.abs_objective[idx]),
       tolerance.absolute_gap_tolerance,
       tolerance.relative_gap_tolerance,
       convergence_information.abs_objective[idx]);
@@ -253,46 +253,46 @@ __global__ void check_termination_criteria_kernel(
         tolerance.absolute_dual_tolerance);
     } else {
       printf(
-        "Primal residual  %lf <= %lf [%d] (tolerance.absolute_primal_tolerance %lf + "
+        "Primal residual  %lf <= %lf [%lld] (tolerance.absolute_primal_tolerance %lf + "
         "tolerance.relative_primal_tolerance %lf * "
         "convergence_information.l2_norm_primal_right_hand_side %lf)\n",
         convergence_information.l2_primal_residual[idx],
         tolerance.absolute_primal_tolerance +
           tolerance.relative_primal_tolerance *
             convergence_information.l2_norm_primal_right_hand_side[idx],
-        convergence_information.l2_primal_residual[idx] <=
-          tolerance.absolute_primal_tolerance +
-            tolerance.relative_primal_tolerance *
-              convergence_information.l2_norm_primal_right_hand_side[idx],
+        (long long)(convergence_information.l2_primal_residual[idx] <=
+                    tolerance.absolute_primal_tolerance +
+                      tolerance.relative_primal_tolerance *
+                        convergence_information.l2_norm_primal_right_hand_side[idx]),
         tolerance.absolute_primal_tolerance,
         tolerance.relative_primal_tolerance,
         convergence_information.l2_norm_primal_right_hand_side[idx]);
       printf(
-        "Dual residual  %lf <= %lf [%d] (tolerance.absolute_dual_tolerance %lf + "
+        "Dual residual  %lf <= %lf [%lld] (tolerance.absolute_dual_tolerance %lf + "
         "tolerance.relative_dual_tolerance %lf * "
         "convergence_information.l2_norm_primal_linear_objective %lf)\n",
         convergence_information.l2_dual_residual[idx],
         tolerance.absolute_dual_tolerance +
           tolerance.relative_dual_tolerance *
             convergence_information.l2_norm_primal_linear_objective[idx],
-        convergence_information.l2_dual_residual[idx] <=
-          tolerance.absolute_dual_tolerance +
-            tolerance.relative_dual_tolerance *
-              convergence_information.l2_norm_primal_linear_objective[idx],
+        (long long)(convergence_information.l2_dual_residual[idx] <=
+                    tolerance.absolute_dual_tolerance +
+                      tolerance.relative_dual_tolerance *
+                        convergence_information.l2_norm_primal_linear_objective[idx]),
         tolerance.absolute_dual_tolerance,
         tolerance.relative_dual_tolerance,
         convergence_information.l2_norm_primal_linear_objective[idx]);
     }
     if (infeasibility_detection) {
       printf(
-        "Primal infeasible ? [%d] : infeasibility_information.dual_ray_linear_objective (should "
+        "Primal infeasible ? [%lld] : infeasibility_information.dual_ray_linear_objective (should "
         "positive) %lf / "
         "infeasibility_information.max_dual_ray_infeasibility %lf = %lf <= "
         "tolerance.primal_infeasible_tolerance %lf\n",
-        infeasibility_information.dual_ray_linear_objective[idx] > f_t(0.0) &&
-          infeasibility_information.max_dual_ray_infeasibility[idx] /
-              infeasibility_information.dual_ray_linear_objective[idx] <=
-            tolerance.primal_infeasible_tolerance,
+        (long long)(infeasibility_information.dual_ray_linear_objective[idx] > f_t(0.0) &&
+                    infeasibility_information.max_dual_ray_infeasibility[idx] /
+                        infeasibility_information.dual_ray_linear_objective[idx] <=
+                      tolerance.primal_infeasible_tolerance),
         infeasibility_information.dual_ray_linear_objective[idx],
         infeasibility_information.max_dual_ray_infeasibility[idx],
         infeasibility_information.max_dual_ray_infeasibility[idx] /
@@ -711,16 +711,17 @@ void pdlp_termination_strategy_t<i_t, f_t>::print_termination_criteria(i_t itera
                  elapsed);
 }
 
-#define INSTANTIATE(F_TYPE)                                                                    \
-  template class pdlp_termination_strategy_t<cuopt_int_t, F_TYPE>;                                     \
-                                                                                               \
-  template __global__ void check_termination_criteria_kernel<cuopt_int_t, F_TYPE>(                     \
-    const typename convergence_information_t<cuopt_int_t, F_TYPE>::view_t convergence_information,     \
-    const typename infeasibility_information_t<cuopt_int_t, F_TYPE>::view_t infeasibility_information, \
-    raft::device_span<cuopt_int_t> termination_status,                                         \
-    typename pdlp_solver_settings_t<cuopt_int_t, F_TYPE>::tolerances_t tolerances,                     \
-    bool infeasibility_detection,                                                              \
-    bool per_constraint_residual,                                                              \
+#define INSTANTIATE(F_TYPE)                                                                        \
+  template class pdlp_termination_strategy_t<cuopt_int_t, F_TYPE>;                                 \
+                                                                                                   \
+  template __global__ void check_termination_criteria_kernel<cuopt_int_t, F_TYPE>(                 \
+    const typename convergence_information_t<cuopt_int_t, F_TYPE>::view_t convergence_information, \
+    const typename infeasibility_information_t<cuopt_int_t, F_TYPE>::view_t                        \
+      infeasibility_information,                                                                   \
+    raft::device_span<cuopt_int_t> termination_status,                                             \
+    typename pdlp_solver_settings_t<cuopt_int_t, F_TYPE>::tolerances_t tolerances,                 \
+    bool infeasibility_detection,                                                                  \
+    bool per_constraint_residual,                                                                  \
     cuopt_int_t batch_size);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT

@@ -13,6 +13,7 @@
 #include <raft/core/device_span.hpp>
 #include <raft/core/handle.hpp>
 #include <rmm/device_uvector.hpp>
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/copy_helpers.hpp>
 
 namespace cuopt::mathematical_optimization::mip {
@@ -74,7 +75,7 @@ __global__ void count_bin_sizes(
 {
   constexpr int BinCount = NumberBins<i_t>;
   __shared__ i_t lBin[BinCount];
-  for (int i = threadIdx.x; i < BinCount; i += blockDim.x) {
+  for (i_t i = threadIdx.x; i < BinCount; i += blockDim.x) {
     lBin[i] = 0;
   }
   __syncthreads();
@@ -94,7 +95,7 @@ __global__ void count_bin_sizes(
   }
   __syncthreads();
 
-  for (int i = threadIdx.x; i < BinCount; i += blockDim.x) {
+  for (i_t i = threadIdx.x; i < BinCount; i += blockDim.x) {
     atomicAdd(bins + i, lBin[i]);
   }
 }
@@ -242,8 +243,8 @@ class vertex_bin_t {
     : tempBins_(NumberBins<i_t>, handle_ptr->get_stream()),
       bin_offsets_(NumberBins<i_t>, handle_ptr->get_stream())
   {
-    thrust::fill(handle_ptr->get_thrust_policy(), bin_offsets_.begin(), bin_offsets_.end(), 0);
-    thrust::fill(handle_ptr->get_thrust_policy(), tempBins_.begin(), tempBins_.end(), 0);
+    thrust::fill(handle_ptr->get_thrust_policy(), bin_offsets_.begin(), bin_offsets_.end(), i_t{0});
+    thrust::fill(handle_ptr->get_thrust_policy(), tempBins_.begin(), tempBins_.end(), i_t{0});
   }
 
   void setup(const i_t* offsets, unsigned* active_bitmap, i_t vertex_begin, i_t vertex_end)

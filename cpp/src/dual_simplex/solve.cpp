@@ -43,7 +43,7 @@ void write_matlab(const std::string& filename, const simplex::lp_problem_t<i_t, 
 {
   FILE* fid = fopen(filename.c_str(), "w");
   if (fid == NULL) { printf("Can't open file %s\n", filename.c_str()); }
-  fprintf(fid, "m = %d; n = %d\n", lp.num_rows, lp.num_cols);
+  fprintf(fid, "m = %lld; n = %lld\n", (long long)(lp.num_rows), (long long)(lp.num_cols));
   lp.A.print_matrix(fid);
   fprintf(fid, "clu = [");
   for (int32_t j = 0; j < lp.num_cols; ++j) {
@@ -204,8 +204,8 @@ lp_status_t solve_linear_program_with_advanced_basis(
   dual_status_t phase1_status;
   {
     raft::common::nvtx::range scope_phase1("DualSimplex::phase1");
-    phase1_status = dual_phase2(1,
-                                1,
+    phase1_status = dual_phase2(i_t(1),
+                                i_t(1),
                                 start_time,
                                 phase1_problem,
                                 settings,
@@ -238,8 +238,8 @@ lp_status_t solve_linear_program_with_advanced_basis(
     vstatus = phase1_vstatus;
     edge_norms.clear();
     bool initialize_basis_update = true;
-    dual_status_t status         = dual_phase2_with_advanced_basis(2,
-                                                           iter == 0 ? 1 : 0,
+    dual_status_t status         = dual_phase2_with_advanced_basis(i_t(2),
+                                                           i_t(iter == 0 ? 1 : 0),
                                                            initialize_basis_update,
                                                            start_time,
                                                            lp,
@@ -258,8 +258,8 @@ lp_status_t solve_linear_program_with_advanced_basis(
       settings.log.printf("Running Phase 1 again\n");
       edge_norms.clear();
       initialize_basis_update = false;
-      dual_phase2_with_advanced_basis(1,
-                                      0,
+      dual_phase2_with_advanced_basis(i_t(1),
+                                      i_t(0),
                                       initialize_basis_update,
                                       start_time,
                                       phase1_problem,
@@ -274,8 +274,8 @@ lp_status_t solve_linear_program_with_advanced_basis(
                                       work_unit_context);
       vstatus = phase1_vstatus;
       edge_norms.clear();
-      status = dual_phase2_with_advanced_basis(2,
-                                               0,
+      status = dual_phase2_with_advanced_basis(i_t(2),
+                                               i_t(0),
                                                initialize_basis_update,
                                                start_time,
                                                lp,
@@ -291,7 +291,7 @@ lp_status_t solve_linear_program_with_advanced_basis(
     }
     constexpr bool primal_cleanup = false;
     if (status == dual_status_t::OPTIMAL && primal_cleanup) {
-      primal_phase2(2, start_time, lp, settings, vstatus, solution, iter);
+      primal_phase2(i_t(2), start_time, lp, settings, vstatus, solution, iter);
     }
     if (status == dual_status_t::OPTIMAL) {
       std::vector<f_t> unscaled_x(lp.num_cols);
@@ -642,14 +642,16 @@ lp_status_t solve_linear_program_with_barrier(const user_problem_t<i_t, f_t>& us
       original_lp.A.n      = new_cols;
       original_lp.num_cols = new_cols;
 #ifdef PRINT_INFO
-      printf("nz %d =? new_nz %d =? Acol %d, num_cols %d =? new_cols %d x size %ld z size %ld\n",
-             nz,
-             new_nz,
-             original_lp.A.col_start[original_lp.num_cols],
-             original_lp.num_cols,
-             new_cols,
-             lp_solution.x.size(),
-             lp_solution.z.size());
+      printf(
+        "nz %lld =? new_nz %lld =? Acol %lld, num_cols %lld =? new_cols %lld x size %ld z size "
+        "%ld\n",
+        (long long)(nz),
+        (long long)(new_nz),
+        (long long)(original_lp.A.col_start[original_lp.num_cols]),
+        (long long)(original_lp.num_cols),
+        (long long)(new_cols),
+        lp_solution.x.size(),
+        lp_solution.z.size());
 #endif
 
       std::vector<f_t> rhs = original_lp.rhs;
@@ -664,7 +666,7 @@ lp_status_t solve_linear_program_with_barrier(const user_problem_t<i_t, f_t>& us
     std::vector<variable_status_t> vstatus(original_lp.num_cols);
     crossover_status_t crossover_status = crossover(
       original_lp, barrier_settings, lp_solution, start_time, crossover_solution, vstatus);
-    settings.log.printf("Crossover status: %d\n", crossover_status);
+    settings.log.printf("Crossover status: %lld\n", (long long)(crossover_status));
     if (crossover_status == crossover_status_t::OPTIMAL) { barrier_status = lp_status_t::OPTIMAL; }
   }
   return barrier_status;
@@ -786,11 +788,11 @@ i_t solve_mip_with_guess(const user_problem_t<i_t, f_t>& problem,
 
 template bool is_mip<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& problem);
 
-template double compute_objective<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& problem,
-                                               const std::vector<double>& x);
+template double compute_objective<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& problem, const std::vector<double>& x);
 
-template double compute_user_objective<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                                    const std::vector<double>& x);
+template double compute_user_objective<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp, const std::vector<double>& x);
 
 template double compute_user_objective(const lp_problem_t<cuopt_int_t, double>& lp, double obj);
 
@@ -809,8 +811,8 @@ template lp_status_t solve_linear_program_with_advanced_basis(
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   lp_solution_t<cuopt_int_t, double>& original_solution,
   basis_update_mpf_t<cuopt_int_t, double>& ft,
-  std::vector<int>& basic_list,
-  std::vector<int>& nonbasic_list,
+  std::vector<cuopt_int_t>& basic_list,
+  std::vector<cuopt_int_t>& nonbasic_list,
   std::vector<variable_status_t>& vstatus,
   std::vector<double>& edge_norms,
   work_limit_context_t* work_unit_context);
@@ -826,20 +828,23 @@ template lp_status_t solve_linear_program_with_barrier(
   double start_time,
   lp_solution_t<cuopt_int_t, double>& solution);
 
-template lp_status_t solve_linear_program(const user_problem_t<cuopt_int_t, double>& user_problem,
-                                          const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                          lp_solution_t<cuopt_int_t, double>& solution);
+template lp_status_t solve_linear_program(
+  const user_problem_t<cuopt_int_t, double>& user_problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  lp_solution_t<cuopt_int_t, double>& solution);
 
-template lp_status_t solve_linear_program(const user_problem_t<cuopt_int_t, double>& user_problem,
-                                          const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                          double start_time,
-                                          lp_solution_t<cuopt_int_t, double>& solution);
+template lp_status_t solve_linear_program(
+  const user_problem_t<cuopt_int_t, double>& user_problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  double start_time,
+  lp_solution_t<cuopt_int_t, double>& solution);
 
-template int solve<cuopt_int_t, double>(const user_problem_t<cuopt_int_t, double>& user_problem,
-                                const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                std::vector<double>& primal_solution);
+template cuopt_int_t solve<cuopt_int_t, double>(
+  const user_problem_t<cuopt_int_t, double>& user_problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  std::vector<double>& primal_solution);
 
-template int solve_mip_with_guess<cuopt_int_t, double>(
+template cuopt_int_t solve_mip_with_guess<cuopt_int_t, double>(
   const user_problem_t<cuopt_int_t, double>& problem,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   const std::vector<double>& guess,

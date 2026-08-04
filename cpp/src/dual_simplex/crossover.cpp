@@ -106,23 +106,23 @@ f_t dual_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       // -inf < l_j <= x_j < inf, so need z_j > 0 to be feasible
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
-      settings.log.debug("lower bound infeasible %d z %e lower %e upper %e vstatus %d\n",
-                         j,
+      settings.log.debug("lower bound infeasible %lld z %e lower %e upper %e vstatus %lld\n",
+                         (long long)(j),
                          z[j],
                          lp.lower[j],
                          lp.upper[j],
-                         static_cast<int>(vstatus[j]));
+                         (long long)(static_cast<int>(vstatus[j])));
       lower_bound_inf++;
     } else if (lp.lower[j] == -inf && lp.upper[j] < inf && z[j] > tight_tol) {
       // -inf < x_j <= u_j < inf, so need z_j < 0 to be feasible
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
-      settings.log.debug("upper bound infeasible %d z %e lower %e upper %e vstatus %d\n",
-                         j,
+      settings.log.debug("upper bound infeasible %lld z %e lower %e upper %e vstatus %lld\n",
+                         (long long)(j),
                          z[j],
                          lp.lower[j],
                          lp.upper[j],
-                         static_cast<int>(vstatus[j]));
+                         (long long)(static_cast<int>(vstatus[j])));
       upper_bound_inf++;
     } else if (lp.lower[j] == -inf && lp.upper[j] == inf && z[j] > tight_tol) {
       // -inf < x_j < inf, so need z_j = 0 to be feasible
@@ -138,8 +138,11 @@ f_t dual_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
       non_basic_lower_inf++;
-      settings.log.debug(
-        "nonbasic lower infeasible %d z %e lower %e upper %e\n", j, z[j], lp.lower[j], lp.upper[j]);
+      settings.log.debug("nonbasic lower infeasible %lld z %e lower %e upper %e\n",
+                         (long long)(j),
+                         z[j],
+                         lp.lower[j],
+                         lp.upper[j]);
     } else if (vstatus[j] == variable_status_t::NONBASIC_UPPER && z[j] > tight_tol) {
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
@@ -147,14 +150,15 @@ f_t dual_infeasibility(const lp_problem_t<i_t, f_t>& lp,
     }
   }
   settings.log.debug(
-    "num infeasible %d lower_bound_inf %d upper_bound_inf %d free_inf %d non_basic_lower_inf %d "
-    "non_basic_upper_inf %d\n",
-    num_infeasible,
-    lower_bound_inf,
-    upper_bound_inf,
-    free_inf,
-    non_basic_lower_inf,
-    non_basic_upper_inf);
+    "num infeasible %lld lower_bound_inf %lld upper_bound_inf %lld free_inf %lld "
+    "non_basic_lower_inf %lld "
+    "non_basic_upper_inf %lld\n",
+    (long long)(num_infeasible),
+    (long long)(lower_bound_inf),
+    (long long)(upper_bound_inf),
+    (long long)(free_inf),
+    (long long)(non_basic_lower_inf),
+    (long long)(non_basic_upper_inf));
 
   return sum_infeasible;
 }
@@ -175,8 +179,8 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       const f_t infeas = -x[j] + lp.lower[j];
       primal_inf += infeas;
       if (verbose && infeas > infeas_tol) {
-        settings.log.debug("x %d infeas %e lo %e val %e up %e vstatus %hhd\n",
-                           j,
+        settings.log.debug("x %lld infeas %e lo %e val %e up %e vstatus %hhd\n",
+                           (long long)(j),
                            infeas,
                            lp.lower[j],
                            x[j],
@@ -189,8 +193,8 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       const f_t infeas = x[j] - lp.upper[j];
       primal_inf += infeas;
       if (verbose && infeas > infeas_tol) {
-        settings.log.debug("x %d infeas %e lo %e val %e up %e vstatus %hhd\n",
-                           j,
+        settings.log.debug("x %lld infeas %e lo %e val %e up %e vstatus %hhd\n",
+                           (long long)(j),
                            infeas,
                            lp.lower[j],
                            x[j],
@@ -362,21 +366,21 @@ i_t dual_push(const lp_problem_t<i_t, f_t>& lp,
     const f_t zj      = solution.z[j];
     constexpr f_t tol = 1e-3;
     if (vstatus[j] == variable_status_t::NONBASIC_LOWER && zj < -tol) {
-      settings.log.debug("infeasible z %d on lower. zj %e xj %e lo %e up %e\n",
-                         j,
+      settings.log.debug("infeasible z %lld on lower. zj %e xj %e lo %e up %e\n",
+                         (long long)(j),
                          zj,
                          solution.x[j],
                          lp.lower[j],
                          lp.upper[j]);
     } else if (vstatus[j] == variable_status_t::NONBASIC_UPPER && zj > tol) {
-      settings.log.debug("infeasible z %d on upper. zj %e xj %e lo %e up %e\n",
-                         j,
+      settings.log.debug("infeasible z %lld on upper. zj %e xj %e lo %e up %e\n",
+                         (long long)(j),
                          zj,
                          solution.x[j],
                          lp.lower[j],
                          lp.upper[j]);
     } else if (vstatus[j] == variable_status_t::NONBASIC_FREE && std::abs(zj) > tol) {
-      settings.log.debug("infeasible z %d free. zj %e\n", j, zj);
+      settings.log.debug("infeasible z %lld free. zj %e\n", (long long)(j), zj);
     }
   }
 
@@ -499,18 +503,19 @@ i_t dual_push(const lp_problem_t<i_t, f_t>& lp,
       }
 #ifdef PARANOID
       printf(
-        "Set superbasic %d to nonbasic with status %d. lower %e x %e upper %e gap %e zj %e infeas "
-        "%d\n",
-        s,
-        vstatus[s],
+        "Set superbasic %lld to nonbasic with status %lld. lower %e x %e upper %e gap %e zj %e "
+        "infeas "
+        "%lld\n",
+        (long long)(s),
+        (long long)(vstatus[s]),
         lp.lower[s],
         x[s],
         lp.upper[s],
         lp.upper[s] - lp.lower[s],
         z[s],
-        vstatus[s] == variable_status_t::NONBASIC_LOWER
-          ? z[s] < -1e-6
-          : (vstatus[s] == variable_status_t::NONBASIC_UPPER ? z[s] > 1e-6 : 0));
+        (long long)(vstatus[s] == variable_status_t::NONBASIC_LOWER
+                      ? z[s] < -1e-6
+                      : (vstatus[s] == variable_status_t::NONBASIC_UPPER ? z[s] > 1e-6 : 0)));
 #endif
       // Refactor or Update
       bool should_refactor = ft.num_updates() > settings.refactor_frequency;
@@ -550,7 +555,8 @@ i_t dual_push(const lp_problem_t<i_t, f_t>& lp,
         } else if (rank < 0) {
           return rank;
         } else if (rank != m) {
-          settings.log.printf("Failed to factorize basis. rank %d m %d\n", rank, m);
+          settings.log.printf(
+            "Failed to factorize basis. rank %lld m %lld\n", (long long)(rank), (long long)(m));
           basis_repair(lp.A,
                        settings,
                        lp.lower,
@@ -605,8 +611,10 @@ i_t dual_push(const lp_problem_t<i_t, f_t>& lp,
 
     num_pushes++;
     if (num_pushes % settings.iteration_log_frequency == 0 || superbasic_list.size() == 0) {
-      settings.log.printf(
-        "%d of %d dual pushes in %.2fs\n", num_pushes, total_superbasics, toc(start_time));
+      settings.log.printf("%lld of %lld dual pushes in %.2fs\n",
+                          (long long)(num_pushes),
+                          (long long)(total_superbasics),
+                          toc(start_time));
     }
     if (toc(start_time) > settings.time_limit) {
       settings.log.printf("Crossover time exceeded\n");
@@ -877,11 +885,11 @@ i_t primal_push(const lp_problem_t<i_t, f_t>& lp,
       if (std::abs(z[s]) > 1e-6 ||
           (vstatus[leaving_index] == variable_status_t::NONBASIC_LOWER && z[leaving_index] < 0) ||
           (vstatus[leaving_index] == variable_status_t::NONBASIC_UPPER && z[leaving_index] > 0)) {
-        settings.log.debug("Variable %d now basic with z %e. Variable %d now %d with z %e\n",
-                           s,
+        settings.log.debug("Variable %lld now basic with z %e. Variable %lld now %lld with z %e\n",
+                           (long long)(s),
                            z[s],
-                           leaving_index,
-                           static_cast<int>(vstatus[leaving_index]),
+                           (long long)(leaving_index),
+                           (long long)(static_cast<int>(vstatus[leaving_index])),
                            z[leaving_index]);
       }
       basic_list[basic_leaving_index] = s;
@@ -927,7 +935,8 @@ i_t primal_push(const lp_problem_t<i_t, f_t>& lp,
         } else if (rank < 0) {
           return rank;
         } else if (rank != m) {
-          settings.log.debug("Failed to factorize basis. rank %d m %d\n", rank, m);
+          settings.log.debug(
+            "Failed to factorize basis. rank %lld m %lld\n", (long long)(rank), (long long)(m));
           basis_repair(lp.A,
                        settings,
                        lp.lower,
@@ -980,8 +989,10 @@ i_t primal_push(const lp_problem_t<i_t, f_t>& lp,
     num_pushes++;
     if (num_pushes % settings.iteration_log_frequency == 0 || toc(last_print_time) > 10.0 ||
         superbasic_list.size() == 0) {
-      settings.log.printf(
-        "%d of %d primal pushes in %.2f seconds\n", num_pushes, total_superbasics, toc(start_time));
+      settings.log.printf("%lld of %lld primal pushes in %.2f seconds\n",
+                          (long long)(num_pushes),
+                          (long long)(total_superbasics),
+                          toc(start_time));
       last_print_time = tic();
     }
 
@@ -999,12 +1010,12 @@ i_t primal_push(const lp_problem_t<i_t, f_t>& lp,
 
   // Solve for xB such that B*xB = b - N*xN
   std::vector<f_t> rhs = lp.rhs;
-  settings.log.debug("n %d m %d basic %ld nonbasic %ld n-m %d\n",
-                     n,
-                     m,
+  settings.log.debug("n %lld m %lld basic %ld nonbasic %ld n-m %lld\n",
+                     (long long)(n),
+                     (long long)(m),
                      basic_list.size(),
                      nonbasic_list.size(),
-                     n - m);
+                     (long long)(n - m));
   assert(nonbasic_list.size() == n - m);
   for (i_t k = 0; k < n - m; ++k) {
     const i_t j         = nonbasic_list[k];
@@ -1066,10 +1077,10 @@ i_t find_candidate_columns(const lp_problem_t<i_t, f_t>& lp,
         }
       }
     }
-    settings.log.debug("basis threshold %e candidate columns %ld m %d\n",
+    settings.log.debug("basis threshold %e candidate columns %ld m %lld\n",
                        basis_threshold,
                        candidate_columns.size(),
-                       m);
+                       (long long)(m));
   }
   return 0;
 }
@@ -1128,58 +1139,60 @@ void set_primal_variables_on_bounds(const lp_problem_t<i_t, f_t>& lp,
     if (std::abs(lp.lower[j] - lp.upper[j]) < fixed_tolerance) {
       x[j] = lp.lower[j];
       if (vstatus[j] != variable_status_t::NONBASIC_FIXED) {
-        settings.log.debug("Setting fixed variable %d to %e. vstatus %d\n",
-                           j,
+        settings.log.debug("Setting fixed variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
                            lp.lower[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_FIXED;
     } else if (z[j] >= 0 && lp.lower[j] > -inf) {
       x[j] = lp.lower[j];
       if (vstatus[j] != variable_status_t::NONBASIC_LOWER) {
-        settings.log.debug("Setting nonbasic lower variable %d to %e. vstatus %d\n",
-                           j,
+        settings.log.debug("Setting nonbasic lower variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
                            lp.lower[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_LOWER;
     } else if (z[j] <= 0 && lp.upper[j] < inf) {
       x[j] = lp.upper[j];
       if (vstatus[j] != variable_status_t::NONBASIC_UPPER) {
-        settings.log.debug("Setting nonbasic upper variable %d to %e. vstatus %d\n",
-                           j,
+        settings.log.debug("Setting nonbasic upper variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
                            lp.upper[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_UPPER;
     } else if (lp.upper[j] == inf && lp.lower[j] > -inf && z[j] < 0) {
       // dual infeasible
       x[j] = lp.lower[j];
       if (vstatus[j] != variable_status_t::NONBASIC_LOWER) {
-        settings.log.debug("Setting nonbasic lower variable %d to %e. vstatus %d\n",
-                           j,
+        settings.log.debug("Setting nonbasic lower variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
                            lp.lower[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_LOWER;
     } else if (lp.lower[j] == -inf && lp.upper[j] < inf && z[j] > 0) {
       // dual infeasible
       x[j] = lp.upper[j];
       if (vstatus[j] != variable_status_t::NONBASIC_UPPER) {
-        settings.log.debug("Setting nonbasic upper variable %d to %e. vstatus %d\n",
-                           j,
+        settings.log.debug("Setting nonbasic upper variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
                            lp.upper[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_UPPER;
     } else if (lp.lower[j] == -inf && lp.upper[j] == inf) {
       x[j] = 0;  // Set nonbasic free variables to 0 this overwrites previous lines
       if (vstatus[j] != variable_status_t::NONBASIC_FREE) {
-        settings.log.debug(
-          "Setting free variable %d to %e. vstatus %d\n", j, 0, static_cast<int>(vstatus[j]));
+        settings.log.debug("Setting free variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
+                           0,
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_FREE;
-      settings.log.debug("Setting free variable %d as nonbasic at 0\n", j);
+      settings.log.debug("Setting free variable %lld as nonbasic at 0\n", (long long)(j));
     } else {
       assert(1 == 0);
     }
@@ -1244,7 +1257,7 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
 
   std::vector<i_t> dependent_rows;
   std::vector<variable_status_t> vstatus_for_candidates(candidate_columns.size());
-  settings.log.debug("m %d candidate columns %ld\n", m, candidate_columns.size());
+  settings.log.debug("m %lld candidate columns %ld\n", (long long)(m), candidate_columns.size());
   i_t rank = initial_basis_selection(
     lp, settings, candidate_columns, start_time, vstatus_for_candidates, dependent_rows);
   if (rank < 0) {
@@ -1255,7 +1268,7 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
   i_t num_basic = 0;
   if (rank < m) {
     num_basic = add_slacks_to_basis(lp, dependent_rows, vstatus);
-    settings.log.debug("num basic %d from slacks\n", num_basic);
+    settings.log.debug("num basic %lld from slacks\n", (long long)(num_basic));
   }
   if (num_basic + rank != m) {
     settings.log.printf("Error: could not find a full-rank initial basis\n");
@@ -1303,8 +1316,9 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
   get_basis_from_vstatus(m, vstatus, basic_list, nonbasic_list, superbasic_list);
   verify_basis<i_t, f_t>(m, n, vstatus);
   compare_vstatus_with_lists<i_t, f_t>(m, n, basic_list, nonbasic_list, vstatus);
-  settings.log.debug("basic list size %ld m %d\n", basic_list.size(), m);
-  settings.log.debug("nonbasic list size %ld n - m %d\n", nonbasic_list.size(), n - m);
+  settings.log.debug("basic list size %ld m %lld\n", basic_list.size(), (long long)(m));
+  settings.log.debug(
+    "nonbasic list size %ld n - m %lld\n", nonbasic_list.size(), (long long)(n - m));
   settings.log.debug("superbasic list size %ld\n", superbasic_list.size());
   // Factorize the basis matrix B = A(:, basis_list). P*B*Q = L*U
   csc_matrix_t<i_t, f_t> L(m, m, 1);
@@ -1329,7 +1343,8 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
                          work_estimate);
   if (rank < 0) { return return_to_status(rank); }
   if (rank != m) {
-    settings.log.debug("Failed to factorize basis. rank %d m %d\n", rank, m);
+    settings.log.debug(
+      "Failed to factorize basis. rank %lld m %lld\n", (long long)(rank), (long long)(m));
     basis_repair(lp.A,
                  settings,
                  lp.lower,
@@ -1356,7 +1371,9 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
     if (rank == CONCURRENT_HALT_RETURN) {
       return crossover_status_t::CONCURRENT_LIMIT;
     } else if (rank < 0) {
-      settings.log.printf("Failed to factorize basis after repair. rank %d m %d\n", rank, m);
+      settings.log.printf("Failed to factorize basis after repair. rank %lld m %lld\n",
+                          (long long)(rank),
+                          (long long)(m));
       return return_to_status(rank);
     } else {
       settings.log.debug("Basis repaired\n");
@@ -1387,8 +1404,9 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
                                    superbasic_list,
                                    vstatus);
   if (dual_push_status < 0) { return return_to_status(dual_push_status); }
-  settings.log.debug("basic list size %ld m %d\n", basic_list.size(), m);
-  settings.log.debug("nonbasic list size %ld n - m %d\n", nonbasic_list.size(), n - m);
+  settings.log.debug("basic list size %ld m %lld\n", basic_list.size(), (long long)(m));
+  settings.log.debug(
+    "nonbasic list size %ld n - m %lld\n", nonbasic_list.size(), (long long)(n - m));
   print_crossover_info(lp, settings, vstatus, solution, "Dual push complete");
 
   find_primal_superbasic_variables(
@@ -1424,8 +1442,8 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
   } else if (dual_feasible && !primal_feasible) {
     i_t dual_iter = 0;
     std::vector<f_t> edge_norms;
-    dual_status_t status =
-      dual_phase2(2, 0, start_time, lp, settings, vstatus, solution, dual_iter, edge_norms);
+    dual_status_t status = dual_phase2(
+      i_t(2), i_t(0), start_time, lp, settings, vstatus, solution, dual_iter, edge_norms);
     if (toc(start_time) > settings.time_limit) {
       settings.log.printf("Time limit exceeded\n");
       return crossover_status_t::TIME_LIMIT;
@@ -1462,16 +1480,23 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
         num_nonbasic_phase1++;
       }
     }
-    settings.log.debug("num basic phase 1 %d (m %d) num nonbasic phase 1 %d (n - m %d)\n",
-                       num_basic_phase1,
-                       m,
-                       num_nonbasic_phase1,
-                       n - m);
+    settings.log.debug("num basic phase 1 %lld (m %lld) num nonbasic phase 1 %lld (n - m %lld)\n",
+                       (long long)(num_basic_phase1),
+                       (long long)(m),
+                       (long long)(num_nonbasic_phase1),
+                       (long long)(n - m));
     i_t iter = 0;
     lp_solution_t<i_t, f_t> phase1_solution(phase1_problem.num_rows, phase1_problem.num_cols);
     std::vector<f_t> junk;
-    dual_status_t phase1_status = dual_phase2(
-      1, 1, start_time, phase1_problem, settings, phase1_vstatus, phase1_solution, iter, junk);
+    dual_status_t phase1_status = dual_phase2(i_t(1),
+                                              i_t(1),
+                                              start_time,
+                                              phase1_problem,
+                                              settings,
+                                              phase1_vstatus,
+                                              phase1_solution,
+                                              iter,
+                                              junk);
     if (phase1_status == dual_status_t::NUMERICAL ||
         phase1_status == dual_status_t::DUAL_UNBOUNDED) {
       settings.log.printf("Failed in Phase 1\n");
@@ -1511,7 +1536,7 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
           vstatus[j] = phase1_vstatus[j];
         }
       }
-      settings.log.debug("num changes from phase 1 %d\n", num_changes_from_phase_1);
+      settings.log.debug("num changes from phase 1 %lld\n", (long long)(num_changes_from_phase_1));
       nonbasic_list.clear();
       superbasic_list.clear();
       get_basis_from_vstatus(m, vstatus, basic_list, nonbasic_list, superbasic_list);
@@ -1530,7 +1555,8 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
       if (rank < 0) {
         return return_to_status(rank);
       } else if (rank != m) {
-        settings.log.debug("Failed to factorize basis. rank %d m %d\n", rank, m);
+        settings.log.debug(
+          "Failed to factorize basis. rank %lld m %lld\n", (long long)(rank), (long long)(m));
         basis_repair(lp.A,
                      settings,
                      lp.lower,
@@ -1555,7 +1581,9 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
                                slacks_needed,
                                work_estimate);
         if (rank < 0) {
-          settings.log.printf("Failed to factorize basis after repair. rank %d m %d\n", rank, m);
+          settings.log.printf("Failed to factorize basis after repair. rank %lld m %lld\n",
+                              (long long)(rank),
+                              (long long)(m));
           return return_to_status(rank);
         } else {
           settings.log.debug("Basis repaired\n");
@@ -1580,14 +1608,21 @@ crossover_status_t crossover(const lp_problem_t<i_t, f_t>& lp,
           }
         }
       }
-      settings.log.debug("Num flips %d\n", num_flips);
+      settings.log.debug("Num flips %lld\n", (long long)(num_flips));
       print_crossover_info(lp, settings, vstatus, solution, "Dual phase 1 complete");
       dual_infeas          = dual_infeasibility(lp, settings, vstatus, solution.z);
       dual_status_t status = dual_status_t::NUMERICAL;
       if (dual_infeas <= settings.dual_tol) {
         std::vector<f_t> edge_norms;
-        status = dual_phase2(
-          2, iter == 0 ? 1 : 0, start_time, lp, settings, vstatus, solution, iter, edge_norms);
+        status = dual_phase2(i_t(2),
+                             i_t(iter == 0 ? 1 : 0),
+                             start_time,
+                             lp,
+                             settings,
+                             vstatus,
+                             solution,
+                             iter,
+                             edge_norms);
         if (toc(start_time) > settings.time_limit) {
           settings.log.printf("Time limit exceeded\n");
           return crossover_status_t::TIME_LIMIT;

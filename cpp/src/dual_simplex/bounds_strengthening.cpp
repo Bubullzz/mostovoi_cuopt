@@ -159,9 +159,9 @@ bool bounds_strengthening_t<i_t, f_t>::bounds_strengthening(
         check_infeasibility<i_t, f_t>(min_a, max_a, cnst_lb, cnst_ub, settings.primal_tol);
       if (is_infeasible) {
         settings.log.debug(
-          "Iter:: %d, Infeasible constraint %d, cnst_lb %e, cnst_ub %e, min_a %e, max_a %e\n",
-          iter,
-          i,
+          "Iter:: %lld, Infeasible constraint %lld, cnst_lb %e, cnst_ub %e, min_a %e, max_a %e\n",
+          (long long)(iter),
+          (long long)(i),
           cnst_lb,
           cnst_ub,
           min_a,
@@ -217,8 +217,11 @@ bool bounds_strengthening_t<i_t, f_t>::bounds_strengthening(
       new_ub = std::min(new_ub, upper_bounds[k]);
 
       if (new_lb > new_ub + settings.primal_tol) {
-        settings.log.debug(
-          "Iter:: %d, Infeasible variable after update %d, %e > %e\n", iter, k, new_lb, new_ub);
+        settings.log.debug("Iter:: %lld, Infeasible variable after update %lld, %e > %e\n",
+                           (long long)(iter),
+                           (long long)(k),
+                           new_lb,
+                           new_ub);
         last_nnz_processed = nnz_processed;
         return false;
       }
@@ -274,12 +277,12 @@ bool bounds_strengthening_t<i_t, f_t>::bounds_strengthening(
 
   if (num_lb_changed > 0 || num_ub_changed > 0) {
     settings.log.printf(
-      "lb change %e, ub change %e, num lb changed %d, num ub changed %d, iter %d\n",
+      "lb change %e, ub change %e, num lb changed %lld, num ub changed %lld, iter %lld\n",
       100 * lb_change / std::max(1, num_lb_changed),
       100 * ub_change / std::max(1, num_ub_changed),
-      num_lb_changed,
-      num_ub_changed,
-      iter);
+      (long long)(num_lb_changed),
+      (long long)(num_ub_changed),
+      (long long)(iter));
   }
   print_bounds_stats(lower, upper, settings, "Final bounds");
 #endif

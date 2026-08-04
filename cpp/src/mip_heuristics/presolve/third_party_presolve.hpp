@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -32,6 +33,15 @@ template <typename f_t>
 struct papilo_postsolve_deleter {
   void operator()(papilo::PostsolveStorage<f_t>* ptr) const;
 };
+
+// PSLP's C API and papilo's data structures are both fixed to 32-bit indices, so a problem whose
+// dimensions overflow int32 cannot be handed to either backend even in a 64-bit index build.
+template <typename i_t>
+inline bool third_party_presolve_fits_index_width(i_t n_variables, i_t n_constraints, i_t nnz)
+{
+  constexpr auto limit = static_cast<i_t>(std::numeric_limits<int>::max());
+  return n_variables <= limit && n_constraints <= limit && nnz <= limit;
+}
 
 enum class third_party_presolve_status_t {
   INFEASIBLE,

@@ -52,7 +52,7 @@ TEST(sparse_augmented_kkt, cone_counts_and_expansion_size)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 6, 5};
+  std::vector<cuopt_int_t> cone_dimensions{3, 6, 5};
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
 
@@ -71,7 +71,7 @@ TEST(sparse_augmented_kkt, scatter_sparse_hessian_into_augmented)
 
   // Two sparse cones so the fused entry-parallel kernel has more than one sparse-cone
   // boundary to get right.
-  std::vector<int> cone_dimensions{6, 5};
+  std::vector<cuopt_int_t> cone_dimensions{6, 5};
   rmm::device_uvector<double> x(11, stream);
   rmm::device_uvector<double> z(11, stream);
 
@@ -103,19 +103,19 @@ TEST(sparse_augmented_kkt, scatter_sparse_hessian_into_augmented)
   launch_nt_scaling(cones, stream);
   launch_update_scaling_sparse(cones, stream);
 
-  const int E               = static_cast<int>(cones.n_sparse_cone_entries);
+  const cuopt_int_t E        = static_cast<cuopt_int_t>(cones.n_sparse_cone_entries);
   const double dual_perturb = 0.02;
   const auto hs_expected    = expected_Hs_diag(cones, stream);
 
   // Distinct augmented-value slots per packed entry: hessian diag, then the four rank-2
   // couplings, then two expansion diagonals per sparse cone.
-  std::vector<int> hessian_diag_csr(E);
+  std::vector<cuopt_int_t> hessian_diag_csr(E);
   std::vector<double> q_values(E);
-  std::vector<int> exp_v_col(E);
-  std::vector<int> exp_u_col(E);
-  std::vector<int> exp_v_row(E);
-  std::vector<int> exp_u_row(E);
-  for (int e = 0; e < E; ++e) {
+  std::vector<cuopt_int_t> exp_v_col(E);
+  std::vector<cuopt_int_t> exp_u_col(E);
+  std::vector<cuopt_int_t> exp_v_row(E);
+  std::vector<cuopt_int_t> exp_u_row(E);
+  for (cuopt_int_t e = 0; e < E; ++e) {
     hessian_diag_csr[e] = e;
     q_values[e]         = 0.01 * (e + 1);
     exp_v_col[e]        = 11 + e;
@@ -123,7 +123,7 @@ TEST(sparse_augmented_kkt, scatter_sparse_hessian_into_augmented)
     exp_v_row[e]        = 33 + e;
     exp_u_row[e]        = 44 + e;
   }
-  std::vector<int> sparse_expansion_D{55, 56, 57, 58};
+  std::vector<cuopt_int_t> sparse_expansion_D{55, 56, 57, 58};
   const int nnz = 59;
 
   auto d_hessian_diag_csr   = cuopt::device_copy(hessian_diag_csr, stream);
@@ -180,7 +180,7 @@ TEST(sparse_augmented_kkt, sparse_augmented_matvec)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{6};
+  std::vector<cuopt_int_t> cone_dimensions{6};
   rmm::device_uvector<double> x(6, stream);
   rmm::device_uvector<double> z(6, stream);
 
@@ -198,10 +198,10 @@ TEST(sparse_augmented_kkt, sparse_augmented_matvec)
   launch_nt_scaling(cones, stream);
   launch_update_scaling_sparse(cones, stream);
 
-  const int n_primal = 6;
-  const int m_rows   = 1;
-  const int p        = cones.expansion_var_count();
-  const int sys_size = n_primal + m_rows + p;
+  const cuopt_int_t n_primal = 6;
+  const cuopt_int_t m_rows   = 1;
+  const cuopt_int_t p        = cones.expansion_var_count();
+  const cuopt_int_t sys_size = n_primal + m_rows + p;
 
   std::vector<double> x_vec(sys_size, 0.0);
   x_vec[0]                     = 1.1;
@@ -229,7 +229,7 @@ TEST(sparse_augmented_kkt, sparse_augmented_matvec)
                                  raft::device_span<double>(d_y_exp.data(), d_y_exp.size()),
                                  cones,
                                  raft::device_span<const double>(d_hs.data(), d_hs.size()),
-                                 /*cone_var_start=*/0,
+                                 /*cone_var_start=*/cuopt_int_t{0},
                                  n_primal,
                                  m_rows,
                                  stream);
@@ -259,7 +259,7 @@ TEST(sparse_augmented_kkt, update_scaling_sparse_dim_1000)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{1000};
+  std::vector<cuopt_int_t> cone_dimensions{1000};
   rmm::device_uvector<double> x(1000, stream);
   rmm::device_uvector<double> z(1000, stream);
 
@@ -300,10 +300,10 @@ TEST(sparse_augmented_kkt, update_scaling_sparse_dim_1000)
   const auto hs_host = expected_Hs_diag(cones, stream);
   auto d_hs          = cuopt::device_copy(hs_host, stream);
 
-  const int n_primal = 1000;
-  const int m_rows   = 1;
-  const int p        = cones.expansion_var_count();
-  const int sys_size = n_primal + m_rows + p;
+  const cuopt_int_t n_primal = 1000;
+  const cuopt_int_t m_rows   = 1;
+  const cuopt_int_t p        = cones.expansion_var_count();
+  const cuopt_int_t sys_size = n_primal + m_rows + p;
 
   std::vector<double> x_vec(sys_size, 0.0);
   for (int j = 0; j < 1000; ++j) {
@@ -325,7 +325,7 @@ TEST(sparse_augmented_kkt, update_scaling_sparse_dim_1000)
                                  raft::device_span<double>(d_y_exp.data(), d_y_exp.size()),
                                  cones,
                                  raft::device_span<const double>(d_hs.data(), d_hs.size()),
-                                 /*cone_var_start=*/0,
+                                 /*cone_var_start=*/cuopt_int_t{0},
                                  n_primal,
                                  m_rows,
                                  stream);
@@ -353,7 +353,7 @@ TEST(sparse_augmented_kkt, gpu_augmented_csr_metadata_matches_host)
 {
   auto stream = rmm::cuda_stream_default;
 
-  std::vector<int> cone_dimensions{3, 6, 5};
+  std::vector<cuopt_int_t> cone_dimensions{3, 6, 5};
   rmm::device_uvector<double> x(14, stream);
   rmm::device_uvector<double> z(14, stream);
   cone_data_t<cuopt_int_t, double> cones(
@@ -410,7 +410,7 @@ TEST(sparse_augmented_kkt, augmented_csr_indices_mixed_dense_sparse_qp)
   // Q = diag(2, 3, ..., 9) with symmetric off-diagonals Q[0,4]=0.5, Q[1,7]=0.25.
   // This checks only the built KKT sparsity/values, so the objective linear term
   // and the right-hand side b are irrelevant and left unset.
-  using i_t   = int;
+  using i_t   = cuopt_int_t;
   using f_t   = double;
   auto stream = rmm::cuda_stream_default;
 

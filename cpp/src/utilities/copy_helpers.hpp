@@ -34,6 +34,11 @@ struct type_2<int> {
 };
 
 template <>
+struct type_2<int64_t> {
+  using type = longlong2;
+};
+
+template <>
 struct type_2<float> {
   using type = float2;
 };
@@ -54,6 +59,11 @@ struct scalar_type<int2> {
 };
 
 template <>
+struct scalar_type<longlong2> {
+  using type = long long;
+};
+
+template <>
 struct scalar_type<float2> {
   using type = float;
 };
@@ -66,6 +76,11 @@ struct scalar_type<double2> {
 template <>
 struct scalar_type<const int2> {
   using type = const int;
+};
+
+template <>
+struct scalar_type<const longlong2> {
+  using type = const long long;
 };
 
 template <>

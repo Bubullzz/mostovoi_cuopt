@@ -19,6 +19,7 @@
 #include <mip_heuristics/mip_constants.hpp>
 
 #ifdef CUPDLP_DEBUG_MODE
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/copy_helpers.hpp>
 #endif
 
@@ -1650,7 +1651,7 @@ DI void clamp_test_points(
   i_t range_high)
 {
   cuopt_assert(range_low < range_high, "range_low should be strictly lower than range_high");
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
+  for (i_t i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
        i += blockDim.x * gridDim.x) {
     const f_t lower_bound_value = restart_strategy_view.lower_bound[i];
     const f_t upper_bound_value = restart_strategy_view.upper_bound[i];
@@ -1681,7 +1682,7 @@ DI void device_weighted_norm(
   // Compute per block weighted_norm
 
   f_t local_weighted_norm = f_t(0);
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
+  for (i_t i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
        i += blockDim.x * gridDim.x) {
     const f_t val = functor(i);
     local_weighted_norm += (val * val) * restart_strategy_view.weights[i];
@@ -1699,7 +1700,7 @@ DI void device_weighted_norm(
   if (blockIdx.x == 0) {
     local_weighted_norm = f_t(0);
 
-    for (int i = threadIdx.x; i < restart_strategy_view.shared_live_kernel_accumulator.size();
+    for (i_t i = threadIdx.x; i < restart_strategy_view.shared_live_kernel_accumulator.size();
          i += BLOCK_SIZE)
       local_weighted_norm += restart_strategy_view.shared_live_kernel_accumulator[i];
 
@@ -1740,12 +1741,12 @@ DI void update_range_high(
   }
   __syncthreads();
 
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
+  for (i_t i = blockIdx.x * blockDim.x + threadIdx.x + range_low; i < range_high;
        i += blockDim.x * gridDim.x) {
     // One thread of current has reach the limit
     // All threads which came across atomically write, only min is kept
     if (restart_strategy_view.threshold[i] >= test_threshold) {
-      raft::myAtomicMin(&shared_index, i);
+      atomicMin(&shared_index, i);
       has_found = true;  // Concurrent write is okay (as long as true is kept at the end)
       break;
     }
@@ -1758,7 +1759,7 @@ DI void update_range_high(
     "Invalid shared_index value");
 
   // Find the global min
-  if (threadIdx.x == 0 && has_found) raft::myAtomicMin(range, shared_index);
+  if (threadIdx.x == 0 && has_found) atomicMin(range, shared_index);
 
   cg::this_grid().sync();
 }
@@ -1787,12 +1788,12 @@ DI void update_range_low(
   }
   __syncthreads();
 
-  for (int i = range_high - 1 - (blockIdx.x * blockDim.x + threadIdx.x); i >= range_low;
+  for (i_t i = range_high - 1 - (blockIdx.x * blockDim.x + threadIdx.x); i >= range_low;
        i -= blockDim.x * gridDim.x) {
     // One thread of current has reach the limit
     // All threads which came across atomically write, only max is kept
     if (restart_strategy_view.threshold[i] <= test_threshold) {
-      raft::myAtomicMax(&shared_index, i);
+      atomicMax(&shared_index, i);
       has_found = true;  // Concurrent write is okay (as long as true is kept at the end)
       break;
     }
@@ -1806,7 +1807,7 @@ DI void update_range_low(
 
   // Find the global max
   if (threadIdx.x == 0 && has_found)
-    raft::myAtomicMax(range, shared_index + 1);  // + 1 because low should start after tilting point
+    atomicMax(range, shared_index + 1);  // + 1 because low should start after tilting point
 
   cg::this_grid().sync();
 }
@@ -2536,58 +2537,63 @@ bool pdlp_restart_strategy_t<i_t, f_t>::get_last_restart_was_average() const
   return last_restart_was_average_;
 }
 
-#define INSTANTIATE(F_TYPE)                                                                     \
-  template class pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>;                                          \
-                                                                                                \
-  template __global__ void compute_distance_traveled_last_restart_kernel<cuopt_int_t, F_TYPE>(          \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t duality_gap_view,     \
-    const F_TYPE* primal_weight,                                                                \
-    F_TYPE* distance_traveled);                                                                 \
-                                                                                                \
-  template __global__ void pick_restart_candidate_kernel<cuopt_int_t, F_TYPE>(                          \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t avg_duality_gap_view, \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                       \
-      current_duality_gap_view,                                                                 \
-    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view);               \
-                                                                                                \
-  template __global__ void adaptive_restart_triggered<cuopt_int_t, F_TYPE>(                             \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                       \
-      candidate_duality_gap_view,                                                               \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                       \
-      last_restart_duality_gap_view,                                                            \
-    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view);               \
-                                                                                                \
+#define INSTANTIATE(F_TYPE)                                                                       \
+  template class pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>;                                    \
+                                                                                                  \
+  template __global__ void compute_distance_traveled_last_restart_kernel<cuopt_int_t, F_TYPE>(    \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      duality_gap_view,                                                                           \
+    const F_TYPE* primal_weight,                                                                  \
+    F_TYPE* distance_traveled);                                                                   \
+                                                                                                  \
+  template __global__ void pick_restart_candidate_kernel<cuopt_int_t, F_TYPE>(                    \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      avg_duality_gap_view,                                                                       \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      current_duality_gap_view,                                                                   \
+    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view);         \
+                                                                                                  \
+  template __global__ void adaptive_restart_triggered<cuopt_int_t, F_TYPE>(                       \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      candidate_duality_gap_view,                                                                 \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      last_restart_duality_gap_view,                                                              \
+    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view);         \
+                                                                                                  \
   template __global__ void solve_bound_constrained_trust_region_kernel<cuopt_int_t, F_TYPE, 128>( \
-    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,                \
-    typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem_view,                               \
-    cuopt_int_t* testing_range_low,                                                             \
-    cuopt_int_t* testing_range_high,                                                            \
-    F_TYPE* test_radius_squared,                                                                \
-    F_TYPE* low_radius_squared,                                                                 \
-    F_TYPE* high_radius_squared,                                                                \
-    const F_TYPE* target_radius);                                                               \
-                                                                                                \
-  template __global__ void target_threshold_determination_kernel<cuopt_int_t, F_TYPE>(                  \
-    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,                \
-    const F_TYPE* target_radius,                                                                \
-    const F_TYPE* max_primal_threshold,                                                         \
-    const F_TYPE* max_dual_threshold);                                                          \
-                                                                                                \
-  template __global__ void compute_normalized_gaps_kernel<cuopt_int_t, F_TYPE>(                         \
-    typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t avg_duality_gap_view,       \
-    typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t current_duality_gap_view);  \
-                                                                                                \
-  template __global__ void compute_new_primal_weight_kernel<cuopt_int_t, F_TYPE>(                       \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t duality_gap_view,     \
-    F_TYPE* primal_weight,                                                                      \
-    const F_TYPE* step_size,                                                                    \
-    F_TYPE* primal_step_size,                                                                   \
-    F_TYPE* dual_step_size);                                                                    \
-                                                                                                \
-  template __global__ void compute_subgradient_kernel<cuopt_int_t, F_TYPE>(                             \
-    const typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,          \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem_view,                         \
-    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t duality_gap_view,     \
+    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,          \
+    typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem_view,                         \
+    cuopt_int_t * testing_range_low,                                                              \
+    cuopt_int_t * testing_range_high,                                                             \
+    F_TYPE * test_radius_squared,                                                                 \
+    F_TYPE * low_radius_squared,                                                                  \
+    F_TYPE * high_radius_squared,                                                                 \
+    const F_TYPE* target_radius);                                                                 \
+                                                                                                  \
+  template __global__ void target_threshold_determination_kernel<cuopt_int_t, F_TYPE>(            \
+    typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,          \
+    const F_TYPE* target_radius,                                                                  \
+    const F_TYPE* max_primal_threshold,                                                           \
+    const F_TYPE* max_dual_threshold);                                                            \
+                                                                                                  \
+  template __global__ void compute_normalized_gaps_kernel<cuopt_int_t, F_TYPE>(                   \
+    typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t avg_duality_gap_view, \
+    typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                       \
+      current_duality_gap_view);                                                                  \
+                                                                                                  \
+  template __global__ void compute_new_primal_weight_kernel<cuopt_int_t, F_TYPE>(                 \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      duality_gap_view,                                                                           \
+    F_TYPE* primal_weight,                                                                        \
+    const F_TYPE* step_size,                                                                      \
+    F_TYPE* primal_step_size,                                                                     \
+    F_TYPE* dual_step_size);                                                                      \
+                                                                                                  \
+  template __global__ void compute_subgradient_kernel<cuopt_int_t, F_TYPE>(                       \
+    const typename pdlp_restart_strategy_t<cuopt_int_t, F_TYPE>::view_t restart_strategy_view,    \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem_view,                   \
+    const typename localized_duality_gap_container_t<cuopt_int_t, F_TYPE>::view_t                 \
+      duality_gap_view,                                                                           \
     F_TYPE* primal_product);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT

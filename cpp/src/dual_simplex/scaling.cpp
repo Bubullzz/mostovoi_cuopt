@@ -305,20 +305,21 @@ void unscale_solution(const std::vector<f_t>& column_scaling,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int scaling<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& unscaled,
-                                  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                  lp_problem_t<cuopt_int_t, double>& scaled,
-                                  std::vector<double>& column_scaling,
-                                  std::vector<double>& row_scaling);
+template cuopt_int_t scaling<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& unscaled,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  lp_problem_t<cuopt_int_t, double>& scaled,
+  std::vector<double>& column_scaling,
+  std::vector<double>& row_scaling);
 
 template void unscale_solution<cuopt_int_t, double>(const std::vector<double>& column_scaling,
-                                            const std::vector<double>& row_scaling,
-                                            const std::vector<double>& scaled_x,
-                                            const std::vector<double>& scaled_y,
-                                            const std::vector<double>& scaled_z,
-                                            std::vector<double>& unscaled_x,
-                                            std::vector<double>& unscaled_y,
-                                            std::vector<double>& unscaled_z);
+                                                    const std::vector<double>& row_scaling,
+                                                    const std::vector<double>& scaled_x,
+                                                    const std::vector<double>& scaled_y,
+                                                    const std::vector<double>& scaled_z,
+                                                    std::vector<double>& unscaled_x,
+                                                    std::vector<double>& unscaled_y,
+                                                    std::vector<double>& unscaled_z);
 
 #endif
 

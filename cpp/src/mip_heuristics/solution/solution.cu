@@ -360,8 +360,8 @@ void solution_t<i_t, f_t>::compute_infeasibility()
   // the constraint values must be valid here
   h_infeasibility_cost = thrust::transform_reduce(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + v.problem.n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + v.problem.n_constraints,
     [v] __host__ __device__(i_t idx) { return (v.lower_excess[idx] + v.upper_excess[idx]); },
     0.,
     thrust::plus<f_t>());
@@ -451,8 +451,8 @@ void solution_t<i_t, f_t>::unfix_variables(rmm::device_uvector<f_t>& fixed_assig
   f_t* assignment_ptr         = assignment.data();
   const i_t* variable_map_ptr = variable_map.data();
   thrust::for_each(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
-                   thrust::make_counting_iterator(0) + variable_map.size(),
+                   thrust::make_counting_iterator(i_t(0)),
+                   thrust::make_counting_iterator(i_t(0)) + variable_map.size(),
                    [fixed_assignment_ptr, assignment_ptr, variable_map_ptr] __device__(i_t idx) {
                      i_t old_idx             = variable_map_ptr[idx];
                      assignment_ptr[old_idx] = fixed_assignment_ptr[idx];
@@ -520,8 +520,8 @@ f_t solution_t<i_t, f_t>::get_quality(const rmm::device_uvector<f_t>& cstr_weigh
   // TODO we can as well keep the weights in the solution and compute this once
   f_t weighted_infeasibility = thrust::transform_reduce(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_constraints,
     cuda::proclaim_return_type<f_t>(
       [v = view(), cstr_weights_ptr = cstr_weights.data()] __device__(i_t idx) {
         return (v.lower_excess[idx] + v.upper_excess[idx]) * cstr_weights_ptr[idx];
@@ -537,8 +537,8 @@ f_t solution_t<i_t, f_t>::get_total_excess()
 {
   f_t total_excess =
     thrust::transform_reduce(handle_ptr->get_thrust_policy(),
-                             thrust::make_counting_iterator(0),
-                             thrust::make_counting_iterator(0) + problem_ptr->n_constraints,
+                             thrust::make_counting_iterator(i_t(0)),
+                             thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_constraints,
                              cuda::proclaim_return_type<f_t>([v = view()] __device__(i_t idx) {
                                return (v.lower_excess[idx] + v.upper_excess[idx]);
                              }),
@@ -553,8 +553,8 @@ f_t solution_t<i_t, f_t>::compute_max_constraint_violation()
 {
   return thrust::transform_reduce(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_constraints,
     cuda::proclaim_return_type<f_t>([v = view()] __device__(i_t idx) -> f_t {
       return max(v.lower_excess[idx], v.upper_excess[idx]);
     }),
@@ -567,8 +567,8 @@ f_t solution_t<i_t, f_t>::compute_max_int_violation()
 {
   return thrust::transform_reduce(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_integer_vars,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_integer_vars,
     cuda::proclaim_return_type<f_t>([v = view()] __device__(i_t idx) -> f_t {
       if (v.problem.variable_types[idx] == var_t::INTEGER) {
         return abs(v.assignment[idx] - round(v.assignment[idx]));
@@ -586,8 +586,8 @@ f_t solution_t<i_t, f_t>::compute_max_variable_violation()
   cuopt_assert(problem_ptr->n_variables == problem_ptr->variable_bounds.size(), "Size mismatch");
   return thrust::transform_reduce(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem_ptr->n_variables,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem_ptr->n_variables,
     cuda::proclaim_return_type<f_t>([v = view()] __device__(i_t idx) -> f_t {
       auto var_bounds = v.problem.variable_bounds[idx];
       f_t lower_vio   = max(0., get_lower(var_bounds) - v.assignment[idx]);

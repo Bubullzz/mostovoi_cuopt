@@ -55,8 +55,8 @@ static const double kVarLb[]  = {0.0, 0.0, 0.0};
 static const double kVarUb[]  = {100.0, 200.0, 300.0};
 static const double kRhs[]    = {10.0, 20.0};
 static const double kCsrVal[] = {4.0, 5.0, 6.0, 7.0};
-static const int kCsrInd[]    = {0, 1, 1, 2};
-static const int kCsrOff[]    = {0, 2, 4};
+static const cuopt_int_t kCsrInd[]    = {0, 1, 1, 2};
+static const cuopt_int_t kCsrOff[]    = {0, 2, 4};
 
 // Populate a problem interface with the tiny LP above
 template <typename ProblemT>
@@ -587,8 +587,8 @@ TEST_F(SolutionInterfaceTest, gpu_problem_copy_to_host_methods)
   }
 
   std::vector<double> vals(kNnz);
-  std::vector<int> inds(kNnz);
-  std::vector<int> offs(kNCons + 1);
+  std::vector<cuopt_int_t> inds(kNnz);
+  std::vector<cuopt_int_t> offs(kNCons + 1);
   problem->copy_constraint_matrix_to_host(
     vals.data(), inds.data(), offs.data(), kNnz, kNnz, kNCons + 1);
   for (int i = 0; i < kNnz; ++i) {
@@ -626,8 +626,8 @@ TEST_F(SolutionInterfaceTest, cpu_problem_copy_to_host_methods)
   }
 
   std::vector<double> vals(kNnz);
-  std::vector<int> inds(kNnz);
-  std::vector<int> offs(kNCons + 1);
+  std::vector<cuopt_int_t> inds(kNnz);
+  std::vector<cuopt_int_t> offs(kNCons + 1);
   problem->copy_constraint_matrix_to_host(
     vals.data(), inds.data(), offs.data(), kNnz, kNnz, kNCons + 1);
   for (int i = 0; i < kNnz; ++i) {

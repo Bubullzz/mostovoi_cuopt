@@ -250,10 +250,10 @@ void load_balanced_bounds_presolve_t<i_t, f_t>::setup(
   tmp_bnd.resize(2 * num_blocks_heavy_vars, stream_heavy_vars);
 
   std::tie(is_cnst_sub_warp_single_bin, cnst_sub_warp_count) =
-    sub_warp_meta(stream, warp_cnst_offsets, warp_cnst_id_offsets, pb->cnst_bin_offsets, 4);
+    sub_warp_meta(stream, warp_cnst_offsets, warp_cnst_id_offsets, pb->cnst_bin_offsets, i_t(4));
 
   std::tie(is_vars_sub_warp_single_bin, vars_sub_warp_count) =
-    sub_warp_meta(stream, warp_vars_offsets, warp_vars_id_offsets, pb->vars_bin_offsets, 4);
+    sub_warp_meta(stream, warp_vars_offsets, warp_vars_id_offsets, pb->vars_bin_offsets, i_t(4));
 
   RAFT_CHECK_CUDA(stream);
   streams.sync_test_all_issued();

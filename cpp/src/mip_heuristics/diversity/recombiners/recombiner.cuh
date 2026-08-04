@@ -13,6 +13,7 @@
 #include <mip_heuristics/solution/solution.cuh>
 #include <mip_heuristics/solver.cuh>
 #include <mip_heuristics/utils.cuh>
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/copy_helpers.hpp>
 #include <utilities/device_utils.cuh>
 #include <utilities/seed_generator.cuh>

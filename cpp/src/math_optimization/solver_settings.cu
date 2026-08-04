@@ -25,7 +25,7 @@ template <typename i_t>
 bool string_to_int(const std::string& value, i_t& result)
 {
   try {
-    size_t pos = 0;
+    size_t pos  = 0;
     auto parsed = std::stoll(value, &pos);
     if (pos != value.size() || parsed < std::numeric_limits<i_t>::min() ||
         parsed > std::numeric_limits<i_t>::max()) {
@@ -676,24 +676,35 @@ bool solver_settings_t<i_t, f_t>::dump_parameters_to_file(const std::string& pat
 
 #if MIP_INSTANTIATE_FLOAT
 template class solver_settings_t<cuopt_int_t, float>;
-template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, int value);
-template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, float value);
-template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name, bool value);
-template int solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name,
+                                                                   cuopt_int_t value);
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name,
+                                                                   float value);
+template void solver_settings_t<cuopt_int_t, float>::set_parameter(const std::string& name,
+                                                                   bool value);
+template cuopt_int_t solver_settings_t<cuopt_int_t, float>::get_parameter(
+  const std::string& name) const;
 template float solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
 template bool solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
-template std::string solver_settings_t<cuopt_int_t, float>::get_parameter(const std::string& name) const;
+template std::string solver_settings_t<cuopt_int_t, float>::get_parameter(
+  const std::string& name) const;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
 template class solver_settings_t<cuopt_int_t, double>;
-template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, int value);
-template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, double value);
-template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name, bool value);
-template int solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
-template double solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name,
+                                                                    cuopt_int_t value);
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name,
+                                                                    double value);
+template void solver_settings_t<cuopt_int_t, double>::set_parameter(const std::string& name,
+                                                                    bool value);
+template cuopt_int_t solver_settings_t<cuopt_int_t, double>::get_parameter(
+  const std::string& name) const;
+template double solver_settings_t<cuopt_int_t, double>::get_parameter(
+  const std::string& name) const;
 template bool solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
-template std::string solver_settings_t<cuopt_int_t, double>::get_parameter(const std::string& name) const;
+template std::string solver_settings_t<cuopt_int_t, double>::get_parameter(
+  const std::string& name) const;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

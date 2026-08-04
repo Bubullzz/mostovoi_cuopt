@@ -133,8 +133,8 @@ bool check_guess(const lp_problem_t<i_t, f_t>& original_lp,
 
     if (verbose && (low_bound_err > settings.primal_tol || up_bound_err > settings.primal_tol)) {
       settings.log.printf(
-        "Bound error %d variable value %e. Low %e Upper %e. Low Error %e Up Error %e\n",
-        j,
+        "Bound error %lld variable value %e. Low %e Upper %e. Low Error %e Up Error %e\n",
+        (long long)(j),
         guess[j],
         original_lp.lower[j],
         original_lp.upper[j],
@@ -146,7 +146,9 @@ bool check_guess(const lp_problem_t<i_t, f_t>& original_lp,
   if (verbose) { settings.log.printf("Bounds infeasibility %e\n", bound_error); }
   std::vector<i_t> fractional;
   num_fractional = fractional_variables(settings, guess, var_types, fractional);
-  if (verbose) { settings.log.printf("Fractional in solution %d\n", num_fractional); }
+  if (verbose) {
+    settings.log.printf("Fractional in solution %lld\n", (long long)(num_fractional));
+  }
   if (bound_error < settings.primal_tol && primal_error < 2 * settings.primal_tol &&
       num_fractional == 0) {
     if (verbose) { settings.log.printf("Solution is feasible\n"); }
@@ -296,13 +298,14 @@ branch_and_bound_t<i_t, f_t>::branch_and_bound_t(
     const i_t col_end   = original_lp_.A.col_start[slack + 1];
     const i_t col_len   = col_end - col_start;
     if (col_len != 1) {
-      settings_.log.printf("Slack %d has %d nzs\n", slack, col_len);
+      settings_.log.printf("Slack %lld has %lld nzs\n", (long long)(slack), (long long)(col_len));
       assert(col_len == 1);
     }
     const i_t i = original_lp_.A.i[col_start];
     const f_t x = original_lp_.A.x[col_start];
     if (std::abs(x) != 1.0) {
-      settings_.log.printf("Slack %d row %d has non-unit coefficient %e\n", slack, i, x);
+      settings_.log.printf(
+        "Slack %lld row %lld has non-unit coefficient %e\n", (long long)(slack), (long long)(i), x);
       assert(std::abs(x) == 1.0);
     }
   }
@@ -497,8 +500,9 @@ i_t branch_and_bound_t<i_t, f_t>::find_reduced_cost_fixings(f_t upper_bound,
   }
 
   if (num_fixed > 0 || num_improved > 0) {
-    settings_.log.printf(
-      "Reduced costs: Found %d improved bounds and %d fixed variables\n", num_improved, num_fixed);
+    settings_.log.printf("Reduced costs: Found %lld improved bounds and %lld fixed variables\n",
+                         (long long)(num_improved),
+                         (long long)(num_fixed));
   }
   return num_fixed;
 }
@@ -517,8 +521,9 @@ bool branch_and_bound_t<i_t, f_t>::set_solution_from_heuristics(const std::vecto
 {
   mutex_original_lp_.lock();
   if (solution.size() != original_problem_.num_cols) {
-    settings_.log.printf(
-      "Solution size mismatch %ld %d\n", solution.size(), original_problem_.num_cols);
+    settings_.log.printf("Solution size mismatch %ld %lld\n",
+                         solution.size(),
+                         (long long)(original_problem_.num_cols));
   }
   std::vector<f_t> crushed_solution;
   crush_primal_solution<i_t, f_t>(
@@ -564,10 +569,10 @@ bool branch_and_bound_t<i_t, f_t>::set_solution_from_heuristics(const std::vecto
       if (verbose) {
         settings_.log.printf(
           "Injected solution infeasible. Constraint error %e bound error %e integer infeasible "
-          "%d\n",
+          "%lld\n",
           primal_err,
           bound_err,
-          num_fractional);
+          (long long)(num_fractional));
       }
     }
     mutex_upper_.unlock();
@@ -592,8 +597,9 @@ void branch_and_bound_t<i_t, f_t>::queue_external_solution_deterministic(
   // This ensures deterministic ordering of solution events
 
   if (solution.size() != original_problem_.num_cols) {
-    settings_.log.printf(
-      "Solution size mismatch %ld %d\n", solution.size(), original_problem_.num_cols);
+    settings_.log.printf("Solution size mismatch %ld %lld\n",
+                         solution.size(),
+                         (long long)(original_problem_.num_cols));
     return;
   }
 
@@ -708,7 +714,7 @@ bool branch_and_bound_t<i_t, f_t>::repair_solution(const std::vector<f_t>& edge_
   std::vector<f_t> leaf_edge_norms = edge_norms;
   // should probably set the cut off here lp_settings.cut_off
   dual_status_t lp_status = simplex::dual_phase2(
-    2, 0, lp_start_time, repair_lp, lp_settings, vstatus, lp_solution, iter, leaf_edge_norms);
+    i_t{2}, i_t{0}, lp_start_time, repair_lp, lp_settings, vstatus, lp_solution, iter, leaf_edge_norms);
   repaired_solution = lp_solution.x;
 
   if (lp_status == dual_status_t::OPTIMAL) {
@@ -726,11 +732,12 @@ bool branch_and_bound_t<i_t, f_t>::repair_solution(const std::vector<f_t>& edge_
     constexpr bool verbose = false;
     if (verbose) {
       settings_.log.printf(
-        "After repair: feasible %d primal error %e bound error %e fractional %d. Objective %e\n",
-        feasible,
+        "After repair: feasible %lld primal error %e bound error %e fractional %lld. Objective "
+        "%e\n",
+        (long long)(feasible),
         primal_error,
         bound_error,
-        num_fractional,
+        (long long)(num_fractional),
         repaired_obj);
     }
   }
@@ -1025,7 +1032,7 @@ branch_variable_t<i_t> branch_and_bound_t<i_t, f_t>::variable_selection(
       return {branch_var, round_dir};
   }
 
-  log.debug("Unknown variable selection method: %d\n", worker->search_strategy);
+  log.debug("Unknown variable selection method: %lld\n", (long long)(search_strategy_t)(worker->search_strategy));
   return {-1, branch_direction_t::NONE};
 }
 
@@ -1104,8 +1111,8 @@ struct nondeterministic_policy_t : tree_update_policy_t<i_t, f_t> {
   {
     if (worker->search_strategy == search_strategy_t::BEST_FIRST) {
       fetch_min(bnb.lower_bound_numerical_, node->lower_bound);
-      log.printf("LP returned numerical issue on node %d. Best bound set to %+10.6e.\n",
-                 node->node_id,
+      log.printf("LP returned numerical issue on node %lld. Best bound set to %+10.6e.\n",
+                 (long long)(node->node_id),
                  compute_user_objective(bnb.original_lp_, bnb.lower_bound_numerical_.load()));
     }
   }
@@ -1165,7 +1172,7 @@ struct deterministic_bfs_policy_t
     if (obj < this->worker.local_upper_bound) {
       this->worker.local_upper_bound = obj;
       this->worker.integer_solutions.push_back(
-        {obj, x, node->depth, this->worker.worker_id, this->worker.next_solution_seq++});
+        {obj, x, node->depth, static_cast<int>(this->worker.worker_id), this->worker.next_solution_seq++});
     }
   }
 
@@ -1378,14 +1385,14 @@ std::pair<node_status_t, branch_direction_t> branch_and_bound_t<i_t, f_t>::updat
     for (i_t j : leaf_fractional) {
       if (leaf_problem.lower[j] == leaf_problem.upper[j]) {
         printf(
-          "Node %d: Fixed variable %d has a fractional value %e. Lower %e upper %e. Variable "
-          "status %d\n",
-          node_ptr->node_id,
-          j,
+          "Node %lld: Fixed variable %lld has a fractional value %e. Lower %e upper %e. Variable "
+          "status %lld\n",
+          (long long)(node_ptr->node_id),
+          (long long)(j),
           leaf_solution.x[j],
           leaf_problem.lower[j],
           leaf_problem.upper[j],
-          node_ptr->vstatus[j]);
+          (long long)(node_ptr->vstatus[j]));
       }
     }
 #endif
@@ -1530,8 +1537,9 @@ dual_status_t branch_and_bound_t<i_t, f_t>::solve_node_lp(
       }
       if (branched_variables[parent->branch_var] == 1) {
         printf(
-          "Variable %d already branched. Previous lower %e upper %e. Current lower %e upper %e.\n",
-          parent->branch_var,
+          "Variable %lld already branched. Previous lower %e upper %e. Current lower %e upper "
+          "%e.\n",
+          (long long)(parent->branch_var),
           branched_lower[parent->branch_var],
           branched_upper[parent->branch_var],
           parent->branch_var_lower,
@@ -1543,7 +1551,9 @@ dual_status_t branch_and_bound_t<i_t, f_t>::solve_node_lp(
       parent                                 = parent->parent;
     }
     if (parent == nullptr) {
-      printf("Depth %d > num_integer_variables %d\n", node_ptr->depth, num_integer_variables);
+      printf("Depth %lld > num_integer_variables %lld\n",
+             (long long)(node_ptr->depth),
+             (long long)(num_integer_variables));
     }
   }
 #endif
@@ -1580,17 +1590,17 @@ dual_status_t branch_and_bound_t<i_t, f_t>::solve_node_lp(
   lp_settings.log.set_log_file(logname, "a");
   lp_settings.log.log_to_console = false;
   lp_settings.log.printf(
-    "%scurrent node: id = %d, depth = %d, branch var = %d, branch dir = %s, fractional val = "
-    "%f, variable lower bound = %f, variable upper bound = %f, branch vstatus = %d\n\n",
+    "%scurrent node: id = %lld, depth = %lld, branch var = %lld, branch dir = %s, fractional val = "
+    "%f, variable lower bound = %f, variable upper bound = %f, branch vstatus = %lld\n\n",
     settings_.log.log_prefix.c_str(),
-    node_ptr->node_id,
-    node_ptr->depth,
-    node_ptr->branch_var,
+    (long long)(node_ptr->node_id),
+    (long long)(node_ptr->depth),
+    (long long)(node_ptr->branch_var),
     node_ptr->branch_dir == branch_direction_t::DOWN ? "DOWN" : "UP",
     node_ptr->fractional_val,
     node_ptr->branch_var_lower,
     node_ptr->branch_var_upper,
-    node_ptr->vstatus[node_ptr->branch_var]);
+    (long long)(node_ptr->vstatus[node_ptr->branch_var]));
 #endif
 
   bool feasible           = worker->set_lp_variable_bounds(node_ptr, settings_);
@@ -1608,8 +1618,8 @@ dual_status_t branch_and_bound_t<i_t, f_t>::solve_node_lp(
       i_t node_iter     = 0;
       f_t lp_start_time = tic();
 
-      lp_status = dual_phase2_with_advanced_basis(2,
-                                                  0,
+      lp_status = dual_phase2_with_advanced_basis(i_t(2),
+                                                  i_t(0),
                                                   worker->recompute_basis,
                                                   lp_start_time,
                                                   worker->leaf_problem,
@@ -1644,7 +1654,7 @@ dual_status_t branch_and_bound_t<i_t, f_t>::solve_node_lp(
   }
 
 #ifdef LOG_NODE_SIMPLEX
-  lp_settings.log.printf("\nLP status: %d\n\n", lp_status);
+  lp_settings.log.printf("\nLP status: %lld\n\n", (long long)(lp_status));
 #endif
 
   return lp_status;
@@ -1879,7 +1889,7 @@ void branch_and_bound_t<i_t, f_t>::work_stealing(bfs_worker_t<i_t, f_t>* worker)
   i_t max_attempts   = settings_.bnb_max_steal_attempts >= 0 ? settings_.bnb_max_steal_attempts
                                                              : MIP_DEFAULT_MAX_STEAL_ATTEMPTS;
   for (i_t i = 0; i < max_attempts; ++i) {
-    i_t victim_id                  = worker->rng.uniform(0, bfs_worker_pool_.size());
+    i_t victim_id                  = worker->rng.uniform(i_t{0}, static_cast<i_t>(bfs_worker_pool_.size()));
     bfs_worker_t<i_t, f_t>* victim = bfs_worker_pool_[victim_id];
     if (worker->steal_from(victim, nodes_to_steal)) { break; }
   }
@@ -2865,14 +2875,15 @@ lp_status_t branch_and_bound_t<i_t, f_t>::solve_root_relaxation(
         }
       }
       if (basic_list.size() != original_lp_.num_rows) {
-        settings_.log.printf(
-          "basic_list size %d != m %d\n", basic_list.size(), original_lp_.num_rows);
+        settings_.log.printf("basic_list size %lld != m %lld\n",
+                             (long long)(basic_list.size()),
+                             (long long)(original_lp_.num_rows));
         assert(basic_list.size() == original_lp_.num_rows);
       }
       if (nonbasic_list.size() != original_lp_.num_cols - original_lp_.num_rows) {
-        settings_.log.printf("nonbasic_list size %d != n - m %d\n",
-                             nonbasic_list.size(),
-                             original_lp_.num_cols - original_lp_.num_rows);
+        settings_.log.printf("nonbasic_list size %lld != n - m %lld\n",
+                             (long long)(nonbasic_list.size()),
+                             (long long)(original_lp_.num_cols - original_lp_.num_rows));
         assert(nonbasic_list.size() == original_lp_.num_cols - original_lp_.num_rows);
       }
       // Populate the basis_update from the crossover vstatus
@@ -2885,7 +2896,8 @@ lp_status_t branch_and_bound_t<i_t, f_t>::solve_root_relaxation(
                                                         nonbasic_list,
                                                         crossover_vstatus_);
       if (refactor_status != 0) {
-        settings_.log.printf("Failed to refactor basis. %d deficient columns.\n", refactor_status);
+        settings_.log.printf("Failed to refactor basis. %lld deficient columns.\n",
+                             (long long)(refactor_status));
         assert(refactor_status == 0);
         root_status = lp_status_t::NUMERICAL_ISSUES;
       }
@@ -2934,10 +2946,12 @@ auto branch_and_bound_t<i_t, f_t>::do_cut_pass(
   [[maybe_unused]] const std::vector<f_t>& saved_solution) -> cut_pass_result_t
 {
 #ifdef PRINT_FRACTIONAL_INFO
-  settings_.log.printf("Found %d fractional variables on cut pass %d\n", num_fractional, cut_pass);
+  settings_.log.printf("Found %lld fractional variables on cut pass %lld\n",
+                       (long long)(num_fractional),
+                       (long long)(cut_pass));
   for (i_t j : fractional) {
-    settings_.log.printf("Fractional variable %d lower %e value %e upper %e\n",
-                         j,
+    settings_.log.printf("Fractional variable %lld lower %e value %e upper %e\n",
+                         (long long)(j),
                          original_lp_.lower[j],
                          root_relax_soln_.x[j],
                          original_lp_.upper[j]);
@@ -2988,14 +3002,14 @@ auto branch_and_bound_t<i_t, f_t>::do_cut_pass(
 #ifdef PRINT_CUT_POOL_TYPES
   cut_pool.print_cutpool_types();
   print_cut_types("In LP      ", cut_types, settings_);
-  printf("Cut pool size: %d\n", cut_pool.pool_size());
+  printf("Cut pool size: %lld\n", (long long)(cut_pool.pool_size()));
 #endif
 
 #ifdef CHECK_CUT_MATRIX
   if (cuts_to_add.check_matrix() != 0) {
     settings_.log.printf("Bad cuts matrix\n");
     for (i_t i = 0; i < static_cast<i_t>(cut_types.size()); ++i) {
-      settings_.log.printf("row %d cut type %d\n", i, cut_types[i]);
+      settings_.log.printf("row %lld cut type %lld\n", (long long)(i), (long long)(cut_types[i]));
     }
     return {cut_pass_action_t::RETURN, mip_status_t::NUMERICAL};
   }
@@ -3007,11 +3021,11 @@ auto branch_and_bound_t<i_t, f_t>::do_cut_pass(
 
   // Resolve the LP with the new cuts
   settings_.log.debug(
-    "Solving LP with %d cuts (%d cut nonzeros). Cuts in pool %d. Total constraints %d\n",
-    num_cuts,
-    cuts_to_add.row_start[cuts_to_add.m],
-    cut_pool.pool_size(),
-    cuts_to_add.m + original_lp_.num_rows);
+    "Solving LP with %lld cuts (%lld cut nonzeros). Cuts in pool %lld. Total constraints %lld\n",
+    (long long)(num_cuts),
+    (long long)(cuts_to_add.row_start[cuts_to_add.m]),
+    (long long)(cut_pool.pool_size()),
+    (long long)(cuts_to_add.m + original_lp_.num_rows));
   lp_settings.log.log = false;
 
   f_t add_cuts_start_time = tic();
@@ -3091,8 +3105,8 @@ auto branch_and_bound_t<i_t, f_t>::do_cut_pass(
   bool initialize_basis       = false;
   lp_settings.concurrent_halt = NULL;
   f_t dual_phase2_start_time  = tic();
-  dual_status_t cut_status    = dual_phase2_with_advanced_basis(2,
-                                                             0,
+  dual_status_t cut_status    = dual_phase2_with_advanced_basis(i_t(2),
+                                                             i_t(0),
                                                              initialize_basis,
                                                              exploration_stats_.start_time,
                                                              original_lp_,
@@ -3222,8 +3236,8 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
   exploration_stats_.nodes_explored   = 0;
   original_lp_.A.to_compressed_row(Arow_);
 
-  settings_.log.debug("Reduced cost strengthening enabled: %d\n",
-                      settings_.reduced_cost_strengthening);
+  settings_.log.debug("Reduced cost strengthening enabled: %lld\n",
+                      (long long)(settings_.reduced_cost_strengthening));
 
   variable_bounds_t<i_t, f_t> variable_bounds(
     original_lp_, settings_, var_types_, Arow_, new_slacks_);
@@ -3523,8 +3537,8 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
       f_t root_cut_cpufj_build_start_time = tic();
       root_fj_cpu_worker.create_worker(
         original_lp_, var_types_, root_relax_soln_.x, settings_, "[RootCut CPUFJ] ");
-      settings_.log.debug("Root cut CPUFJ problem build time after pass %d: %.6f seconds\n",
-                          cut_pass,
+      settings_.log.debug("Root cut CPUFJ problem build time after pass %lld: %.6f seconds\n",
+                          (long long)(cut_pass),
                           toc(root_cut_cpufj_build_start_time));
     }
   }
@@ -3555,11 +3569,11 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
     mutex_upper_.unlock();
 
     settings_.log.printf("Cut generation time: %.2f seconds\n", cut_generation_time);
-    settings_.log.printf("Cut pool size  : %d\n", cut_pool_size);
-    settings_.log.printf("Size with cuts : %d constraints, %d variables, %d nonzeros\n",
-                         original_lp_.num_rows,
-                         original_lp_.num_cols,
-                         original_lp_.A.col_start[original_lp_.A.n]);
+    settings_.log.printf("Cut pool size  : %lld\n", (long long)(cut_pool_size));
+    settings_.log.printf("Size with cuts : %lld constraints, %lld variables, %lld nonzeros\n",
+                         (long long)(original_lp_.num_rows),
+                         (long long)(original_lp_.num_cols),
+                         (long long)(original_lp_.A.col_start[original_lp_.A.n]));
   } else {
     settings_.log.printf("\n");
   }
@@ -3683,13 +3697,14 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
     if (removed > 0) {
       symmetry_->num_generators = static_cast<int>(symmetry_->generators.num_generators());
       settings_.log.printf(
-        "Pruned %d generators invalidated by root-level bound tightening, %d remain\n",
-        removed,
-        symmetry_->num_generators);
+        "Pruned %lld generators invalidated by root-level bound tightening, %lld remain\n",
+        (long long)(removed),
+        (long long)(symmetry_->num_generators));
     }
   }
 
-  settings_.log.printf("Exploring the B&B tree using %d threads\n\n", settings_.num_threads);
+  settings_.log.printf("Exploring the B&B tree using %lld threads\n\n",
+                       (long long)(settings_.num_threads));
   node_concurrent_halt_ = 0;
 
   exploration_stats_.nodes_explored       = 0;
@@ -3709,9 +3724,9 @@ mip_status_t branch_and_bound_t<i_t, f_t>::solve(mip_solution_t<i_t, f_t>& solut
       run_deterministic_coordinator(Arow_);
     } else {
       const i_t num_workers        = settings_.num_threads;
-      const i_t num_bfs_workers    = std::max(num_workers / 2, 1);
-      const i_t num_submip_workers = std::max(num_workers / 8, 1);
-      const i_t num_diving_workers = std::max(num_workers - num_bfs_workers, 1);
+      const i_t num_bfs_workers    = std::max(num_workers / 2, i_t{1});
+      const i_t num_submip_workers = std::max(num_workers / 8, i_t{1});
+      const i_t num_diving_workers = std::max(num_workers - num_bfs_workers, i_t{1});
       bfs_worker_pool_.init(num_bfs_workers, original_lp_, Arow_, var_types_, symmetry_, settings_);
       rins_worker_pool_.init(
         num_submip_workers, original_lp_, Arow_, var_types_, symmetry_, settings_, num_bfs_workers);
@@ -3896,7 +3911,7 @@ void branch_and_bound_t<i_t, f_t>::run_deterministic_coordinator(const csr_matri
 
   // Compute worker counts using the same formula as reliability-branching scheduler
   const i_t num_workers        = settings_.num_threads;
-  const i_t num_bfs_workers    = std::max(num_workers / 2, 1);
+  const i_t num_bfs_workers    = std::max(num_workers / 2, i_t{1});
   const i_t num_diving_workers = num_workers - num_bfs_workers;
 
   deterministic_mode_enabled_              = true;
@@ -3943,10 +3958,10 @@ void branch_and_bound_t<i_t, f_t>::run_deterministic_coordinator(const csr_matri
   int actual_diving_workers =
     deterministic_diving_workers_ ? (int)deterministic_diving_workers_->size() : 0;
   settings_.log.printf(
-    "Deterministic Mode: %d BFS workers + %d diving workers, horizon step = %.2f work "
+    "Deterministic Mode: %lld BFS workers + %lld diving workers, horizon step = %.2f work "
     "units\n",
-    num_bfs_workers,
-    actual_diving_workers,
+    (long long)(num_bfs_workers),
+    (long long)(actual_diving_workers),
     deterministic_horizon_step_);
 
   search_tree_.root.get_down_child()->origin_worker_id = -1;
@@ -3999,17 +4014,18 @@ void branch_and_bound_t<i_t, f_t>::run_deterministic_coordinator(const csr_matri
     double sync_time    = worker.work_context.total_sync_time;
     double total_time   = worker.total_runtime;  // Already includes sync time
     double sync_percent = (total_time > 0) ? (100.0 * sync_time / total_time) : 0.0;
-    settings_.log.printf("  %6d | %7d | %8d | %6d | %7d | %6d | %8d | %7.3fs | %4.1f%% | %5.2fs\n",
-                         worker.worker_id,
-                         worker.total_nodes_processed,
-                         worker.total_nodes_branched,
-                         worker.total_nodes_pruned,
-                         worker.total_nodes_infeasible,
-                         worker.total_integer_solutions,
-                         worker.total_nodes_assigned,
-                         total_time,
-                         std::min(99.9, sync_percent),
-                         worker.total_nowork_time);
+    settings_.log.printf(
+      "  %6lld | %7lld | %8lld | %6lld | %7lld | %6lld | %8lld | %7.3fs | %4.1f%% | %5.2fs\n",
+      (long long)(worker.worker_id),
+      (long long)(worker.total_nodes_processed),
+      (long long)(worker.total_nodes_branched),
+      (long long)(worker.total_nodes_pruned),
+      (long long)(worker.total_nodes_infeasible),
+      (long long)(worker.total_integer_solutions),
+      (long long)(worker.total_nodes_assigned),
+      total_time,
+      std::min(99.9, sync_percent),
+      worker.total_nowork_time);
   }
 
   // Print diving worker statistics
@@ -4027,12 +4043,12 @@ void branch_and_bound_t<i_t, f_t>::run_deterministic_coordinator(const csr_matri
         case search_strategy_t::COEFFICIENT_DIVING: type_str = "CD"; break;
         default: break;
       }
-      settings_.log.printf("  %6d | %6s | %7d | %6d | %6d | %7.3fs | %5.2fs\n",
-                           worker.worker_id,
+      settings_.log.printf("  %6lld | %6s | %7lld | %6lld | %6lld | %7.3fs | %5.2fs\n",
+                           (long long)(worker.worker_id),
                            type_str,
-                           worker.total_dives,
-                           worker.total_nodes_explored,
-                           worker.total_integer_solutions,
+                           (long long)(worker.total_dives),
+                           (long long)(worker.total_nodes_explored),
+                           (long long)(worker.total_integer_solutions),
                            worker.total_runtime,
                            worker.total_nowork_time);
     }
@@ -4042,8 +4058,9 @@ void branch_and_bound_t<i_t, f_t>::run_deterministic_coordinator(const csr_matri
     double avg_wait =
       (producer_wait_count_ > 0) ? total_producer_wait_time_ / producer_wait_count_ : 0.0;
     settings_.log.printf("Producer Sync Statistics:\n");
-    settings_.log.printf(
-      "  Producers: %zu, Syncs: %d\n", producer_sync_.num_producers(), producer_wait_count_);
+    settings_.log.printf("  Producers: %zu, Syncs: %lld\n",
+                         producer_sync_.num_producers(),
+                         (long long)(producer_wait_count_));
     settings_.log.printf("  Total wait: %.3fs, Avg: %.4fs, Max: %.4fs\n",
                          total_producer_wait_time_,
                          avg_wait,
@@ -4230,9 +4247,9 @@ void branch_and_bound_t<i_t, f_t>::deterministic_sync_callback()
   idle_workers = idle_count > 0 ? std::to_string(idle_count) + " idle" : "";
 
 #ifdef DETERMINISM_LOG_SYNCS
-  settings_.log.printf("W%-5g %8d   %8lu    %+13.6e    %+10.6e    %s %8.2f  [%08x]%s%s\n",
+  settings_.log.printf("W%-5g %8lld   %8lu    %+13.6e    %+10.6e    %s %8.2f  [%08x]%s%s\n",
                        deterministic_current_horizon_,
-                       exploration_stats_.nodes_explored,
+                       (long long)(exploration_stats_.nodes_explored),
                        exploration_stats_.nodes_unexplored,
                        user_obj,
                        user_lower,
@@ -4306,8 +4323,8 @@ node_status_t branch_and_bound_t<i_t, f_t>::solve_node_deterministic(
   f_t lp_start_time                = tic();
   std::vector<f_t> leaf_edge_norms = edge_norms_;
 
-  dual_status_t lp_status = dual_phase2_with_advanced_basis(2,
-                                                            0,
+  dual_status_t lp_status = dual_phase2_with_advanced_basis(i_t(2),
+                                                            i_t(0),
                                                             worker.recompute_bounds_and_basis,
                                                             lp_start_time,
                                                             worker.leaf_problem,
@@ -4921,8 +4938,8 @@ void branch_and_bound_t<i_t, f_t>::deterministic_dive(
     std::vector<f_t> leaf_edge_norms = edge_norms_;
 
     decompress_vstatus(node_ptr->packed_vstatus, worker.leaf_problem.num_cols, worker.leaf_vstatus);
-    dual_status_t lp_status = dual_phase2_with_advanced_basis(2,
-                                                              0,
+    dual_status_t lp_status = dual_phase2_with_advanced_basis(i_t(2),
+                                                              i_t(0),
                                                               worker.recompute_bounds_and_basis,
                                                               lp_start_time,
                                                               worker.leaf_problem,

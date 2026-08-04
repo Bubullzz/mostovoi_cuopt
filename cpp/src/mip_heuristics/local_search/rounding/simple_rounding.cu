@@ -162,7 +162,7 @@ void invoke_correct_integers(solution_t<i_t, f_t>& solution, f_t tol)
   const auto problem_view = solution.problem_ptr->view();
   f_t* assignment_ptr     = solution.assignment.data();
   thrust::for_each(solution.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(solution.problem_ptr->n_variables),
                    [problem_view, assignment_ptr, tol] __device__(i_t var) {
                      if (problem_view.is_integer_var(var) &&
@@ -171,14 +171,17 @@ void invoke_correct_integers(solution_t<i_t, f_t>& solution, f_t tol)
                    });
 }
 
-#define INSTANTIATE(F_TYPE)                                                                  \
-  template bool check_brute_force_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution); \
-  template void invoke_random_round_nearest<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution, \
-                                                         int n_target_random_rounds);        \
-  template void invoke_round_nearest<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution);       \
-  template bool invoke_simple_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution);     \
-  template void invoke_correct_integers<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & solution,     \
-                                                     F_TYPE tol);
+#define INSTANTIATE(F_TYPE)                                                                       \
+  template bool check_brute_force_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> & \
+                                                                solution);                        \
+  template void invoke_random_round_nearest<cuopt_int_t, F_TYPE>(                                 \
+    solution_t<cuopt_int_t, F_TYPE> & solution, cuopt_int_t n_target_random_rounds);              \
+  template void invoke_round_nearest<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> &       \
+                                                          solution);                              \
+  template bool invoke_simple_rounding<cuopt_int_t, F_TYPE>(solution_t<cuopt_int_t, F_TYPE> &     \
+                                                            solution);                            \
+  template void invoke_correct_integers<cuopt_int_t, F_TYPE>(                                     \
+    solution_t<cuopt_int_t, F_TYPE> & solution, F_TYPE tol);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

@@ -116,8 +116,8 @@ class grpc_python_client_t {
   bool connect(std::string& error_out);
 
   grpc_submit_result_t submit(
-    cuopt::mathematical_optimization::io::data_model_view_t<int, double>* data_model,
-    cuopt::mathematical_optimization::solver_settings_t<int, double>* settings,
+    cuopt::mathematical_optimization::io::data_model_view_t<cuopt_int_t, double>* data_model,
+    cuopt::mathematical_optimization::solver_settings_t<cuopt_int_t, double>* settings,
     bool enable_incumbents = false);
 
   grpc_status_result_t status(const std::string& job_id);

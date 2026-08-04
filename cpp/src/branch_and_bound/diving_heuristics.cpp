@@ -370,44 +370,49 @@ branch_variable_t<i_t> vector_length_diving(const lp_problem_t<i_t, f_t>& lp,
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
-template branch_variable_t<int> line_search_diving(const std::vector<int>& fractional,
-                                                   const std::vector<double>& solution,
-                                                   const std::vector<double>& root_solution,
-                                                   logger_t& log);
+template branch_variable_t<cuopt_int_t> line_search_diving(
+  const std::vector<cuopt_int_t>& fractional,
+  const std::vector<double>& solution,
+  const std::vector<double>& root_solution,
+  logger_t& log);
 
-template branch_variable_t<int> pseudocost_diving(pseudo_costs_t<cuopt_int_t, double>& pc,
-                                                  const std::vector<cuopt_int_t>& fractional,
-                                                  const std::vector<double>& solution,
-                                                  const std::vector<double>& root_solution,
-                                                  logger_t& log);
+template branch_variable_t<cuopt_int_t> pseudocost_diving(
+  pseudo_costs_t<cuopt_int_t, double>& pc,
+  const std::vector<cuopt_int_t>& fractional,
+  const std::vector<double>& solution,
+  const std::vector<double>& root_solution,
+  logger_t& log);
 
-template branch_variable_t<int> guided_diving(pseudo_costs_t<cuopt_int_t, double>& pc,
-                                              const std::vector<cuopt_int_t>& fractional,
-                                              const std::vector<double>& solution,
-                                              const std::vector<double>& incumbent,
-                                              logger_t& log);
+template branch_variable_t<cuopt_int_t> guided_diving(pseudo_costs_t<cuopt_int_t, double>& pc,
+                                                      const std::vector<cuopt_int_t>& fractional,
+                                                      const std::vector<double>& solution,
+                                                      const std::vector<double>& incumbent,
+                                                      logger_t& log);
 
 template void calculate_variable_locks(const lp_problem_t<cuopt_int_t, double>& lp_problem,
                                        std::vector<cuopt_int_t>& up_locks,
                                        std::vector<cuopt_int_t>& down_locks);
 
-template branch_variable_t<int> coefficient_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
-                                                   const std::vector<cuopt_int_t>& fractional,
-                                                   const std::vector<double>& solution,
-                                                   const std::vector<cuopt_int_t>& up_locks,
-                                                   const std::vector<cuopt_int_t>& down_locks,
-                                                   logger_t& log);
+template branch_variable_t<cuopt_int_t> coefficient_diving(
+  const lp_problem_t<cuopt_int_t, double>& lp_problem,
+  const std::vector<cuopt_int_t>& fractional,
+  const std::vector<double>& solution,
+  const std::vector<cuopt_int_t>& up_locks,
+  const std::vector<cuopt_int_t>& down_locks,
+  logger_t& log);
 
-template branch_variable_t<int> farkas_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
-                                              const std::vector<cuopt_int_t>& fractional,
-                                              const std::vector<double>& solution,
-                                              double zero_tol,
-                                              logger_t& log);
+template branch_variable_t<cuopt_int_t> farkas_diving(
+  const lp_problem_t<cuopt_int_t, double>& lp_problem,
+  const std::vector<cuopt_int_t>& fractional,
+  const std::vector<double>& solution,
+  double zero_tol,
+  logger_t& log);
 
-template branch_variable_t<int> vector_length_diving(const lp_problem_t<cuopt_int_t, double>& lp_problem,
-                                                     const std::vector<cuopt_int_t>& fractional,
-                                                     const std::vector<double>& solution,
-                                                     logger_t& log);
+template branch_variable_t<cuopt_int_t> vector_length_diving(
+  const lp_problem_t<cuopt_int_t, double>& lp_problem,
+  const std::vector<cuopt_int_t>& fractional,
+  const std::vector<double>& solution,
+  logger_t& log);
 
 #endif
 

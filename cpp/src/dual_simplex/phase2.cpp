@@ -360,9 +360,11 @@ void compute_farkas_certificate(const lp_problem_t<i_t, f_t>& lp,
   // We need the new objective to be at least positive_threshold
   // positive_threshold = obj_val+ alpha * infeas
   // infeas > 0, alpha > 0, positive_threshold > 0
-  printf("direction = %d\n", direction);
-  printf(
-    "lower %e x %e upper %d\n", lp.lower[leaving_index], x[leaving_index], lp.upper[leaving_index]);
+  printf("direction = %lld\n", (long long)(direction));
+  printf("lower %e x %e upper %lld\n",
+         lp.lower[leaving_index],
+         x[leaving_index],
+         (long long)(lp.upper[leaving_index]));
   printf("infeas = %e\n", infeas);
   printf("obj_val = %e\n", obj_val);
   alpha = std::max(threshold, (positive_threshold - obj_val) / infeas);
@@ -498,10 +500,10 @@ void initial_perturbation(const lp_problem_t<i_t, f_t>& lp,
     }
   }
 
-  settings.log.printf("Applied initial perturbation of %e to %d/%d objective coefficients\n",
+  settings.log.printf("Applied initial perturbation of %e to %lld/%lld objective coefficients\n",
                       sum_perturb,
-                      num_perturb,
-                      n);
+                      (long long)(num_perturb),
+                      (long long)(n));
 }
 
 template <typename i_t, typename f_t>
@@ -987,8 +989,8 @@ i_t steepest_edge_pricing(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
       const f_t val = (infeas * infeas) / dy_steepest_edge[j];
 #ifdef DEBUG_PRICE
-      settings.log.printf("price %d x %e lo %e infeas %e val %e se %e\n",
-                          j,
+      settings.log.printf("price %lld x %e lo %e infeas %e val %e se %e\n",
+                          (long long)(j),
                           x[j],
                           lp.lower[j],
                           infeas,
@@ -1010,8 +1012,8 @@ i_t steepest_edge_pricing(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
       const f_t val = (infeas * infeas) / dy_steepest_edge[j];
 #ifdef DEBUG_PRICE
-      settings.log.printf("price %d x %e up %e infeas %e val %e se %e\n",
-                          j,
+      settings.log.printf("price %lld x %e up %e infeas %e val %e se %e\n",
+                          (long long)(j),
                           x[j],
                           lp.upper[j],
                           infeas,
@@ -1238,8 +1240,11 @@ i_t flip_bounds(const lp_problem_t<i_t, f_t>& lp,
       delta_x[j] += delta;
       vstatus[j] = variable_status_t::NONBASIC_UPPER;
 #ifdef BOUND_FLIP_DEBUG
-      settings.log.printf(
-        "Flipping nonbasic %d from lo %e to up %e. z %e\n", j, lp.lower[j], lp.upper[j], z[j]);
+      settings.log.printf("Flipping nonbasic %lld from lo %e to up %e. z %e\n",
+                          (long long)(j),
+                          lp.lower[j],
+                          lp.upper[j],
+                          z[j]);
 #endif
       num_flipped++;
     } else if (vstatus[j] == variable_status_t::NONBASIC_UPPER && z[j] > dual_tol) {
@@ -1251,8 +1256,11 @@ i_t flip_bounds(const lp_problem_t<i_t, f_t>& lp,
       delta_x[j] += delta;
       vstatus[j] = variable_status_t::NONBASIC_LOWER;
 #ifdef BOUND_FLIP_DEBUG
-      settings.log.printf(
-        "Flipping nonbasic %d from up %e to lo %e. z %e\n", j, lp.upper[j], lp.lower[j], z[j]);
+      settings.log.printf("Flipping nonbasic %lld from up %e to lo %e. z %e\n",
+                          (long long)(j),
+                          lp.upper[j],
+                          lp.lower[j],
+                          z[j]);
 #endif
       num_flipped++;
     }
@@ -1329,7 +1337,9 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
       const i_t col_start = B_transpose.col_start[i];
       const i_t col_end   = B_transpose.col_start[i + 1];
       if (col_end - col_start != 1) {
-        settings.log.printf("Singleton row %d has %d non-zero entries\n", i, col_end - col_start);
+        settings.log.printf("Singleton row %lld has %lld non-zero entries\n",
+                            (long long)(i),
+                            (long long)(col_end - col_start));
       }
 #endif
     }
@@ -1337,8 +1347,8 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
   work_estimate += m;
 
   if (num_singleton_rows > 0) {
-    settings.log.printf("Found %d singleton rows for steepest edge norms in %.2fs\n",
-                        num_singleton_rows,
+    settings.log.printf("Found %lld singleton rows for steepest edge norms in %.2fs\n",
+                        (long long)(num_singleton_rows),
                         toc(start_singleton_rows));
   }
 
@@ -1363,15 +1373,17 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
         const f_t error_component = std::abs(residual[h] - ei[h]);
         error += error_component;
         if (error_component > 1e-12) {
-          settings.log.printf("Singleton row %d component %d error %e residual %e ei %e\n",
-                              k,
-                              h,
+          settings.log.printf("Singleton row %lld component %lld error %e residual %e ei %e\n",
+                              (long long)(k),
+                              (long long)(h),
                               error_component,
                               residual[h],
                               ei[h]);
         }
       }
-      if (error > 1e-12) { settings.log.printf("Singleton row %d error %e\n", k, error); }
+      if (error > 1e-12) {
+        settings.log.printf("Singleton row %lld error %e\n", (long long)(k), error);
+      }
 #endif
 
 #ifdef CHECK_HYPERSPARSE
@@ -1379,8 +1391,8 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
       ft.b_transpose_solve(ei, dy);
       init = vector_norm2_squared<i_t, f_t>(dy);
       if (init != my_init) {
-        settings.log.printf("Singleton row %d error %.16e init %.16e my_init %.16e\n",
-                            k,
+        settings.log.printf("Singleton row %lld error %.16e init %.16e my_init %.16e\n",
+                            (long long)(k),
                             std::abs(init - my_init),
                             init,
                             my_init);
@@ -1401,8 +1413,8 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
 #endif
 #if COMPARE_WITH_DENSE
       if (std::abs(init - my_init) > 1e-12) {
-        settings.log.printf("Singleton row %d error %.16e init %.16e my_init %.16e\n",
-                            k,
+        settings.log.printf("Singleton row %lld error %.16e init %.16e my_init %.16e\n",
+                            (long long)(k),
                             std::abs(init - my_init),
                             init,
                             my_init);
@@ -1419,7 +1431,10 @@ i_t initialize_steepest_edge_norms(const lp_problem_t<i_t, f_t>& lp,
     f_t time_since_log = toc(last_log);
     if (time_since_log > 10) {
       last_log = tic();
-      settings.log.printf("Initialized %d of %d steepest edge norms in %.2fs\n", k, m, now);
+      settings.log.printf("Initialized %lld of %lld steepest edge norms in %.2fs\n",
+                          (long long)(k),
+                          (long long)(m),
+                          now);
     }
     if (toc(start_time) > settings.time_limit) { return -1; }
     if (settings.concurrent_halt != nullptr && *settings.concurrent_halt == 1) {
@@ -1462,9 +1477,9 @@ i_t update_steepest_edge_norms(const simplex_solver_settings_t<i_t, f_t>& settin
 #ifdef STEEPEST_EDGE_DEBUG
   const f_t err = std::abs(dy_norm_squared - prev_dy_norm_squared) / (1.0 + dy_norm_squared);
   if (err > 1e-3) {
-    settings.log.printf("i %d j %d leaving norm error %e computed %e previous estimate %e\n",
-                        basic_leaving_index,
-                        leaving_index,
+    settings.log.printf("i %lld j %lld leaving norm error %e computed %e previous estimate %e\n",
+                        (long long)(basic_leaving_index),
+                        (long long)(leaving_index),
                         err,
                         dy_norm_squared,
                         prev_dy_norm_squared);
@@ -1493,9 +1508,9 @@ i_t update_steepest_edge_norms(const simplex_solver_settings_t<i_t, f_t>& settin
 #ifdef STEEPEST_EDGE_DEBUG
       if (!(new_val >= 0)) {
         settings.log.printf("new val %e\n", new_val);
-        settings.log.printf("k %d j %d norm old %e wk %e vk %e wr %e omegar %e\n",
-                            k,
-                            j,
+        settings.log.printf("k %lld j %lld norm old %e wk %e vk %e wr %e omegar %e\n",
+                            (long long)(k),
+                            (long long)(j),
                             delta_y_steepest_edge[j],
                             wk,
                             v_raw[k],
@@ -1535,8 +1550,12 @@ i_t check_steepest_edge_norms(const simplex_solver_settings_t<i_t, f_t>& setting
     const f_t updated_norm  = delta_y_steepest_edge[j];
     const f_t err = std::abs(computed_norm - updated_norm) / (1 + std::abs(computed_norm));
     if (err > 1e-3) {
-      settings.log.printf(
-        "i %d j %d computed %e updated %e err %e\n", k, j, computed_norm, updated_norm, err);
+      settings.log.printf("i %lld j %lld computed %e updated %e err %e\n",
+                          (long long)(k),
+                          (long long)(j),
+                          computed_norm,
+                          updated_norm,
+                          err);
     }
   }
   return 0;
@@ -1567,7 +1586,7 @@ i_t compute_perturbation(const lp_problem_t<i_t, f_t>& lp,
 #ifdef PERTURBATION_DEBUG
       if (violation > 1e-1) {
         settings.log.printf(
-          "perturbation: violation %e j %d lower %e\n", violation, j, lp.lower[j]);
+          "perturbation: violation %e j %lld lower %e\n", violation, (long long)(j), lp.lower[j]);
       }
 #endif
     } else if (lp.lower[j] == -inf && lp.upper[j] < inf && z[j] > tight_tol) {
@@ -1579,7 +1598,7 @@ i_t compute_perturbation(const lp_problem_t<i_t, f_t>& lp,
 #ifdef PERTURBATION_DEWBUG
       if (violation > 1e-1) {
         settings.log.printf(
-          "perturbation: violation %e j %d upper %e\n", violation, j, lp.upper[j]);
+          "perturbation: violation %e j %lld upper %e\n", violation, (long long)(j), lp.upper[j]);
       }
 #endif
     }
@@ -1587,7 +1606,8 @@ i_t compute_perturbation(const lp_problem_t<i_t, f_t>& lp,
   work_estimate += 7 * delta_z_indices.size();
 #ifdef PERTURBATION_DEBUG
   if (num_perturb > 0) {
-    settings.log.printf("Perturbed %d dual variables by %e\n", num_perturb, sum_perturb);
+    settings.log.printf(
+      "Perturbed %lld dual variables by %e\n", (long long)(num_perturb), sum_perturb);
   }
 #endif
   return 0;
@@ -1656,7 +1676,7 @@ void compute_delta_y(const basis_update_mpf_t<i_t, f_t>& ft,
   b_transpose_multiply(lp, basic_list, delta_y_sparse_vector_check, residual);
   for (i_t k = 0; k < m; ++k) {
     if (std::abs(residual[k] - ei[k]) > 1e-6) {
-      printf("\tBTranspose multiply error %d %e %e\n", k, residual[k], ei[k]);
+      printf("\tBTranspose multiply error %lld %e %e\n", (long long)(k), residual[k], ei[k]);
     }
   }
 #endif
@@ -1777,7 +1797,8 @@ i_t compute_delta_x(const lp_problem_t<i_t, f_t>& lp,
     for (i_t k = 0; k < m; ++k) {
       const f_t err = std::abs(rhs[k] + residual_B[k]);
       if (err >= 1e-6) {
-        printf("Bsolve diff %d %e rhs %e residual %e\n", k, err, rhs[k], residual_B[k]);
+        printf(
+          "Bsolve diff %lld %e rhs %e residual %e\n", (long long)(k), err, rhs[k], residual_B[k]);
       }
       err_max = std::max(err_max, err);
     }
@@ -1903,23 +1924,23 @@ f_t dual_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
       lower_bound_inf++;
-      settings.log.debug("lower_bound_inf %d lower %e upper %e z %e vstatus %d\n",
-                         j,
+      settings.log.debug("lower_bound_inf %lld lower %e upper %e z %e vstatus %lld\n",
+                         (long long)(j),
                          lp.lower[j],
                          lp.upper[j],
                          z[j],
-                         static_cast<int>(vstatus[j]));
+                         (long long)(static_cast<int>(vstatus[j])));
     } else if (lp.lower[j] == -inf && lp.upper[j] < inf && z[j] > tight_tol) {
       // -inf < x_j <= u_j < inf, so need z_j < 0 to be feasible
       num_infeasible++;
       sum_infeasible += std::abs(z[j]);
       upper_bound_inf++;
-      settings.log.debug("upper_bound_inf %d upper %e lower %e z %e vstatus %d\n",
-                         j,
+      settings.log.debug("upper_bound_inf %lld upper %e lower %e z %e vstatus %lld\n",
+                         (long long)(j),
                          lp.upper[j],
                          lp.lower[j],
                          z[j],
-                         static_cast<int>(vstatus[j]));
+                         (long long)(static_cast<int>(vstatus[j])));
     } else if (lp.lower[j] == -inf && lp.upper[j] == inf && z[j] > tight_tol) {
       // -inf < x_j < inf, so need z_j = 0 to be feasible
       num_infeasible++;
@@ -1944,15 +1965,15 @@ f_t dual_infeasibility(const lp_problem_t<i_t, f_t>& lp,
 #ifdef DUAL_INFEASIBILE_DEBUG
   if (num_infeasible > 0) {
     settings.log.printf(
-      "Infeasibilities %e: lower %d upper %d free %d nonbasic lower %d "
-      "nonbasic upper %d\n",
+      "Infeasibilities %e: lower %lld upper %lld free %lld nonbasic lower %lld "
+      "nonbasic upper %lld\n",
       sum_infeasible,
-      lower_bound_inf,
-      upper_bound_inf,
-      free_inf,
-      non_basic_lower_inf,
-      non_basic_upper_inf);
-    settings.log.printf("num infeasible %d\n", num_infeasible);
+      (long long)(lower_bound_inf),
+      (long long)(upper_bound_inf),
+      (long long)(free_inf),
+      (long long)(non_basic_lower_inf),
+      (long long)(non_basic_upper_inf));
+    settings.log.printf("num infeasible %lld\n", (long long)(num_infeasible));
   }
 #endif
   return sum_infeasible;
@@ -1985,13 +2006,13 @@ f_t primal_infeasibility_breakdown(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
 #ifdef PRIMAL_INFEASIBLE_DEBUG
       if (infeas > settings.primal_tol) {
-        settings.log.printf("x %d infeas %e lo %e val %e up %e vstatus %d\n",
-                            j,
+        settings.log.printf("x %lld infeas %e lo %e val %e up %e vstatus %lld\n",
+                            (long long)(j),
                             infeas,
                             lp.lower[j],
                             x[j],
                             lp.upper[j],
-                            static_cast<int>(vstatus[j]));
+                            (long long)(static_cast<int>(vstatus[j])));
       }
 #endif
     }
@@ -2007,13 +2028,13 @@ f_t primal_infeasibility_breakdown(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
 #ifdef PRIMAL_INFEASIBLE_DEBUG
       if (infeas > settings.primal_tol) {
-        settings.log.printf("x %d infeas %e lo %e val %e up %e vstatus %d\n",
-                            j,
+        settings.log.printf("x %lld infeas %e lo %e val %e up %e vstatus %lld\n",
+                            (long long)(j),
                             infeas,
                             lp.lower[j],
                             x[j],
                             lp.upper[j],
-                            static_cast<int>(vstatus[j]));
+                            (long long)(static_cast<int>(vstatus[j])));
       }
 #endif
     }
@@ -2036,13 +2057,13 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
 #ifdef PRIMAL_INFEASIBLE_DEBUG
       if (infeas > settings.primal_tol) {
-        settings.log.printf("x %d infeas %e lo %e val %e up %e vstatus %d\n",
-                            j,
+        settings.log.printf("x %lld infeas %e lo %e val %e up %e vstatus %lld\n",
+                            (long long)(j),
                             infeas,
                             lp.lower[j],
                             x[j],
                             lp.upper[j],
-                            static_cast<int>(vstatus[j]));
+                            (long long)(static_cast<int>(vstatus[j])));
       }
 #endif
     }
@@ -2052,13 +2073,13 @@ f_t primal_infeasibility(const lp_problem_t<i_t, f_t>& lp,
       primal_inf += infeas;
 #ifdef PRIMAL_INFEASIBLE_DEBUG
       if (infeas > settings.primal_tol) {
-        settings.log.printf("x %d infeas %e lo %e val %e up %e vstatus %d\n",
-                            j,
+        settings.log.printf("x %lld infeas %e lo %e val %e up %e vstatus %lld\n",
+                            (long long)(j),
                             infeas,
                             lp.lower[j],
                             x[j],
                             lp.upper[j],
-                            static_cast<int>(vstatus[j]));
+                            (long long)(static_cast<int>(vstatus[j])));
       }
 #endif
     }
@@ -2083,8 +2104,8 @@ void check_primal_infeasibilities(const lp_problem_t<i_t, f_t>& lp,
     if (infeas > settings.primal_tol) {
       const f_t square_infeas = infeas * infeas;
       if (square_infeas != squared_infeasibilities[j]) {
-        settings.log.printf("Primal infeasibility mismatch %d %e != %e\n",
-                            j,
+        settings.log.printf("Primal infeasibility mismatch %lld %e != %e\n",
+                            (long long)(j),
                             square_infeas,
                             squared_infeasibilities[j]);
       }
@@ -2095,7 +2116,7 @@ void check_primal_infeasibilities(const lp_problem_t<i_t, f_t>& lp,
           break;
         }
       }
-      if (!found) { settings.log.printf("Infeasibility index not found %d\n", j); }
+      if (!found) { settings.log.printf("Infeasibility index not found %lld\n", (long long)(j)); }
     } else {
       bool found = false;
       i_t h;
@@ -2106,9 +2127,9 @@ void check_primal_infeasibilities(const lp_problem_t<i_t, f_t>& lp,
         }
       }
       if (found) {
-        settings.log.printf("Incorrect infeasible index %d/%d infeas %e sq %e\n",
-                            j,
-                            h,
+        settings.log.printf("Incorrect infeasible index %lld/%lld infeas %e sq %e\n",
+                            (long long)(j),
+                            (long long)(h),
                             infeas,
                             squared_infeasibilities[j]);
       }
@@ -2124,7 +2145,10 @@ void check_basic_infeasibilities(const std::vector<i_t>& basic_list,
 {
   for (i_t k = 0; k < infeasibility_indices.size(); ++k) {
     const i_t j = infeasibility_indices[k];
-    if (basic_mark[j] < 0) { printf("%d basic_infeasibilities basic_mark[%d] < 0\n", info, j); }
+    if (basic_mark[j] < 0) {
+      printf(
+        "%lld basic_infeasibilities basic_mark[%lld] < 0\n", (long long)(info), (long long)(j));
+    }
   }
 }
 
@@ -2149,11 +2173,13 @@ void check_update(const lp_problem_t<i_t, f_t>& lp,
       for (i_t j = 0; j < m; ++j) {
         for (i_t p = Diff.col_start[j]; p < Diff.col_start[j + 1]; ++p) {
           const i_t i = Diff.i[p];
-          if (Diff.x[p] != 0.0) { settings.log.printf("Diff %d %d %e\n", j, i, Diff.x[p]); }
+          if (Diff.x[p] != 0.0) {
+            settings.log.printf("Diff %lld %lld %e\n", (long long)(j), (long long)(i), Diff.x[p]);
+          }
         }
       }
     }
-    settings.log.printf("basic leaving index %d\n", basic_leaving_index);
+    settings.log.printf("basic leaving index %lld\n", (long long)(basic_leaving_index));
     assert(err < settings.primal_tol);
   }
 }
@@ -2169,12 +2195,13 @@ void check_basis_mark(const simplex_solver_settings_t<i_t, f_t>& settings,
   const i_t n = basic_mark.size();
   for (i_t k = 0; k < m; k++) {
     if (basic_mark[basic_list[k]] != k) {
-      settings.log.printf("Basic mark %d %d\n", basic_list[k], k);
+      settings.log.printf("Basic mark %lld %lld\n", (long long)(basic_list[k]), (long long)(k));
     }
   }
   for (i_t k = 0; k < n - m; k++) {
     if (nonbasic_mark[nonbasic_list[k]] != k) {
-      settings.log.printf("Nonbasic mark %d %d\n", nonbasic_list[k], k);
+      settings.log.printf(
+        "Nonbasic mark %lld %lld\n", (long long)(nonbasic_list[k]), (long long)(k));
     }
   }
 }
@@ -2202,12 +2229,12 @@ void bound_info(const lp_problem_t<i_t, f_t>& lp,
       num_free++;
     }
   }
-  settings.log.debug("Fixed %d Free %d Boxed %d Lower %d Upper %d\n",
-                     num_fixed,
-                     num_free,
-                     num_boxed,
-                     num_lower_bounded,
-                     num_upper_bounded);
+  settings.log.debug("Fixed %lld Free %lld Boxed %lld Lower %lld Upper %lld\n",
+                     (long long)(num_fixed),
+                     (long long)(num_free),
+                     (long long)(num_boxed),
+                     (long long)(num_lower_bounded),
+                     (long long)(num_upper_bounded));
 }
 
 template <typename i_t, typename f_t>
@@ -2229,11 +2256,11 @@ void set_primal_variables_on_bounds(const lp_problem_t<i_t, f_t>& lp,
     const f_t fixed_tolerance = settings.fixed_tol;
     if (std::abs(lp.lower[j] - lp.upper[j]) < fixed_tolerance) {
       if (vstatus[j] != variable_status_t::NONBASIC_FIXED) {
-        settings.log.debug("Setting fixed variable %d to %e (current %e). vstatus %d\n",
-                           j,
+        settings.log.debug("Setting fixed variable %lld to %e (current %e). vstatus %lld\n",
+                           (long long)(j),
                            lp.lower[j],
                            x[j],
-                           static_cast<int>(vstatus[j]));
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       x[j]       = lp.lower[j];
       vstatus[j] = variable_status_t::NONBASIC_FIXED;
@@ -2246,57 +2273,61 @@ void set_primal_variables_on_bounds(const lp_problem_t<i_t, f_t>& lp,
     } else if (z[j] >= 0 && lp.lower[j] > -inf) {
       if (vstatus[j] != variable_status_t::NONBASIC_LOWER) {
         settings.log.debug(
-          "Setting nonbasic lower variable (zj %e) %d to %e (current %e). vstatus %d\n",
+          "Setting nonbasic lower variable (zj %e) %lld to %e (current %e). vstatus %lld\n",
           z[j],
-          j,
+          (long long)(j),
           lp.lower[j],
           x[j],
-          static_cast<int>(vstatus[j]));
+          (long long)(static_cast<int>(vstatus[j])));
       }
       x[j]       = lp.lower[j];
       vstatus[j] = variable_status_t::NONBASIC_LOWER;
     } else if (z[j] <= 0 && lp.upper[j] < inf) {
       if (vstatus[j] != variable_status_t::NONBASIC_UPPER) {
         settings.log.debug(
-          "Setting nonbasic upper variable (zj %e) %d to %e (current %e). vstatus %d\n",
+          "Setting nonbasic upper variable (zj %e) %lld to %e (current %e). vstatus %lld\n",
           z[j],
-          j,
+          (long long)(j),
           lp.upper[j],
           x[j],
-          static_cast<int>(vstatus[j]));
+          (long long)(static_cast<int>(vstatus[j])));
       }
       x[j]       = lp.upper[j];
       vstatus[j] = variable_status_t::NONBASIC_UPPER;
     } else if (lp.upper[j] == inf && lp.lower[j] > -inf && z[j] < 0) {
       // dual infeasible
       if (vstatus[j] != variable_status_t::NONBASIC_LOWER) {
-        settings.log.debug("Setting nonbasic lower variable %d to %e (current %e). vstatus %d\n",
-                           j,
-                           lp.lower[j],
-                           x[j],
-                           static_cast<int>(vstatus[j]));
+        settings.log.debug(
+          "Setting nonbasic lower variable %lld to %e (current %e). vstatus %lld\n",
+          (long long)(j),
+          lp.lower[j],
+          x[j],
+          (long long)(static_cast<int>(vstatus[j])));
       }
       x[j]       = lp.lower[j];
       vstatus[j] = variable_status_t::NONBASIC_LOWER;
     } else if (lp.lower[j] == -inf && lp.upper[j] < inf && z[j] > 0) {
       // dual infeasible
       if (vstatus[j] != variable_status_t::NONBASIC_UPPER) {
-        settings.log.debug("Setting nonbasic upper variable %d to %e (current %e). vstatus %d\n",
-                           j,
-                           lp.upper[j],
-                           x[j],
-                           static_cast<int>(vstatus[j]));
+        settings.log.debug(
+          "Setting nonbasic upper variable %lld to %e (current %e). vstatus %lld\n",
+          (long long)(j),
+          lp.upper[j],
+          x[j],
+          (long long)(static_cast<int>(vstatus[j])));
       }
       x[j]       = lp.upper[j];
       vstatus[j] = variable_status_t::NONBASIC_UPPER;
     } else if (lp.lower[j] == -inf && lp.upper[j] == inf) {
       x[j] = 0;  // Set nonbasic free variables to 0 this overwrites previous lines
       if (vstatus[j] != variable_status_t::NONBASIC_FREE) {
-        settings.log.debug(
-          "Setting free variable %d to %e. vstatus %d\n", j, 0, static_cast<int>(vstatus[j]));
+        settings.log.debug("Setting free variable %lld to %e. vstatus %lld\n",
+                           (long long)(j),
+                           0,
+                           (long long)(static_cast<int>(vstatus[j])));
       }
       vstatus[j] = variable_status_t::NONBASIC_FREE;
-      settings.log.printf("Setting free variable %d as nonbasic at 0\n", j);
+      settings.log.printf("Setting free variable %lld as nonbasic at 0\n", (long long)(j));
     } else {
       assert(1 == 0);
     }
@@ -2377,13 +2408,15 @@ void prepare_optimality(i_t info,
   const f_t dual_infeas   = dual_infeasibility(lp, settings, vstatus, z, 0.0, 0.0);
   const f_t primal_infeas = primal_infeasibility(lp, settings, vstatus, x);
   if (phase == 1 && iter > 0) {
-    settings.log.printf("Dual phase I complete. Iterations %d. Time %.2f\n", iter, toc(start_time));
+    settings.log.printf(
+      "Dual phase I complete. Iterations %lld. Time %.2f\n", (long long)(iter), toc(start_time));
   }
   if (phase == 2) {
     if (!settings.inside_mip) {
       settings.log.printf("\n");
-      settings.log.printf(
-        "Optimal solution found in %d iterations and %.2fs\n", iter, toc(start_time));
+      settings.log.printf("Optimal solution found in %lld iterations and %.2fs\n",
+                          (long long)(iter),
+                          toc(start_time));
       settings.log.printf("Objective %+.8e\n", sol.user_objective);
       settings.log.printf("\n");
       settings.log.printf("Primal infeasibility (abs): %.2e\n", primal_infeas);
@@ -2401,7 +2434,7 @@ void prepare_optimality(i_t info,
       lp, settings, vstatus, x, basic_infeas, nonbasic_infeas, basic_over);
     settings.log.printf(
       "Primal infeasibility %e/%e (Basic %e, Nonbasic %e, Basic over %e). Perturbation %e/%e. Info "
-      "%d\n",
+      "%lld\n",
       primal_infeas,
       orig_primal_infeas,
       basic_infeas,
@@ -2409,7 +2442,7 @@ void prepare_optimality(i_t info,
       basic_over,
       orig_perturbation,
       perturbation,
-      info);
+      (long long)(info));
   }
 #endif
 }
@@ -2576,7 +2609,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
 
   nvtx_range_guard init_scope("DualSimplex::phase2_advanced_init");
 
-  settings.log.printf("Dual Simplex Phase %d\n", phase);
+  settings.log.printf("Dual Simplex Phase %lld\n", (long long)(phase));
   std::vector<variable_status_t> vstatus_old = vstatus;
   std::vector<f_t> z_old                     = z;
   phase2_work_estimate += 4 * n;
@@ -2647,8 +2680,8 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
   i_t num_vstatus_changes;
   i_t num_z_changes;
   phase2::vstatus_changes(vstatus, vstatus_old, z, z_old, num_vstatus_changes, num_z_changes);
-  settings.log.printf("Number of vstatus changes %d\n", num_vstatus_changes);
-  settings.log.printf("Number of z changes %d\n", num_z_changes);
+  settings.log.printf("Number of vstatus changes %lld\n", (long long)(num_vstatus_changes));
+  settings.log.printf("Number of z changes %lld\n", (long long)(num_z_changes));
 #endif
 
   const f_t init_dual_inf =
@@ -2660,7 +2693,8 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
 
   for (i_t j = 0; j < n; ++j) {
     if (lp.lower[j] == -inf && lp.upper[j] == inf && vstatus[j] != variable_status_t::BASIC) {
-      settings.log.printf("Free variable %d vstatus %d\n", j, vstatus[j]);
+      settings.log.printf(
+        "Free variable %lld vstatus %lld\n", (long long)(j), (long long)(vstatus[j]));
     }
   }
   phase2_work_estimate += 3 * n;
@@ -2818,10 +2852,10 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
   phase2_work_estimate = 0.0;
 
   if (phase == 2) {
-    settings.log.printf("%5d %+.16e %7d %.8e %.2e %.2f\n",
-                        iter,
+    settings.log.printf("%5lld %+.16e %7lld %.8e %.2e %.2f\n",
+                        (long long)(iter),
                         compute_user_objective(lp, obj),
-                        infeasibility_indices.size(),
+                        (long long)(infeasibility_indices.size()),
                         primal_infeasibility_squared,
                         0.0,
                         toc(start_time));
@@ -2873,18 +2907,22 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
         b_transpose_multiply(lp, basic_list, ubar_dense, BTu_dense);
         for (i_t l = 0; l < m; l++) {
           if (l != k) {
-            settings.log.printf("BTu_dense[%d] = %e i %d\n", l, BTu_dense[l], k);
+            settings.log.printf(
+              "BTu_dense[%lld] = %e i %lld\n", (long long)(l), BTu_dense[l], (long long)(k));
           } else {
-            settings.log.printf("BTu_dense[%d] = %e != 1.0 i %d\n", l, BTu_dense[l], k);
+            settings.log.printf(
+              "BTu_dense[%lld] = %e != 1.0 i %lld\n", (long long)(l), BTu_dense[l], (long long)(k));
           }
         }
         for (i_t h = 0; h < m; h++) {
-          settings.log.printf("i %d ubar_dense[%d] = %.16e\n", k, h, ubar_dense[h]);
+          settings.log.printf(
+            "i %lld ubar_dense[%lld] = %.16e\n", (long long)(k), (long long)(h), ubar_dense[h]);
         }
       }
-      settings.log.printf("ft.num_updates() %d\n", ft.num_updates());
+      settings.log.printf("ft.num_updates() %lld\n", (long long)(ft.num_updates()));
       for (i_t h = 0; h < m; h++) {
-        settings.log.printf("basic_list[%d] = %d\n", h, basic_list[h]);
+        settings.log.printf(
+          "basic_list[%lld] = %lld\n", (long long)(h), (long long)(basic_list[h]));
       }
 
 #endif
@@ -2906,9 +2944,10 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
           const f_t val            = squared_infeas / delta_y_steepest_edge[j];
           if (squared_infeas >= 0.0 && delta_y_steepest_edge[j] < 0.0) {
             settings.log.printf(
-              "Iter %d potential leaving %d val %e squared infeas %e delta_y_steepest_edge %e\n",
-              iter,
-              j,
+              "Iter %lld potential leaving %lld val %e squared infeas %e delta_y_steepest_edge "
+              "%e\n",
+              (long long)(iter),
+              (long long)(j),
               val,
               squared_infeas,
               delta_y_steepest_edge[j]);
@@ -2928,11 +2967,11 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
         if (primal_res > settings.primal_tol) {
           settings.log.printf(
             "Primal residual %.2e exceeds tolerance %.2e at optimality. "
-            "Refactoring basis (iteration %d, updates %d).\n",
+            "Refactoring basis (iteration %lld, updates %lld).\n",
             primal_res,
             settings.primal_tol,
-            iter,
-            ft.num_updates());
+            (long long)(iter),
+            (long long)(ft.num_updates()));
           f_t refactor_start_work = ft.work_estimate();
           i_t refactor_status     = ft.refactor_basis(
             lp.A, settings, lp.lower, lp.upper, start_time, basic_list, nonbasic_list, vstatus);
@@ -2970,7 +3009,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
         }
       }
 
-      phase2::prepare_optimality(0,
+      phase2::prepare_optimality(i_t{0},
                                  primal_infeasibility,
                                  lp,
                                  settings,
@@ -3021,9 +3060,9 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
       constexpr bool verbose = false;
       if constexpr (verbose) {
         settings.log.printf(
-          "iteration restart due to steepest edge. Leaving %d. Actual %.2e "
+          "iteration restart due to steepest edge. Leaving %lld. Actual %.2e "
           "from update %.2e\n",
-          leaving_index,
+          (long long)(leaving_index),
           steepest_edge_norm_check,
           delta_y_steepest_edge[leaving_index]);
       }
@@ -3084,7 +3123,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
     // || A'*delta_y + delta_z ||_inf
     f_t dual_residual_norm = vector_norm_inf<i_t, f_t>(dual_residual);
     settings.log.printf(
-      "|| A'*dy - dz || %e use transpose %d\n", dual_residual_norm, use_transpose);
+      "|| A'*dy - dz || %e use transpose %lld\n", dual_residual_norm, (long long)(use_transpose));
 #endif
 
     // Ratio test
@@ -3138,7 +3177,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
     if (entering_index == RATIO_TEST_TIME_LIMIT) { return dual_status_t::TIME_LIMIT; }
     if (entering_index == CONCURRENT_HALT_RETURN) { return dual_status_t::CONCURRENT_LIMIT; }
     if (entering_index == RATIO_TEST_NO_ENTERING_VARIABLE) {
-      settings.log.printf("No entering variable found. Iter %d\n", iter);
+      settings.log.printf("No entering variable found. Iter %lld\n", (long long)(iter));
       settings.log.printf("Scaled infeasibility %e\n", max_val);
       f_t perturbation = phase2::amount_of_perturbation(lp, objective);
       phase2_work_estimate += 2 * n;
@@ -3190,7 +3229,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
             obj = phase2::compute_perturbed_objective(objective, x);
             phase2_work_estimate += 2 * n;
             if (dual_infeas <= settings.dual_tol && primal_infeasibility <= settings.primal_tol) {
-              phase2::prepare_optimality(1,
+              phase2::prepare_optimality(i_t{1},
                                          primal_infeasibility,
                                          lp,
                                          settings,
@@ -3246,7 +3285,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
 
             if (primal_infeasibility <= settings.primal_tol &&
                 orig_dual_infeas <= settings.dual_tol) {
-              phase2::prepare_optimality(2,
+              phase2::prepare_optimality(i_t{2},
                                          primal_infeasibility,
                                          lp,
                                          settings,
@@ -3308,7 +3347,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
       const f_t primal_inf = simplex::phase2::primal_infeasibility(lp, settings, vstatus, x);
       phase2_work_estimate += 3 * n;
       settings.log.printf("Primal infeasibility %e\n", primal_inf);
-      settings.log.printf("Updates %d\n", ft.num_updates());
+      settings.log.printf("Updates %lld\n", (long long)(ft.num_updates()));
       settings.log.printf("Steepest edge %e\n", max_val);
       if (dual_infeas > settings.dual_tol) {
         settings.log.printf(
@@ -3404,7 +3443,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
                                   scaled_delta_xB_sparse,
                                   delta_x,
                                   phase2_work_estimate) == -1) {
-        settings.log.printf("Failed to compute delta_x. Iter %d\n", iter);
+        settings.log.printf("Failed to compute delta_x. Iter %lld\n", (long long)(iter));
         return dual_status_t::NUMERICAL;
       }
     }
@@ -3438,7 +3477,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
                                                                         phase2_work_estimate);
 #ifdef STEEPEST_EDGE_DEBUG
     if (steepest_edge_status == -1) {
-      settings.log.printf("Num updates %d\n", ft.num_updates());
+      settings.log.printf("Num updates %lld\n", (long long)(ft.num_updates()));
       settings.log.printf("|| rhs || %e\n", vector_norm_inf(rhs));
     }
 #endif
@@ -3597,7 +3636,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
         if (refactor_status == TIME_LIMIT_RETURN) { return dual_status_t::TIME_LIMIT; }
         if (refactor_status > 0) {
           should_recompute_x = true;
-          settings.log.printf("Failed to factorize basis. Iteration %d\n", iter);
+          settings.log.printf("Failed to factorize basis. Iteration %lld\n", (long long)(iter));
           if (toc(start_time) > settings.time_limit) { return dual_status_t::TIME_LIMIT; }
           i_t count          = 0;
           i_t deficient_size = 0;
@@ -3609,9 +3648,9 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
             }
             if (deficient_size == TIME_LIMIT_RETURN) { return dual_status_t::TIME_LIMIT; }
             if (deficient_size <= 0) { break; }
-            settings.log.printf("Failed to repair basis. Iteration %d. %d deficient columns.\n",
-                                iter,
-                                static_cast<int>(deficient_size));
+            settings.log.printf("Failed to repair basis. Iteration %lld. %lld deficient columns.\n",
+                                (long long)(iter),
+                                (long long)(static_cast<int>(deficient_size)));
 
             if (toc(start_time) > settings.time_limit) { return dual_status_t::TIME_LIMIT; }
             settings.threshold_partial_pivoting_tol = 1.0;
@@ -3621,7 +3660,7 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
           }
           if (deficient_size < 0) { return dual_status_t::NUMERICAL; }
 
-          settings.log.printf("Successfully repaired basis. Iteration %d\n", iter);
+          settings.log.printf("Successfully repaired basis. Iteration %lld\n", (long long)(iter));
         }
         refactor_work = ft.work_estimate() - refactor_start_work;
 
@@ -3697,10 +3736,10 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
       if (phase == 1 && iter == 1) {
         settings.log.printf(" Iter     Objective           Num Inf.  Sum Inf.     Perturb  Time\n");
       }
-      settings.log.printf("%5d %+.16e %7d %.8e %.2e %.2f\n",
-                          iter,
+      settings.log.printf("%5lld %+.16e %7lld %.8e %.2e %.2f\n",
+                          (long long)(iter),
                           user_obj,
-                          infeasibility_indices.size(),
+                          (long long)(infeasibility_indices.size()),
                           primal_infeasibility_squared,
                           sum_perturb,
                           now);
@@ -3730,11 +3769,11 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
     timers.print_timers(settings);
     constexpr bool print_stats = false;
     if constexpr (print_stats) {
-      settings.log.printf("Sparse delta_z %8d %8.2f%\n",
-                          sparse_delta_z,
+      settings.log.printf("Sparse delta_z %8lld %8.2f%\n",
+                          (long long)(sparse_delta_z),
                           100.0 * sparse_delta_z / (sparse_delta_z + dense_delta_z));
-      settings.log.printf("Dense delta_z  %8d %8.2f%\n",
-                          dense_delta_z,
+      settings.log.printf("Dense delta_z  %8lld %8.2f%\n",
+                          (long long)(dense_delta_z),
                           100.0 * dense_delta_z / (sparse_delta_z + dense_delta_z));
       ft.print_stats();
     }
@@ -3749,20 +3788,20 @@ dual_status_t dual_phase2_with_advanced_basis(i_t phase,
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
 template dual_status_t dual_phase2<cuopt_int_t, double>(
-  int phase,
-  int slack_basis,
+  cuopt_int_t phase,
+  cuopt_int_t slack_basis,
   double start_time,
   const lp_problem_t<cuopt_int_t, double>& lp,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<variable_status_t>& vstatus,
   lp_solution_t<cuopt_int_t, double>& sol,
-  int& iter,
+  cuopt_int_t& iter,
   std::vector<double>& steepest_edge_norms,
   work_limit_context_t* work_unit_context);
 
 template dual_status_t dual_phase2_with_advanced_basis<cuopt_int_t, double>(
-  int phase,
-  int slack_basis,
+  cuopt_int_t phase,
+  cuopt_int_t slack_basis,
   bool initialize_basis,
   double start_time,
   const lp_problem_t<cuopt_int_t, double>& lp,
@@ -3772,34 +3811,37 @@ template dual_status_t dual_phase2_with_advanced_basis<cuopt_int_t, double>(
   std::vector<cuopt_int_t>& basic_list,
   std::vector<cuopt_int_t>& nonbasic_list,
   lp_solution_t<cuopt_int_t, double>& sol,
-  int& iter,
+  cuopt_int_t& iter,
   std::vector<double>& steepest_edge_norms,
   work_limit_context_t* work_unit_context);
 
-template void compute_reduced_cost_update<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                                       const std::vector<cuopt_int_t>& basic_list,
-                                                       const std::vector<cuopt_int_t>& nonbasic_list,
-                                                       const std::vector<double>& delta_y,
-                                                       int leaving_index,
-                                                       int direction,
-                                                       std::vector<cuopt_int_t>& delta_z_mark,
-                                                       std::vector<cuopt_int_t>& delta_z_indices,
-                                                       std::vector<double>& delta_z,
-                                                       double& work_estimate);
+template void compute_reduced_cost_update<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const std::vector<cuopt_int_t>& basic_list,
+  const std::vector<cuopt_int_t>& nonbasic_list,
+  const std::vector<double>& delta_y,
+  cuopt_int_t leaving_index,
+  cuopt_int_t direction,
+  std::vector<cuopt_int_t>& delta_z_mark,
+  std::vector<cuopt_int_t>& delta_z_indices,
+  std::vector<double>& delta_z,
+  double& work_estimate);
 
-template void compute_delta_z<cuopt_int_t, double>(const csr_matrix_t<cuopt_int_t, double>& Arow,
-                                           const sparse_vector_t<cuopt_int_t, double>& delta_y,
-                                           int leaving_index,
-                                           int direction,
-                                           const std::vector<cuopt_int_t>& nonbasic_end,
-                                           std::vector<cuopt_int_t>& delta_z_mark,
-                                           std::vector<cuopt_int_t>& delta_z_indices,
-                                           std::vector<double>& delta_z,
-                                           double& work_estimate);
+template void compute_delta_z<cuopt_int_t, double>(
+  const csr_matrix_t<cuopt_int_t, double>& Arow,
+  const sparse_vector_t<cuopt_int_t, double>& delta_y,
+  cuopt_int_t leaving_index,
+  cuopt_int_t direction,
+  const std::vector<cuopt_int_t>& nonbasic_end,
+  std::vector<cuopt_int_t>& delta_z_mark,
+  std::vector<cuopt_int_t>& delta_z_indices,
+  std::vector<double>& delta_z,
+  double& work_estimate);
 
-template void compute_initial_nonbasic_end<cuopt_int_t, double>(const std::vector<cuopt_int_t>& basic_mark,
-                                                        csr_matrix_t<cuopt_int_t, double>& Arow,
-                                                        std::vector<cuopt_int_t>& nonbasic_end);
+template void compute_initial_nonbasic_end<cuopt_int_t, double>(
+  const std::vector<cuopt_int_t>& basic_mark,
+  csr_matrix_t<cuopt_int_t, double>& Arow,
+  std::vector<cuopt_int_t>& nonbasic_end);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

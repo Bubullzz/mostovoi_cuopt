@@ -207,10 +207,10 @@ __global__ void compute_step_sizes_from_movement_and_interaction(
 
 #ifdef PDLP_DEBUG_MODE
   printf("    interaction=%lf movement=%lf\n", interaction, movement);
-  printf("    step_size_=%lf step_size_limit=%lf pdhg_iteration=%d iteration_coefficient_=%lf\n",
+  printf("    step_size_=%lf step_size_limit=%lf pdhg_iteration=%lld iteration_coefficient_=%lf\n",
          step_size,
          step_size_limit,
-         *pdhg_iteration,
+         (long long)(*pdhg_iteration),
          iteration_coefficient_);
 #endif
 
@@ -589,19 +589,20 @@ adaptive_step_size_strategy_t<i_t, f_t>::view()
   return v;
 }
 
-#define INSTANTIATE(F_TYPE)                                                                    \
-  template class adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>;                                   \
-  template __global__ void compute_actual_stepsizes<cuopt_int_t, F_TYPE>(                              \
-    const typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t step_size_strategy_view, \
-    raft::device_span<F_TYPE> primal_step_size,                                                \
-    raft::device_span<F_TYPE> dual_step_size,                                                  \
-    cuopt_int_t size);                                                                         \
-                                                                                               \
-  template __global__ void compute_step_sizes_from_movement_and_interaction<cuopt_int_t, F_TYPE>(      \
-    typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t step_size_strategy_view,       \
-    F_TYPE * primal_step_size,                                                                 \
-    F_TYPE * dual_step_size,                                                                   \
-    cuopt_int_t* pdhg_iteration);
+#define INSTANTIATE(F_TYPE)                                                                       \
+  template class adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>;                              \
+  template __global__ void compute_actual_stepsizes<cuopt_int_t, F_TYPE>(                         \
+    const typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t                     \
+      step_size_strategy_view,                                                                    \
+    raft::device_span<F_TYPE> primal_step_size,                                                   \
+    raft::device_span<F_TYPE> dual_step_size,                                                     \
+    cuopt_int_t size);                                                                            \
+                                                                                                  \
+  template __global__ void compute_step_sizes_from_movement_and_interaction<cuopt_int_t, F_TYPE>( \
+    typename adaptive_step_size_strategy_t<cuopt_int_t, F_TYPE>::view_t step_size_strategy_view,  \
+    F_TYPE * primal_step_size,                                                                    \
+    F_TYPE * dual_step_size,                                                                      \
+    cuopt_int_t * pdhg_iteration);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

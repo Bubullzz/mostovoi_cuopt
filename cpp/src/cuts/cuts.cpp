@@ -1036,23 +1036,28 @@ std::vector<std::vector<int>> find_maximal_cliques_for_test(
   const double start_time        = tic();
 
   bk_bitset_context_t<cuopt_int_t, double> ctx{adj_bitset,
-                                       weights,
-                                       min_weight,
-                                       max_calls,
-                                       start_time,
-                                       time_limit,
-                                       words,
-                                       &work_estimate,
-                                       max_work_estimate};
+                                               weights,
+                                               min_weight,
+                                               max_calls,
+                                               start_time,
+                                               time_limit,
+                                               words,
+                                               &work_estimate,
+                                               max_work_estimate};
 
-  std::vector<int> R;
+  std::vector<cuopt_int_t> R;
   std::vector<uint64_t> P(words, 0);
   std::vector<uint64_t> X(words, 0);
   for (size_t idx = 0; idx < n_vertices; ++idx) {
     bitset_set(P, idx);
   }
   bron_kerbosch<cuopt_int_t, double>(ctx, R, P, X, 0.0);
-  return ctx.cliques;
+  std::vector<std::vector<int>> result;
+  result.reserve(ctx.cliques.size());
+  for (const auto& clique : ctx.cliques) {
+    result.push_back(std::vector<int>(clique.begin(), clique.end()));
+  }
+  return result;
 }
 
 // This function is only used in tests
@@ -1066,14 +1071,14 @@ std::vector<std::vector<int>> find_violated_odd_cycles_for_test(
   if (n_vertices == 0) { return {}; }
   cuopt_assert(x_values.size() == n_vertices, "x_values size mismatch in odd-cycle test helper");
 
-  const int num_local = static_cast<int>(n_vertices);
-  std::vector<std::vector<int>> adj_local(n_vertices);
+  const cuopt_int_t num_local = static_cast<cuopt_int_t>(n_vertices);
+  std::vector<std::vector<cuopt_int_t>> adj_local(n_vertices);
   for (size_t v = 0; v < n_vertices; ++v) {
     adj_local[v].reserve(adjacency_list[v].size());
     for (const int nbr : adjacency_list[v]) {
       cuopt_assert(nbr >= 0 && static_cast<size_t>(nbr) < n_vertices,
                    "Neighbor index out of range in odd-cycle test helper");
-      adj_local[v].push_back(nbr);
+      adj_local[v].push_back(static_cast<cuopt_int_t>(nbr));
     }
   }
 
@@ -1083,29 +1088,29 @@ std::vector<std::vector<int>> find_violated_odd_cycles_for_test(
   const double cutoff            = 0.5 - min_violation;
 
   std::vector<std::vector<int>> result;
-  std::vector<int> bipartite_path;
+  std::vector<cuopt_int_t> bipartite_path;
   dijkstra_scratch_t<cuopt_int_t, double> dijkstra_scratch;
 
-  for (int s = 0; s < num_local; ++s) {
+  for (cuopt_int_t s = 0; s < num_local; ++s) {
     if (toc(start_time) >= time_limit) { break; }
 
     double total_weight = 0;
     if (!dijkstra_odd_cycle<cuopt_int_t, double>(s,
-                                         adj_local,
-                                         x_values,
-                                         cutoff,
-                                         bipartite_path,
-                                         total_weight,
-                                         &work_estimate,
-                                         max_work_estimate,
-                                         dijkstra_scratch)) {
+                                                 adj_local,
+                                                 x_values,
+                                                 cutoff,
+                                                 bipartite_path,
+                                                 total_weight,
+                                                 &work_estimate,
+                                                 max_work_estimate,
+                                                 dijkstra_scratch)) {
       continue;
     }
     if (bipartite_path.size() < 4) { continue; }
     std::vector<int> seq;
     seq.reserve(bipartite_path.size());
-    for (const int bv : bipartite_path) {
-      seq.push_back(bv % num_local);
+    for (const cuopt_int_t bv : bipartite_path) {
+      seq.push_back(static_cast<int>(bv % num_local));
     }
     cuopt_assert(seq.front() == seq.back(), "Odd-cycle test helper path endpoints must match");
     seq.pop_back();
@@ -1152,8 +1157,9 @@ void cut_pool_t<i_t, f_t>::add_cut(cut_type_t cut_type, const inequality_t<i_t, 
   for (i_t p = 0; p < cut.size(); p++) {
     const i_t j = cut.index(p);
     if (j >= original_vars_) {
-      settings_.log.printf(
-        "Cut has variable %d that is greater than original_vars_ %d\n", j, original_vars_);
+      settings_.log.printf("Cut has variable %lld that is greater than original_vars_ %lld\n",
+                           (long long)(j),
+                           (long long)(original_vars_));
       return;
     }
   }
@@ -1338,7 +1344,7 @@ void cut_pool_t<i_t, f_t>::check_for_duplicate_cuts()
   }
 
   if (num_cuts_to_remove > 0) {
-    settings_.log.debug("Removing %d duplicate cuts\n", num_cuts_to_remove);
+    settings_.log.debug("Removing %lld duplicate cuts\n", (long long)(num_cuts_to_remove));
     csr_matrix_t<i_t, f_t> new_cut_storage(0, 0, 0);
     cut_storage_.remove_rows(cuts_to_remove, new_cut_storage);
     cut_storage_ = new_cut_storage;
@@ -1370,9 +1376,9 @@ void cut_pool_t<i_t, f_t>::score_cuts(std::vector<f_t>& x_relax)
     f_t cut_dist      = cut_distance(i, x_relax, violation, cut_norms_[i]);
     cut_distances_[i] = cut_dist <= min_cut_distance_ ? 0.0 : cut_dist;
     if (verbose) {
-      settings_.log.printf("Cut %d type %d distance %+e violation %+e cut_norm %e\n",
-                           i,
-                           static_cast<int>(cut_type_[i]),
+      settings_.log.printf("Cut %lld type %lld distance %+e violation %+e cut_norm %e\n",
+                           (long long)(i),
+                           (long long)(static_cast<int>(cut_type_[i])),
                            cut_distances_[i],
                            violation,
                            cut_norms_[i]);
@@ -1620,10 +1626,11 @@ knapsack_generation_t<i_t, f_t>::knapsack_generation_t(
       if (beta > 0.0 && beta <= sum_pos && std::abs(sum_pos / (row_len - 1) - beta) > 1e-3) {
         if (verbose) {
           settings.log.printf(
-            "Knapsack constraint %d row len %d beta %e sum_neg %e sum_pos %e sum_pos / (row_len - "
+            "Knapsack constraint %lld row len %lld beta %e sum_neg %e sum_pos %e sum_pos / "
+            "(row_len - "
             "1) %e\n",
-            i,
-            row_len,
+            (long long)(i),
+            (long long)(row_len),
             beta,
             sum_neg,
             sum_pos,
@@ -1636,7 +1643,8 @@ knapsack_generation_t<i_t, f_t>::knapsack_generation_t(
 
 #ifdef PRINT_KNAPSACK_INFO
   i_t num_knapsack_constraints = knapsack_constraints_.size();
-  settings.log.printf("Number of knapsack constraints %d\n", num_knapsack_constraints);
+  settings.log.printf("Number of knapsack constraints %lld\n",
+                      (long long)(num_knapsack_constraints));
 #endif
 }
 
@@ -1906,7 +1914,7 @@ bool flow_cover_generation_t<i_t, f_t>::build_single_node_flow_relaxation(
     if (std::abs(coeff) <= coefficient_tol) { continue; }
     const f_t u = std::abs(coeff);
     single_node_flow_arc_t<i_t, f_t> arc =
-      flow_cover_build_arc(context, u, coeff < 0.0, j, 0.0, 0.0, -1, 0.0, u);
+      flow_cover_build_arc(context, u, coeff < 0.0, j, 0.0, 0.0, i_t(-1), 0.0, u);
     // y_value is built from the raw LP value (u * xstar[j]) while x_value is clamped to [0, 1].
     // When xstar[j] sits marginally below its bound (e.g. -5e-7, normal LP feasibility slop),
     // y_value picks up a tiny negative (u * xstar) that trips the arc's lower gate even though the
@@ -2373,7 +2381,9 @@ i_t knapsack_generation_t<i_t, f_t>::generate_knapsack_cut(
         complemented_variables.push_back(j);
         is_complemented_[j] = 1;
       }
-      if (verbose) { settings.log.printf(" %g x%d +", knapsack_inequality.vector.x[k], j); }
+      if (verbose) {
+        settings.log.printf(" %g x%lld +", knapsack_inequality.vector.x[k], (long long)(j));
+      }
       seperation_rhs += knapsack_inequality.vector.x[k];
     }
   }
@@ -2385,7 +2395,9 @@ i_t knapsack_generation_t<i_t, f_t>::generate_knapsack_cut(
     for (i_t k = 0; k < knapsack_inequality.size(); k++) {
       const i_t j = knapsack_inequality.index(k);
       if (!is_slack_[j]) {
-        if (std::abs(xstar[j]) > 1e-3) { settings.log.printf("x_relax[%d]= %g ", j, xstar[j]); }
+        if (std::abs(xstar[j]) > 1e-3) {
+          settings.log.printf("x_relax[%lld]= %g ", (long long)(j), xstar[j]);
+        }
       }
     }
     settings.log.printf("\n");
@@ -2524,7 +2536,7 @@ i_t knapsack_generation_t<i_t, f_t>::generate_knapsack_cut(
   f_t lifted_violation = lifted_dot - lifted_cut.rhs;
   if (verbose) {
     settings.log.printf(
-      "Knapsack cut %d lifted violation %e < 0\n", knapsack_row, lifted_violation);
+      "Knapsack cut %lld lifted violation %e < 0\n", (long long)(knapsack_row), lifted_violation);
   }
 
   if (lifted_violation >= -tol) {
@@ -2812,7 +2824,7 @@ void knapsack_generation_t<i_t, f_t>::lift_knapsack_cut(
     f_t alpha_k = std::max(0.0, cover_size - 1.0 - objective);
 
     if (alpha_k > 0.0) {
-      settings_.log.debug("Lifted variable %d with alpha %g\n", k, alpha_k);
+      settings_.log.debug("Lifted variable %lld with alpha %g\n", (long long)(k), alpha_k);
       F.push_back(k);
       alpha.push_back(alpha_k);
       values.push_back(static_cast<i_t>(std::round(alpha_k)));
@@ -2938,7 +2950,7 @@ f_t knapsack_generation_t<i_t, f_t>::solve_knapsack_problem(const std::vector<f_
 
   const bool verbose = false;
 
-  if (verbose) { settings_.log.printf("all_integers %d\n", all_integers); }
+  if (verbose) { settings_.log.printf("all_integers %lld\n", (long long)(all_integers)); }
 
   // Compute the scaling factor and comptue the scaled integer values
   f_t scale = 1.0;
@@ -2952,7 +2964,8 @@ f_t knapsack_generation_t<i_t, f_t>::solve_knapsack_problem(const std::vector<f_
     scale             = epsilon * vmax / static_cast<f_t>(n);
     if (scale <= 0.0) { return std::numeric_limits<f_t>::quiet_NaN(); }
     if (verbose) {
-      settings_.log.printf("scale %g epsilon %g vmax %g n %d\n", scale, epsilon, vmax, n);
+      settings_.log.printf(
+        "scale %g epsilon %g vmax %g n %lld\n", scale, epsilon, vmax, (long long)(n));
     }
     for (i_t i = 0; i < n; ++i) {
       scaled_values[i] = static_cast<i_t>(std::floor(values[i] / scale));
@@ -2961,12 +2974,12 @@ f_t knapsack_generation_t<i_t, f_t>::solve_knapsack_problem(const std::vector<f_
 
   i_t sum_value     = std::accumulate(scaled_values.begin(), scaled_values.end(), 0);
   const i_t INT_INF = std::numeric_limits<i_t>::max() / 2;
-  if (verbose) { settings_.log.printf("sum value %d\n", sum_value); }
+  if (verbose) { settings_.log.printf("sum value %lld\n", (long long)(sum_value)); }
   const i_t max_size = 10000;
   if (sum_value <= 0.0 || sum_value >= max_size) {
     if (verbose) {
-      settings_.log.printf("sum value %d is negative or too large using greedy solution\n",
-                           sum_value);
+      settings_.log.printf("sum value %lld is negative or too large using greedy solution\n",
+                           (long long)(sum_value));
     }
     return greedy_knapsack_problem<i_t, f_t>(values, weights, rhs, solution);
   }
@@ -3035,10 +3048,12 @@ f_t knapsack_generation_t<i_t, f_t>::exact_knapsack_problem_integer_values_fract
 
   const bool verbose = false;
   i_t sum_value      = std::accumulate(values.begin(), values.end(), 0);
-  if (verbose) { settings_.log.printf("sum value %d\n", sum_value); }
+  if (verbose) { settings_.log.printf("sum value %lld\n", (long long)(sum_value)); }
   const i_t max_size = 10000;
   if (sum_value <= 0.0 || sum_value >= max_size) {
-    if (verbose) { settings_.log.printf("sum value %d is negative or too large\n", sum_value); }
+    if (verbose) {
+      settings_.log.printf("sum value %lld is negative or too large\n", (long long)(sum_value));
+    }
     return std::numeric_limits<f_t>::quiet_NaN();
   }
 
@@ -3198,7 +3213,7 @@ void cut_generation_t<i_t, f_t>::generate_implied_bound_cuts(
   }
 
   if (num_cuts > 0) {
-    settings.log.debug("Generated %d implied bounds cuts from probing\n", num_cuts);
+    settings.log.debug("Generated %lld implied bounds cuts from probing\n", (long long)(num_cuts));
   }
 }
 
@@ -4076,7 +4091,7 @@ void cut_generation_t<i_t, f_t>::generate_mir_cuts(
   std::vector<f_t> transformed_xstar;
   complemented_mir.bound_substitution(lp, variable_bounds, var_types, xstar, transformed_xstar);
 
-  const i_t max_cuts = std::min(lp.num_rows, 100000);
+  const i_t max_cuts = std::min(lp.num_rows, i_t{100000});
   f_t work_estimate  = 0.0;
   i_t num_cuts       = 0;
   while (num_cuts < max_cuts && !score_queue.empty()) {
@@ -4129,8 +4144,8 @@ void cut_generation_t<i_t, f_t>::generate_mir_cuts(
           if (inequality.coeff(k) == -1.0 && lp.lower[j] >= 0.0) {
             negate_inequality = 0;
           } else {
-            settings.log.debug("Bad slack %d in inequality: aj %e lo %e up %e\n",
-                               j,
+            settings.log.debug("Bad slack %lld in inequality: aj %e lo %e up %e\n",
+                               (long long)(j),
                                inequality.coeff(k),
                                lp.lower[j],
                                lp.upper[j]);
@@ -4156,8 +4171,8 @@ void cut_generation_t<i_t, f_t>::generate_mir_cuts(
       const i_t j = inequality.index(k);
       if (var_types[j] == variable_type_t::INTEGER) {
         if (transformed_xstar[j] > complemented_mir.new_upper(j) / 2.0) {
-          settings.log.printf("!!!!!! j %d transformed x_j %e new_upper_j/2.0 %e\n",
-                              j,
+          settings.log.printf("!!!!!! j %lld transformed x_j %e new_upper_j/2.0 %e\n",
+                              (long long)(j),
                               transformed_xstar[j],
                               complemented_mir.new_upper(j) / 2.0);
         }
@@ -4311,7 +4326,7 @@ void cut_generation_t<i_t, f_t>::generate_mir_cuts(
 
     scores[i] = 0.0;
     score_queue.push(std::make_pair(scores[i], i));
-    work_estimate += std::log2(std::max(1, static_cast<i_t>(score_queue.size())));
+    work_estimate += std::log2(std::max(i_t{1}, static_cast<i_t>(score_queue.size())));
   }
 }
 
@@ -4466,7 +4481,10 @@ i_t tableau_equality_t<i_t, f_t>::generate_base_equality(
   const f_t x_j = xstar[j];
   if (std::abs(x_j - std::round(x_j)) < settings.integer_tol) { return -1; }
 #ifdef PRINT_CUT_INFO
-  settings_.log.printf("Generating cut for variable %d relaxed value %e row %d\n", j, x_j, i);
+  settings_.log.printf("Generating cut for variable %lld relaxed value %e row %lld\n",
+                       (long long)(j),
+                       x_j,
+                       (long long)(i));
 #endif
 
   // Solve B^T u_bar = e_i
@@ -4484,15 +4502,17 @@ i_t tableau_equality_t<i_t, f_t>::generate_base_equality(
   simplex::b_transpose_multiply(lp, basic_list, u_bar_dense, BTu_bar);
   for (i_t k = 0; k < lp.num_rows; k++) {
     if (k == i) {
-      settings.log.printf("BTu_bar %d error %e\n", k, std::abs(BTu_bar[k] - 1.0));
+      settings.log.printf("BTu_bar %lld error %e\n", (long long)(k), std::abs(BTu_bar[k] - 1.0));
       if (std::abs(BTu_bar[k] - 1.0) > 1e-10) {
-        settings.log.printf("BTu_bar[%d] = %e i %d\n", k, BTu_bar[k], i);
+        settings.log.printf(
+          "BTu_bar[%lld] = %e i %lld\n", (long long)(k), BTu_bar[k], (long long)(i));
         assert(false);
       }
     } else {
-      settings.log.printf("BTu_bar %d error %e\n", k, std::abs(BTu_bar[k]));
+      settings.log.printf("BTu_bar %lld error %e\n", (long long)(k), std::abs(BTu_bar[k]));
       if (std::abs(BTu_bar[k]) > 1e-10) {
-        settings.log.printf("BTu_bar[%d] = %e i %d\n", k, BTu_bar[k], i);
+        settings.log.printf(
+          "BTu_bar[%lld] = %e i %lld\n", (long long)(k), BTu_bar[k], (long long)(i));
         assert(false);
       }
     }
@@ -4544,7 +4564,9 @@ i_t tableau_equality_t<i_t, f_t>::generate_base_equality(
     }
   }
   const bool verbose = false;
-  if (verbose && small_coeff > 0) { settings.log.printf("Small coeff dropped %d\n", small_coeff); }
+  if (verbose && small_coeff > 0) {
+    settings.log.printf("Small coeff dropped %lld\n", (long long)(small_coeff));
+  }
 
   // Clear the workspace
   for (i_t jj : abar_indices) {
@@ -4585,9 +4607,9 @@ i_t tableau_equality_t<i_t, f_t>::generate_base_equality(
   for (i_t k = 0; k < a_bar.i.size(); k++) {
     const i_t jj = a_bar.i[k];
     const f_t aj = a_bar.x[k];
-    settings_.log.printf("a_bar[%d] = %e\n", k, aj);
+    settings_.log.printf("a_bar[%lld] = %e\n", (long long)(k), aj);
   }
-  settings_.log.printf("b_bar[%d] = %e\n", i, b_bar[i]);
+  settings_.log.printf("b_bar[%lld] = %e\n", (long long)(i), b_bar[i]);
 #endif
 
   inequality.vector = a_bar;
@@ -5011,8 +5033,8 @@ void complemented_mixed_integer_rounding_cut_t<i_t, f_t>::compute_initial_scores
                 slack_weight * (1.0 - slack_value / slack_denom);
 
     if (verbose) {
-      settings.log.printf("Scores[%d] = %e density %.2f dual %e slack %e\n",
-                          i,
+      settings.log.printf("Scores[%lld] = %e density %.2f dual %e slack %e\n",
+                          (long long)(i),
                           scores[i],
                           density,
                           dual,
@@ -5668,14 +5690,14 @@ bool complemented_mixed_integer_rounding_cut_t<i_t, f_t>::
       cut.vector.x[k] = h(aj);
     }
     if (cut.vector.x[k] != cut.vector.x[k]) {
-      printf("cut.x[%d] %e != cut.x[%d] %e. aj %e beta %e var type %d\n",
-             k,
+      printf("cut.x[%lld] %e != cut.x[%lld] %e. aj %e beta %e var type %lld\n",
+             (long long)(k),
              cut.vector.x[k],
-             k,
+             (long long)(k),
              cut.vector.x[k],
              aj,
              beta,
-             static_cast<int>(var_types[j]));
+             (long long)(static_cast<int>(var_types[j])));
       exit(1);
     }
   }
@@ -5713,14 +5735,14 @@ void complemented_mixed_integer_rounding_cut_t<i_t, f_t>::substitute_slacks(
       const i_t slack_end = lp.A.col_start[j + 1];
       const i_t slack_len = slack_end - slack_start;
       if (slack_len != 1) {
-        printf("Slack %d has %d nzs in colum\n", j, slack_len);
+        printf("Slack %lld has %lld nzs in colum\n", (long long)(j), (long long)(slack_len));
         assert(slack_len == 1);
       }
 #endif
       const f_t alpha = lp.A.x[slack_start];
 #ifdef CHECK_SLACKS
       if (std::abs(alpha) != 1.0) {
-        printf("Slack %d has non-unit coefficient %e\n", j, alpha);
+        printf("Slack %lld has non-unit coefficient %e\n", (long long)(j), alpha);
         assert(std::abs(alpha) == 1.0);
       }
 #endif
@@ -5752,7 +5774,10 @@ void complemented_mixed_integer_rounding_cut_t<i_t, f_t>::substitute_slacks(
         } else {
           const f_t aij = Arow.x[q];
           if (std::abs(aij) != 1.0) {
-            printf("Slack row %d has non-unit coefficient %e for variable %d\n", i, aij, j);
+            printf("Slack row %lld has non-unit coefficient %e for variable %lld\n",
+                   (long long)(i),
+                   aij,
+                   (long long)(j));
             assert(std::abs(aij) == 1.0);
           }
         }
@@ -5792,7 +5817,7 @@ f_t complemented_mixed_integer_rounding_cut_t<i_t, f_t>::combine_rows(
   }
 
   if (a_l_j == 0) {
-    printf("Pivot row has no coefficient for variable %d\n", xj);
+    printf("Pivot row has no coefficient for variable %lld\n", (long long)(xj));
     return 0.0;
   }
 
@@ -5809,7 +5834,7 @@ f_t complemented_mixed_integer_rounding_cut_t<i_t, f_t>::combine_rows(
     }
   }
   if (a_i_j == 0.0) {
-    printf("Inequality has zero coefficient for variable %d\n", xj);
+    printf("Inequality has zero coefficient for variable %lld\n", (long long)(xj));
     scratch_pad_.clear_pad();
     return 0.0;
   }
@@ -5878,7 +5903,7 @@ i_t strong_cg_cut_t<i_t, f_t>::remove_continuous_variables_integers_nonnegative(
     if (var_types[j] == variable_type_t::CONTINUOUS) { num_continuous++; }
   }
 
-  if (verbose) { settings.log.printf("num_continuous %d\n", num_continuous); }
+  if (verbose) { settings.log.printf("num_continuous %lld\n", (long long)(num_continuous)); }
   // We assume the inequality is of the form sum_j a_j x_j <= rhs
 
   for (i_t k = 0; k < nz; k++) {
@@ -5919,7 +5944,9 @@ i_t strong_cg_cut_t<i_t, f_t>::remove_continuous_variables_integers_nonnegative(
       } else {
         // We can't keep the coefficient of the continuous variable positive
         // This means we can't eliminate the continuous variable
-        if (verbose) { settings.log.printf("x%d ak: %e lo: %e up: %e\n", j, a_j, l_j, u_j); }
+        if (verbose) {
+          settings.log.printf("x%lld ak: %e lo: %e up: %e\n", (long long)(j), a_j, l_j, u_j);
+        }
         return -1;
       }
     } else {
@@ -6056,7 +6083,9 @@ i_t strong_cg_cut_t<i_t, f_t>::generate_strong_cg_cut_helper(
         const f_t tol   = 1e-4;
         if (f_a_j <= f_a_0 + tol) {
           cut.push_back(j, (k + 1.0) * std::floor(a_j));
-          if (verbose) { printf("j %d a_j %e f_a_j %e k %d\n", j, a_j, f_a_j, k); }
+          if (verbose) {
+            printf("j %lld a_j %e f_a_j %e k %lld\n", (long long)(j), a_j, f_a_j, (long long)(k));
+          }
         } else {
           // Find p such that p <= k * f(a_j) < p + 1
           i_t p = static_cast<i_t>(std::floor(k * f_a_j));
@@ -6074,19 +6103,23 @@ i_t strong_cg_cut_t<i_t, f_t>::generate_strong_cg_cut_helper(
       }
     }
   } else {
-    if (verbose) { printf("Error: k %d lower %e f(a_0) %e upper %e\n", k, lower, f_a_0, upper); }
+    if (verbose) {
+      printf("Error: k %lld lower %e f(a_0) %e upper %e\n", (long long)(k), lower, f_a_0, upper);
+    }
     return -1;
   }
   cut.rhs = (k + 1.0) * std::floor(rhs);
   if (verbose) {
-    printf("Generated strong CG cut: k %d f_a_0 %e cut_rhs %e\n", k, f_a_0, cut.rhs);
+    printf("Generated strong CG cut: k %lld f_a_0 %e cut_rhs %e\n", (long long)(k), f_a_0, cut.rhs);
     for (i_t q = 0; q < cut.size(); q++) {
-      if (cut.vector.x[q] != 0.0) { printf("%.16e x%d ", cut.vector.x[q], cut.vector.i[q]); }
+      if (cut.vector.x[q] != 0.0) {
+        printf("%.16e x%lld ", cut.vector.x[q], (long long)(cut.vector.i[q]));
+      }
     }
     printf("\n");
     printf("Original inequality rhs %e nz %ld\n", rhs, coefficients.size());
     for (i_t q = 0; q < nz; q++) {
-      printf("%e x%d ", coefficients[q], indicies[q]);
+      printf("%e x%lld ", coefficients[q], (long long)(indicies[q]));
     }
     printf("\n");
   }
@@ -6104,10 +6137,10 @@ i_t strong_cg_cut_t<i_t, f_t>::generate_strong_cg_cut(
 {
 #ifdef PRINT_INEQUALITY_INFO
   for (i_t k = 0; k < inequality.i.size(); k++) {
-    printf("%e %c%d ",
+    printf("%e %c%lld ",
            inequality.x[k],
            var_types[inequality.i[k]] == variable_type_t::CONTINUOUS ? 'x' : 'y',
-           inequality.i[k]);
+           (long long)(inequality.i[k]));
   }
   printf("CG inequality rhs %e\n", inequality_rhs);
 #endif
@@ -6193,16 +6226,16 @@ i_t add_cuts(const simplex_solver_settings_t<i_t, f_t>& settings,
     settings.log.printf("cut_rhs must have the same number of rows as cuts\n");
     assert(cut_rhs.size() == static_cast<size_t>(p));
   }
-  settings.log.debug("Number of cuts %d\n", p);
-  settings.log.debug("Original lp rows %d\n", lp.num_rows);
-  settings.log.debug("Original lp cols %d\n", lp.num_cols);
+  settings.log.debug("Number of cuts %lld\n", (long long)(p));
+  settings.log.debug("Original lp rows %lld\n", (long long)(lp.num_rows));
+  settings.log.debug("Original lp cols %lld\n", (long long)(lp.num_cols));
 
   csr_matrix_t<i_t, f_t> new_A_row(lp.num_rows, lp.num_cols, 1);
   lp.A.to_compressed_row(new_A_row);
 
   i_t append_status = new_A_row.append_rows(cuts);
   if (append_status != 0) {
-    settings.log.printf("append_rows error: %d\n", append_status);
+    settings.log.printf("append_rows error: %lld\n", (long long)(append_status));
     assert(append_status == 0);
   }
 
@@ -6242,7 +6275,8 @@ i_t add_cuts(const simplex_solver_settings_t<i_t, f_t>& settings,
     const i_t col_end   = lp.A.col_start[slack + 1];
     const i_t col_len   = col_end - col_start;
     if (col_len != 1) {
-      settings.log.printf("Add cuts: Slack %d has %d nzs in column\n", slack, col_len);
+      settings.log.printf(
+        "Add cuts: Slack %lld has %lld nzs in column\n", (long long)(slack), (long long)(col_len));
       assert(col_len == 1);
     }
   }
@@ -6265,7 +6299,9 @@ i_t add_cuts(const simplex_solver_settings_t<i_t, f_t>& settings,
   for (i_t q = 0; q < cuts_nz; q++) {
     const i_t j = cuts.j[q];
     if (j >= lp.num_cols) {
-      settings.log.printf("Cut column index j=%d exceeds num_cols=%d\n", j, lp.num_cols);
+      settings.log.printf("Cut column index j=%lld exceeds num_cols=%lld\n",
+                          (long long)(j),
+                          (long long)(lp.num_cols));
       return -1;
     }
     C_col_degree[j]++;
@@ -6278,8 +6314,11 @@ i_t add_cuts(const simplex_solver_settings_t<i_t, f_t>& settings,
   for (i_t k = 0; k < num_basic; k++) {
     const i_t j = basic_list[k];
     if (j < 0 || j >= old_cols) {
-      settings.log.printf(
-        "basic_list[%d] = %d is out of bounds %d old_cols %d\n", k, j, j, old_cols);
+      settings.log.printf("basic_list[%lld] = %lld is out of bounds %lld old_cols %lld\n",
+                          (long long)(k),
+                          (long long)(j),
+                          (long long)(j),
+                          (long long)(old_cols));
       assert(j >= 0 && j < old_cols);
     }
     in_basis[j] = k;
@@ -6307,10 +6346,12 @@ i_t add_cuts(const simplex_solver_settings_t<i_t, f_t>& settings,
   C_B.row_start[p] = nz;
 
   if (nz != C_B_nz) {
-    settings.log.printf("Add cuts: predicted nz %d actual nz %d\n", C_B_nz, nz);
+    settings.log.printf(
+      "Add cuts: predicted nz %lld actual nz %lld\n", (long long)(C_B_nz), (long long)(nz));
     assert(nz == C_B_nz);
   }
-  settings.log.debug("C_B rows %d cols %d nz %d\n", C_B.m, C_B.n, nz);
+  settings.log.debug(
+    "C_B rows %lld cols %lld nz %lld\n", (long long)(C_B.m), (long long)(C_B.n), (long long)(nz));
 
   // Adjust the basis update to include the new cuts
   basis_update.append_cuts(C_B);
@@ -6385,7 +6426,8 @@ i_t remove_cuts(lp_problem_t<i_t, f_t>& lp,
     const i_t col_end   = lp.A.col_start[j + 1];
     const i_t col_len   = col_end - col_start;
     if (col_len != 1) {
-      printf("Remove cuts: Slack %d has %d nzs in column\n", j, col_len);
+      printf(
+        "Remove cuts: Slack %lld has %lld nzs in column\n", (long long)(j), (long long)(col_len));
       assert(col_len == 1);
     }
 #endif
@@ -6491,11 +6533,11 @@ i_t remove_cuts(lp_problem_t<i_t, f_t>& lp,
     y             = new_solution_y;
     z             = new_solution_z;
 
-    settings.log.debug("Removed %d cuts. After removal %d rows %d columns %d nonzeros\n",
-                       cuts_to_remove.size(),
-                       lp.num_rows,
-                       lp.num_cols,
-                       lp.A.col_start[lp.A.n]);
+    settings.log.debug("Removed %lld cuts. After removal %lld rows %lld columns %lld nonzeros\n",
+                       (long long)(cuts_to_remove.size()),
+                       (long long)(lp.num_rows),
+                       (long long)(lp.num_cols),
+                       (long long)(lp.A.col_start[lp.A.n]));
 
     basis_update.resize(lp.num_rows);
     i_t refactor_status = basis_update.refactor_basis(
@@ -6518,16 +6560,20 @@ void read_saved_solution_for_cut_verification(const lp_problem_t<i_t, f_t>& lp,
   if (fid != NULL) {
     i_t n_solution_dat;
     i_t count = fscanf(fid, "%d\n", &n_solution_dat);
-    settings.log.printf(
-      "Solution.dat variables %d =? %d =? count %d\n", n_solution_dat, lp.num_cols, count);
+    settings.log.printf("Solution.dat variables %lld =? %lld =? count %lld\n",
+                        (long long)(n_solution_dat),
+                        (long long)(lp.num_cols),
+                        (long long)(count));
     bool good = true;
     if (count == 1 && n_solution_dat == lp.num_cols) {
-      settings.log.printf("Opened solution.dat with %d number of variables\n", n_solution_dat);
+      settings.log.printf("Opened solution.dat with %lld number of variables\n",
+                          (long long)(n_solution_dat));
       saved_solution.resize(n_solution_dat);
       for (i_t j = 0; j < n_solution_dat; j++) {
         count = fscanf(fid, "%lf", &saved_solution[j]);
         if (count != 1) {
-          settings.log.printf("bad read solution.dat: j %d count %d\n", j, count);
+          settings.log.printf(
+            "bad read solution.dat: j %lld count %lld\n", (long long)(j), (long long)(count));
           good = false;
           break;
         }
@@ -6564,13 +6610,13 @@ void read_saved_solution_for_cut_verification(const lp_problem_t<i_t, f_t>& lp,
           f_t curr_infeas = (lp.lower[j] - saved_solution[j]);
           infeas += curr_infeas;
           settings.log.printf(
-            "j: %d saved solution %e lower %e\n", j, saved_solution[j], lp.lower[j]);
+            "j: %lld saved solution %e lower %e\n", (long long)(j), saved_solution[j], lp.lower[j]);
         }
         if (saved_solution[j] > lp.upper[j] + 1e-6) {
           f_t curr_infeas = (saved_solution[j] - lp.upper[j]);
           infeas += curr_infeas;
           settings.log.printf(
-            "j %d saved solution %e upper %e\n", j, saved_solution[j], lp.upper[j]);
+            "j %lld saved solution %e upper %e\n", (long long)(j), saved_solution[j], lp.upper[j]);
         }
       }
       settings.log.printf("Bound infeasibility %e\n", infeas);
@@ -6596,10 +6642,10 @@ void write_solution_for_cut_verification(const lp_problem_t<i_t, f_t>& lp,
       seed ^= std::hash<f_t>{}(x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
       return seed;
     };
-    printf("incumbent size %ld original lp cols %d\n", solution.size(), lp.num_cols);
+    printf("incumbent size %ld original lp cols %lld\n", solution.size(), (long long)(lp.num_cols));
     i_t n       = lp.num_cols;
     size_t seed = n;
-    fprintf(fid, "%d\n", n);
+    fprintf(fid, "%lld\n", (long long)(n));
     for (i_t j = 0; j < n; ++j) {
       fprintf(fid, "%.17g\n", solution[j]);
       seed = hash_combine_f(seed, solution[j]);
@@ -6622,8 +6668,8 @@ void verify_cuts_against_saved_solution(const csr_matrix_t<i_t, f_t>& cuts,
     const i_t num_cuts = cuts.m;
     for (i_t k = 0; k < num_cuts; k++) {
       if (Cx[k] > cut_rhs[k] + 1e-6) {
-        printf("Cut %d is violated by saved solution. Cx %e cut_rhs %e Diff: %e\n",
-               k,
+        printf("Cut %lld is violated by saved solution. Cx %e cut_rhs %e Diff: %e\n",
+               (long long)(k),
                Cx[k],
                cut_rhs[k],
                Cx[k] - cut_rhs[k]);
@@ -6641,41 +6687,42 @@ template class tableau_equality_t<cuopt_int_t, double>;
 template class complemented_mixed_integer_rounding_cut_t<cuopt_int_t, double>;
 template class variable_bounds_t<cuopt_int_t, double>;
 
-template int add_cuts(const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                      const csr_matrix_t<cuopt_int_t, double>& cuts,
-                      const std::vector<double>& cut_rhs,
-                      lp_problem_t<cuopt_int_t, double>& lp,
-                      std::vector<cuopt_int_t>& new_slacks,
-                      lp_solution_t<cuopt_int_t, double>& solution,
-                      basis_update_mpf_t<cuopt_int_t, double>& basis_update,
-                      std::vector<cuopt_int_t>& basic_list,
-                      std::vector<cuopt_int_t>& nonbasic_list,
-                      std::vector<variable_status_t>& vstatus,
-                      std::vector<double>& edge_norms);
+template cuopt_int_t add_cuts(const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+                              const csr_matrix_t<cuopt_int_t, double>& cuts,
+                              const std::vector<double>& cut_rhs,
+                              lp_problem_t<cuopt_int_t, double>& lp,
+                              std::vector<cuopt_int_t>& new_slacks,
+                              lp_solution_t<cuopt_int_t, double>& solution,
+                              basis_update_mpf_t<cuopt_int_t, double>& basis_update,
+                              std::vector<cuopt_int_t>& basic_list,
+                              std::vector<cuopt_int_t>& nonbasic_list,
+                              std::vector<variable_status_t>& vstatus,
+                              std::vector<double>& edge_norms);
 
-template int remove_cuts<cuopt_int_t, double>(lp_problem_t<cuopt_int_t, double>& lp,
-                                      const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                      double start_time,
-                                      csr_matrix_t<cuopt_int_t, double>& Arow,
-                                      std::vector<cuopt_int_t>& new_slacks,
-                                      int original_rows,
-                                      std::vector<variable_type_t>& var_types,
-                                      std::vector<variable_status_t>& vstatus,
-                                      std::vector<double>& edge_norms,
-                                      std::vector<double>& x,
-                                      std::vector<double>& y,
-                                      std::vector<double>& z,
-                                      std::vector<cuopt_int_t>& basic_list,
-                                      std::vector<cuopt_int_t>& nonbasic_list,
-                                      basis_update_mpf_t<cuopt_int_t, double>& basis_update);
+template cuopt_int_t remove_cuts<cuopt_int_t, double>(
+  lp_problem_t<cuopt_int_t, double>& lp,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  double start_time,
+  csr_matrix_t<cuopt_int_t, double>& Arow,
+  std::vector<cuopt_int_t>& new_slacks,
+  cuopt_int_t original_rows,
+  std::vector<variable_type_t>& var_types,
+  std::vector<variable_status_t>& vstatus,
+  std::vector<double>& edge_norms,
+  std::vector<double>& x,
+  std::vector<double>& y,
+  std::vector<double>& z,
+  std::vector<cuopt_int_t>& basic_list,
+  std::vector<cuopt_int_t>& nonbasic_list,
+  basis_update_mpf_t<cuopt_int_t, double>& basis_update);
 
 template void read_saved_solution_for_cut_verification<cuopt_int_t, double>(
   const lp_problem_t<cuopt_int_t, double>& lp,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   std::vector<double>& saved_solution);
 
-template void write_solution_for_cut_verification<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                                               const std::vector<double>& solution);
+template void write_solution_for_cut_verification<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp, const std::vector<double>& solution);
 
 template void verify_cuts_against_saved_solution<cuopt_int_t, double>(
   const csr_matrix_t<cuopt_int_t, double>& cuts,

@@ -20,7 +20,7 @@ void print_queue(std::queue<i_t>& q)
 {
   printf("queue ");
   while (!q.empty()) {
-    printf("%d ", q.front());
+    printf("%lld ", (long long)(q.front()));
     q.pop();
   }
   printf("\n");
@@ -179,7 +179,7 @@ i_t find_singletons(const csc_matrix_t<i_t, f_t>& A,
   i_t m  = A.m;
   i_t nz = A.col_start[n];
 
-  std::vector<int> workspace(m);
+  std::vector<i_t> workspace(m);
   std::vector<i_t> Rdeg(m);
   std::vector<i_t> Cdeg(n);
   std::vector<i_t> Rp(m + 1);
@@ -231,7 +231,7 @@ i_t find_singletons(const csc_matrix_t<i_t, f_t>& A,
     col_singletons = order_singletons(singleton_queue, singletons_found, graph, work_estimate);
 
 #ifdef SINGLETON_DEBUG
-    printf("Found %d column singletons\n", col_singletons);
+    printf("Found %lld column singletons\n", (long long)(col_singletons));
 #endif
   }
 
@@ -264,7 +264,9 @@ i_t find_singletons(const csc_matrix_t<i_t, f_t>& A,
     row_singletons = order_singletons(singleton_queue, singletons_found, graph, work_estimate);
     row_singletons = row_singletons - last;
 #ifdef SINGLETON_DEBUG
-    printf("Found %d row singletons. %d\n", row_singletons, singletons_found);
+    printf("Found %lld row singletons. %lld\n",
+           (long long)(row_singletons),
+           (long long)(singletons_found));
 #endif
   } else {
 #ifdef SINGLETON_DEBUG
@@ -273,47 +275,51 @@ i_t find_singletons(const csc_matrix_t<i_t, f_t>& A,
   }
 
 #ifdef SINGLETON_DEBUG
-  printf("Col singletons %d\n", col_singletons);
+  printf("Col singletons %lld\n", (long long)(col_singletons));
 #endif
   i_t num_empty_cols = complete_permutation(singletons_found, Cdeg, col_perm);
   work_estimate += 2 * Cdeg.size();
 #ifdef SINGLETON_DEBUG
-  printf("Completed col perm. %d empty cols. Starting row perm\n", num_empty_cols);
+  printf("Completed col perm. %lld empty cols. Starting row perm\n", (long long)(num_empty_cols));
 #endif
   i_t num_empty_rows = complete_permutation(singletons_found, Rdeg, row_perm);
   work_estimate += 2 * Rdeg.size();
 #ifdef SINGLETON_DEBUG
-  printf("Empty rows %d Empty columns %d\n", num_empty_rows, num_empty_cols);
+  printf("Empty rows %lld Empty columns %lld\n",
+         (long long)(num_empty_rows),
+         (long long)(num_empty_cols));
 #endif
   return singletons_found;
 }
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template struct row_col_graph_t<int>;
+template struct row_col_graph_t<cuopt_int_t>;
 
-template int order_singletons<cuopt_int_t, double>(std::queue<int>& singleton_queue,
-                                           int& singletons_found,
-                                           row_col_graph_t<int>& G,
-                                           double& work_estimate);
+template cuopt_int_t order_singletons<cuopt_int_t, double>(std::queue<cuopt_int_t>& singleton_queue,
+                                                           cuopt_int_t& singletons_found,
+                                                           row_col_graph_t<cuopt_int_t>& G,
+                                                           double& work_estimate);
 
 // \param [in,out]  workspace - size m
-template void create_row_representation<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                                     std::vector<cuopt_int_t>& row_start,
-                                                     std::vector<cuopt_int_t>& col_index,
-                                                     std::vector<cuopt_int_t>& workspace,
-                                                     double& work_estimate);
+template void create_row_representation<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  std::vector<cuopt_int_t>& row_start,
+  std::vector<cuopt_int_t>& col_index,
+  std::vector<cuopt_int_t>& workspace,
+  double& work_estimate);
 // Complete the permuation
-template int complete_permutation<int>(int singletons,
-                                       std::vector<int>& Xdeg,
-                                       std::vector<int>& Xperm);
+template cuopt_int_t complete_permutation<cuopt_int_t>(cuopt_int_t singletons,
+                                                       std::vector<cuopt_int_t>& Xdeg,
+                                                       std::vector<cuopt_int_t>& Xperm);
 
-template int find_singletons<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                          int& row_singletons,
-                                          std::vector<cuopt_int_t>& row_perm,
-                                          int& col_singleton,
-                                          std::vector<cuopt_int_t>& col_perm,
-                                          double& work_estimate);
+template cuopt_int_t find_singletons<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  cuopt_int_t& row_singletons,
+  std::vector<cuopt_int_t>& row_perm,
+  cuopt_int_t& col_singleton,
+  std::vector<cuopt_int_t>& col_perm,
+  double& work_estimate);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

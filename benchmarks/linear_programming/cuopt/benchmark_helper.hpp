@@ -275,8 +275,8 @@ void mps_file_to_binary(const std::filesystem::path& filename)
 
   std::string p = std::string(filename);
 
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> op_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(p);
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(p);
 
   auto filename_string = filename.filename().string();
 
@@ -291,7 +291,7 @@ void mps_file_to_binary(const std::filesystem::path& filename)
     {op_problem.get_constraint_upper_bounds(),
      "/constraint_upper_bounds_" + filename_string + ".bin"}};
 
-  std::vector<std::pair<const std::vector<int>&, std::string>> data_vectors_int = {
+  std::vector<std::pair<const std::vector<cuopt_int_t>&, std::string>> data_vectors_int = {
     {op_problem.get_constraint_matrix_indices(), "/A_indices_" + filename_string + ".bin"},
     {op_problem.get_constraint_matrix_offsets(), "/A_offsets_" + filename_string + ".bin"},
   };

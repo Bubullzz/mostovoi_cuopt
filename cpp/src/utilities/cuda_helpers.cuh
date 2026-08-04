@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/macros.cuh>
 
 #include <cuda/memory_resource>

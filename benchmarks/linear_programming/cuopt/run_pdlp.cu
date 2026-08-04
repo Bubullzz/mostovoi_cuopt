@@ -122,10 +122,10 @@ static cuopt::mathematical_optimization::pdlp_solver_mode_t string_to_pdlp_solve
   return cuopt::mathematical_optimization::pdlp_solver_mode_t::Stable3;
 }
 
-static cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> create_solver_settings(
+static cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> create_solver_settings(
   const argparse::ArgumentParser& program)
 {
-  cuopt::mathematical_optimization::pdlp_solver_settings_t<int, double> settings{};
+  cuopt::mathematical_optimization::pdlp_solver_settings_t<cuopt_int_t, double> settings{};
 
   settings.time_limit      = program.get<double>("--time-limit");
   settings.iteration_limit = program.get<int>("--iteration-limit");
@@ -153,12 +153,12 @@ static int run_solver(const argparse::ArgumentParser& program, const raft::handl
   }
 
   // Parse MPS file
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> op_problem =
-    cuopt::mathematical_optimization::io::read_mps<int, double>(program.get<std::string>("--path"));
+  cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double> op_problem =
+    cuopt::mathematical_optimization::io::read_mps<cuopt_int_t, double>(program.get<std::string>("--path"));
 
   // Solve LP problem
   bool problem_checking = true;
-  cuopt::mathematical_optimization::optimization_problem_solution_t<int, double> solution =
+  cuopt::mathematical_optimization::optimization_problem_solution_t<cuopt_int_t, double> solution =
     cuopt::mathematical_optimization::solve_lp(
       &handle_, op_problem, settings, problem_checking, use_pdlp_solver_mode);
 

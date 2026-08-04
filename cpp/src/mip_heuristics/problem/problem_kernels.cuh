@@ -9,6 +9,8 @@
 
 #include <cub/cub.cuh>
 
+#include <utilities/atomic_helpers.cuh>
+
 #include "problem.cuh"
 
 namespace cuopt::mathematical_optimization::mip {

@@ -391,29 +391,37 @@ void expand_initial_solutions_for_semi_continuous(
 }
 
 #if MIP_INSTANTIATE_FLOAT
-template bool reformulate_semi_continuous<cuopt_int_t, float>(optimization_problem_t<cuopt_int_t, float>&,
-                                                      const mip_solver_settings_t<cuopt_int_t, float>&,
-                                                      std::vector<uint8_t>*,
-                                                      std::vector<cuopt_int_t>*);
+template bool reformulate_semi_continuous<cuopt_int_t, float>(
+  optimization_problem_t<cuopt_int_t, float>&,
+  const mip_solver_settings_t<cuopt_int_t, float>&,
+  std::vector<uint8_t>*,
+  std::vector<cuopt_int_t>*);
 template void append_semi_continuous_auxiliaries_to_assignment(
-  std::vector<float>&, const std::vector<int>&, mip_solver_settings_t<cuopt_int_t, float>::tolerances_t);
-template void strip_semi_continuous_auxiliaries_from_assignment(std::vector<float>&, int);
-template void expand_initial_solutions_for_semi_continuous(mip_solver_settings_t<cuopt_int_t, float>&,
-                                                           const std::vector<cuopt_int_t>&,
-                                                           rmm::cuda_stream_view);
+  std::vector<float>&,
+  const std::vector<cuopt_int_t>&,
+  mip_solver_settings_t<cuopt_int_t, float>::tolerances_t);
+template void strip_semi_continuous_auxiliaries_from_assignment(std::vector<float>&, cuopt_int_t);
+template void expand_initial_solutions_for_semi_continuous(
+  mip_solver_settings_t<cuopt_int_t, float>&,
+  const std::vector<cuopt_int_t>&,
+  rmm::cuda_stream_view);
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template bool reformulate_semi_continuous<cuopt_int_t, double>(optimization_problem_t<cuopt_int_t, double>&,
-                                                       const mip_solver_settings_t<cuopt_int_t, double>&,
-                                                       std::vector<uint8_t>*,
-                                                       std::vector<cuopt_int_t>*);
+template bool reformulate_semi_continuous<cuopt_int_t, double>(
+  optimization_problem_t<cuopt_int_t, double>&,
+  const mip_solver_settings_t<cuopt_int_t, double>&,
+  std::vector<uint8_t>*,
+  std::vector<cuopt_int_t>*);
 template void append_semi_continuous_auxiliaries_to_assignment(
-  std::vector<double>&, const std::vector<int>&, mip_solver_settings_t<cuopt_int_t, double>::tolerances_t);
-template void strip_semi_continuous_auxiliaries_from_assignment(std::vector<double>&, int);
-template void expand_initial_solutions_for_semi_continuous(mip_solver_settings_t<cuopt_int_t, double>&,
-                                                           const std::vector<cuopt_int_t>&,
-                                                           rmm::cuda_stream_view);
+  std::vector<double>&,
+  const std::vector<cuopt_int_t>&,
+  mip_solver_settings_t<cuopt_int_t, double>::tolerances_t);
+template void strip_semi_continuous_auxiliaries_from_assignment(std::vector<double>&, cuopt_int_t);
+template void expand_initial_solutions_for_semi_continuous(
+  mip_solver_settings_t<cuopt_int_t, double>&,
+  const std::vector<cuopt_int_t>&,
+  rmm::cuda_stream_view);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::mip

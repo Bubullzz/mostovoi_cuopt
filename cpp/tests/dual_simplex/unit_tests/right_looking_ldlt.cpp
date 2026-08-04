@@ -52,8 +52,8 @@ static csc_matrix_t<cuopt_int_t, double> dense_to_lower_csc(int n, const std::ve
 // by computing L * D * L^T and comparing against P * A * P^T.
 static void verify_ldlt(int n,
                         const std::vector<double>& dense_A,
-                        int rank,
-                        const std::vector<int>& perm,
+                        cuopt_int_t rank,
+                        const std::vector<cuopt_int_t>& perm,
                         const csc_matrix_t<cuopt_int_t, double>& L,
                         const std::vector<double>& D,
                         double tol = 1e-10)
@@ -109,13 +109,13 @@ TEST(right_looking_ldlt, diagonal_2x2)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 2);
   EXPECT_EQ(D.size(), 2u);
@@ -135,13 +135,13 @@ TEST(right_looking_ldlt, pd_3x3)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 3);
   verify_ldlt(n, dense, rank, perm, L, D);
@@ -164,13 +164,13 @@ TEST(right_looking_ldlt, rank1_psd)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   // Rank should be 1
   EXPECT_EQ(rank, 1);
@@ -191,13 +191,13 @@ TEST(right_looking_ldlt, rank2_psd)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   // Rank should be 2
   EXPECT_EQ(rank, 2);
@@ -216,13 +216,13 @@ TEST(right_looking_ldlt, zero_matrix)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 0);
   EXPECT_TRUE(D.empty());
@@ -236,13 +236,13 @@ TEST(right_looking_ldlt, scalar_1x1)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 1);
   EXPECT_EQ(D.size(), 1u);
@@ -277,13 +277,13 @@ TEST(right_looking_ldlt, pd_5x5)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 5);
   for (int k = 0; k < rank; k++) {
@@ -316,13 +316,13 @@ TEST(right_looking_ldlt, rank3_5x5_psd)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 3);
   for (int k = 0; k < rank; k++) {
@@ -342,13 +342,13 @@ TEST(right_looking_ldlt, identity)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 4);
   for (int k = 0; k < rank; k++) {
@@ -372,13 +372,13 @@ TEST(right_looking_ldlt, graph_laplacian)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L_out(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L_out, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L_out, D, work_estimate);
 
   // Graph Laplacian of connected graph has rank n-1
   EXPECT_EQ(rank, 3);
@@ -405,13 +405,13 @@ TEST(right_looking_ldlt, symmetrized_from_unsymmetric)
   auto A                      = dense_to_lower_csc(n, dense_H);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, 3);
   for (int k = 0; k < rank; k++) {
@@ -450,7 +450,7 @@ TEST(right_looking_ldlt, rank5_10x10_psd)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
@@ -474,13 +474,13 @@ TEST(right_looking_ldlt, sparse_single_entry_10x10)
   auto A           = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   // Only one nonzero diagonal entry, so rank = 1
   EXPECT_EQ(rank, 1);
@@ -501,7 +501,7 @@ TEST(right_looking_ldlt, indefinite_2x2)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
@@ -522,7 +522,7 @@ TEST(right_looking_ldlt, indefinite_cross_only_2x2)
   auto A                    = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
@@ -544,7 +544,7 @@ TEST(right_looking_ldlt, indefinite_4x4)
   auto A = dense_to_lower_csc(n, dense);
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
@@ -595,13 +595,13 @@ TEST(right_looking_ldlt, large_arrowhead_markowitz)
   A.col_start[n] = p;
 
   simplex_solver_settings_t<cuopt_int_t, double> settings;
-  std::vector<int> perm;
+  std::vector<cuopt_int_t> perm;
   csc_matrix_t<cuopt_int_t, double> L(n, n, 1);
   std::vector<double> D;
   double work_estimate = 0;
   double start_time    = tic();
 
-  int rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
+  cuopt_int_t rank = right_looking_ldlt(A, settings, 1e-12, start_time, perm, L, D, work_estimate);
 
   EXPECT_EQ(rank, n);
   for (int k = 0; k < rank; k++) {

@@ -29,6 +29,9 @@ namespace cuopt::mathematical_optimization::mip {
 template <typename i_t, typename f_t>
 class conditional_bound_strengthening_t {
  public:
+  // Pair of constraint indices, int2 or longlong2 depending on the index width
+  using pair_t = typename cuopt::type_2<i_t>::type;
+
   conditional_bound_strengthening_t(problem_t<i_t, f_t>& problem);
 
   // FIXME:: For now, just update constraint bounds
@@ -43,7 +46,7 @@ class conditional_bound_strengthening_t {
 
   void solve(problem_t<i_t, f_t>& problem);
 
-  rmm::device_uvector<int2> constraint_pairs;
+  rmm::device_uvector<pair_t> constraint_pairs;
 
   rmm::device_uvector<i_t> locks_per_constraint;
 };

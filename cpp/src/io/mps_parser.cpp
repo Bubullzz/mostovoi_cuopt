@@ -914,8 +914,8 @@ void mps_parser_t<i_t, f_t>::parse_string(char* buf)
       variable_upper_bounds[i] = 1;
     }
     if (variable_lower_bounds[i] > variable_upper_bounds[i]) {
-      printf("WARNING: Variable %d has crossing bounds: %f > %f\n",
-             i,
+      printf("WARNING: Variable %lld has crossing bounds: %f > %f\n",
+             (long long)(i),
              variable_lower_bounds[i],
              variable_upper_bounds[i]);
     }
@@ -1713,11 +1713,10 @@ template class mps_parser_t<cuopt_int_t, float>;
 template class mps_parser_t<cuopt_int_t, double>;
 
 template void check_symmetric_offdiagonal_pairs<cuopt_int_t, float>(const std::vector<cuopt_int_t>&,
-                                                            const std::vector<cuopt_int_t>&,
-                                                            const std::vector<float>&);
-template void check_symmetric_offdiagonal_pairs<cuopt_int_t, double>(const std::vector<cuopt_int_t>&,
-                                                             const std::vector<cuopt_int_t>&,
-                                                             const std::vector<double>&);
+                                                                    const std::vector<cuopt_int_t>&,
+                                                                    const std::vector<float>&);
+template void check_symmetric_offdiagonal_pairs<cuopt_int_t, double>(
+  const std::vector<cuopt_int_t>&, const std::vector<cuopt_int_t>&, const std::vector<double>&);
 #if !CUOPT_INSTANTIATE_INT64
 template void check_symmetric_offdiagonal_pairs<int64_t, float>(const std::vector<int64_t>&,
                                                                 const std::vector<int64_t>&,
@@ -1728,11 +1727,11 @@ template void check_symmetric_offdiagonal_pairs<int64_t, double>(const std::vect
 #endif
 
 template void canonicalize_coo_matrix<cuopt_int_t, float>(std::vector<cuopt_int_t>&,
-                                                  std::vector<cuopt_int_t>&,
-                                                  std::vector<float>&);
+                                                          std::vector<cuopt_int_t>&,
+                                                          std::vector<float>&);
 template void canonicalize_coo_matrix<cuopt_int_t, double>(std::vector<cuopt_int_t>&,
-                                                   std::vector<cuopt_int_t>&,
-                                                   std::vector<double>&);
+                                                           std::vector<cuopt_int_t>&,
+                                                           std::vector<double>&);
 #if !CUOPT_INSTANTIATE_INT64
 template void canonicalize_coo_matrix<int64_t, float>(std::vector<int64_t>&,
                                                       std::vector<int64_t>&,

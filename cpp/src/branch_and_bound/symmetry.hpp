@@ -1058,26 +1058,26 @@ std::unique_ptr<mip_symmetry_t<i_t, f_t>> detect_symmetry(
 
   std::ostringstream grp_size_str;
   grp_size_str << d.get_automorphism_group_size();
-  settings.log.printf("Automorphism group size %s, %d dejavu generators (%d move variables)\n",
+  settings.log.printf("Automorphism group size %s, %lld dejavu generators (%lld move variables)\n",
                       grp_size_str.str().c_str(),
-                      num_dejavu_generators,
-                      projected_count);
+                      (long long)(num_dejavu_generators),
+                      (long long)(projected_count));
   settings.log.printf("Dejavu time %f\n", toc(dejavu_start_time));
 
   result->num_generators = result->generators.num_generators();
   if (projected_count > static_cast<int>(result->num_generators)) {
-    settings.log.printf("Generator limit: kept %d/%d projected generators (limit %d)\n",
-                        result->num_generators,
-                        projected_count,
-                        (int)max_generators);
+    settings.log.printf("Generator limit: kept %lld/%lld projected generators (limit %lld)\n",
+                        (long long)(result->num_generators),
+                        (long long)(projected_count),
+                        (long long)((int)max_generators));
   }
   settings.log.printf(
-    "Projected %d generators onto %d binary variables (%d skipped non-binary), "
-    "%d stored\n",
-    projected_count,
-    (int)num_original_vars,
-    skipped_non_binary,
-    result->num_generators);
+    "Projected %lld generators onto %lld binary variables (%lld skipped non-binary), "
+    "%lld stored\n",
+    (long long)(projected_count),
+    (long long)((int)num_original_vars),
+    (long long)(skipped_non_binary),
+    (long long)(result->num_generators));
 
   // Compute orbit statistics from the incrementally built orbits.
   // All non-trivial orbits contain only binary variables (non-binary generators were excluded).
@@ -1100,15 +1100,18 @@ std::unique_ptr<mip_symmetry_t<i_t, f_t>> detect_symmetry(
 
   if (projected_count > 0) {
     settings.log.printf(
-      "Binary orbits: %d non-trivial, max size %d, %d/%d (%.1f%%) binary variables in orbits\n",
-      num_nontrivial_orbits,
-      max_orbit_size,
-      total_vars_in_orbits,
-      num_original_vars,
+      "Binary orbits: %lld non-trivial, max size %lld, %lld/%lld (%.1f%%) binary variables in "
+      "orbits\n",
+      (long long)(num_nontrivial_orbits),
+      (long long)(max_orbit_size),
+      (long long)(total_vars_in_orbits),
+      (long long)(num_original_vars),
       100.0 * total_vars_in_orbits / num_original_vars);
     settings.log.printf("Orbit histogram (size: count):");
     for (i_t sz = 2; sz <= max_orbit_size; sz++) {
-      if (orbit_histogram[sz] > 0) { settings.log.printf(" %d:%d", sz, orbit_histogram[sz]); }
+      if (orbit_histogram[sz] > 0) {
+        settings.log.printf(" %lld:%lld", (long long)(sz), (long long)(orbit_histogram[sz]));
+      }
     }
     settings.log.printf("\n");
 
@@ -1120,10 +1123,11 @@ std::unique_ptr<mip_symmetry_t<i_t, f_t>> detect_symmetry(
 
   if (!has_symmetry) {
     settings.log.printf(
-      "No exploitable symmetry found (%d generators, %d non-trivial orbits, max orbit size %d)\n",
-      projected_count,
-      num_nontrivial_orbits,
-      max_orbit_size);
+      "No exploitable symmetry found (%lld generators, %lld non-trivial orbits, max orbit size "
+      "%lld)\n",
+      (long long)(projected_count),
+      (long long)(num_nontrivial_orbits),
+      (long long)(max_orbit_size));
     return nullptr;
   }
 

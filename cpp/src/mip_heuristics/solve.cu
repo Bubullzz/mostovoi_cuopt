@@ -81,11 +81,11 @@ static void init_handler(const raft::handle_t* handle_ptr)
     handle_ptr->get_cusparse_handle(), CUSPARSE_POINTER_MODE_DEVICE, handle_ptr->get_stream()));
 }
 
-template <typename f_t>
+template <typename i_t, typename f_t>
 static void invoke_solution_callbacks(
   const std::vector<internals::base_solution_callback_t*>& mip_callbacks,
   bool strip_semi_continuous_auxiliaries,
-  int semi_continuous_original_num_variables,
+  i_t semi_continuous_original_num_variables,
   f_t objective,
   std::vector<f_t>& assignment,
   f_t bound)
@@ -139,7 +139,7 @@ mip_solution_t<i_t, f_t> run_mip_solver(
       problem.preprocess_problem();
       thrust::for_each(
         problem.handle_ptr->get_thrust_policy(),
-        thrust::make_counting_iterator(0),
+        thrust::make_counting_iterator(i_t(0)),
         thrust::make_counting_iterator(problem.n_variables),
         [sol = solution.assignment.data(), pb = problem.view()] __device__(i_t index) {
           auto bounds = pb.variable_bounds[index];
@@ -464,6 +464,14 @@ mip_solution_t<i_t, f_t> solve_mip_helper(optimization_problem_t<i_t, f_t>& op_p
     }
     if (run_presolve && has_set_solution_callback) {
       CUOPT_LOG_INFO("Presolve is disabled because set_solution callbacks are provided.");
+      run_presolve = false;
+    }
+    if (run_presolve &&
+        !mip::third_party_presolve_fits_index_width<i_t>(
+          op_problem.get_n_variables(), op_problem.get_n_constraints(), op_problem.get_nnz())) {
+      CUOPT_LOG_INFO(
+        "Presolve is disabled because the problem exceeds INT_MAX rows, columns or "
+        "nonzeros, which the third-party presolvers do not support.");
       run_presolve = false;
     }
 
@@ -950,21 +958,24 @@ std::unique_ptr<mip_solution_interface_t<i_t, f_t>> solve_mip(
   }
 }
 
-#define INSTANTIATE(F_TYPE)                                                                    \
-  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                                              \
-    optimization_problem_t<cuopt_int_t, F_TYPE>& op_problem,                                           \
-    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                                       \
-                                                                                               \
-  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                                              \
-    raft::handle_t const* handle_ptr,                                                          \
-    const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, F_TYPE>& mps_data_model, \
-    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                                       \
-                                                                                               \
-  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(                   \
-    cpu_optimization_problem_t<cuopt_int_t, F_TYPE>&, mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);      \
-                                                                                               \
-  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(                   \
-    optimization_problem_interface_t<cuopt_int_t, F_TYPE>*, mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);
+#define INSTANTIATE(F_TYPE)                                                            \
+  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                              \
+    optimization_problem_t<cuopt_int_t, F_TYPE>& op_problem,                           \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                       \
+                                                                                       \
+  template mip_solution_t<cuopt_int_t, F_TYPE> solve_mip(                              \
+    raft::handle_t const* handle_ptr,                                                  \
+    const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, F_TYPE>& \
+      mps_data_model,                                                                  \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const& settings);                       \
+                                                                                       \
+  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(   \
+    cpu_optimization_problem_t<cuopt_int_t, F_TYPE>&,                                  \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);                                \
+                                                                                       \
+  template std::unique_ptr<mip_solution_interface_t<cuopt_int_t, F_TYPE>> solve_mip(   \
+    optimization_problem_interface_t<cuopt_int_t, F_TYPE>*,                            \
+    mip_solver_settings_t<cuopt_int_t, F_TYPE> const&);
 
 #if MIP_INSTANTIATE_FLOAT
 INSTANTIATE(float)

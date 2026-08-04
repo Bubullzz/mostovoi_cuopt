@@ -39,50 +39,52 @@ class sparse_cholesky_base_t {
   do {                     \
   } while (0)
 
-#define CUDA_CALL_AND_CHECK(call, msg)                                                 \
-  do {                                                                                 \
-    cuda_error = call;                                                                 \
-    if (cuda_error != cudaSuccess) {                                                   \
-      printf("FAILED: CUDA API returned error = %d, details: " #msg "\n", cuda_error); \
-      CUDSS_EXAMPLE_FREE;                                                              \
-      return -1;                                                                       \
-    }                                                                                  \
+#define CUDA_CALL_AND_CHECK(call, msg)                                      \
+  do {                                                                      \
+    cuda_error = call;                                                      \
+    if (cuda_error != cudaSuccess) {                                        \
+      printf("FAILED: CUDA API returned error = %lld, details: " #msg "\n", \
+             (long long)(cuda_error));                                      \
+      CUDSS_EXAMPLE_FREE;                                                   \
+      return -1;                                                            \
+    }                                                                       \
   } while (0);
 
-#define CUDA_CALL_AND_CHECK_EXIT(call, msg)                                            \
-  do {                                                                                 \
-    cuda_error = call;                                                                 \
-    if (cuda_error != cudaSuccess) {                                                   \
-      printf("FAILED: CUDA API returned error = %d, details: " #msg "\n", cuda_error); \
-      CUDSS_EXAMPLE_FREE;                                                              \
-      exit(-1);                                                                        \
-    }                                                                                  \
+#define CUDA_CALL_AND_CHECK_EXIT(call, msg)                                 \
+  do {                                                                      \
+    cuda_error = call;                                                      \
+    if (cuda_error != cudaSuccess) {                                        \
+      printf("FAILED: CUDA API returned error = %lld, details: " #msg "\n", \
+             (long long)(cuda_error));                                      \
+      CUDSS_EXAMPLE_FREE;                                                   \
+      exit(-1);                                                             \
+    }                                                                       \
   } while (0);
 
-#define CUDSS_CALL_AND_CHECK(call, status, msg)                      \
-  do {                                                               \
-    status = call;                                                   \
-    if (status != CUDSS_STATUS_SUCCESS) {                            \
-      printf(                                                        \
-        "FAILED: CUDSS call ended unsuccessfully with status = %d, " \
-        "details: " #msg "\n",                                       \
-        status);                                                     \
-      CUDSS_EXAMPLE_FREE;                                            \
-      return -1;                                                     \
-    }                                                                \
+#define CUDSS_CALL_AND_CHECK(call, status, msg)                        \
+  do {                                                                 \
+    status = call;                                                     \
+    if (status != CUDSS_STATUS_SUCCESS) {                              \
+      printf(                                                          \
+        "FAILED: CUDSS call ended unsuccessfully with status = %lld, " \
+        "details: " #msg "\n",                                         \
+        (long long)(status));                                          \
+      CUDSS_EXAMPLE_FREE;                                              \
+      return -1;                                                       \
+    }                                                                  \
   } while (0);
 
-#define CUDSS_CALL_AND_CHECK_EXIT(call, status, msg)                 \
-  do {                                                               \
-    status = call;                                                   \
-    if (status != CUDSS_STATUS_SUCCESS) {                            \
-      printf(                                                        \
-        "FAILED: CUDSS call ended unsuccessfully with status = %d, " \
-        "details: " #msg "\n",                                       \
-        status);                                                     \
-      CUDSS_EXAMPLE_FREE;                                            \
-      exit(-2);                                                      \
-    }                                                                \
+#define CUDSS_CALL_AND_CHECK_EXIT(call, status, msg)                   \
+  do {                                                                 \
+    status = call;                                                     \
+    if (status != CUDSS_STATUS_SUCCESS) {                              \
+      printf(                                                          \
+        "FAILED: CUDSS call ended unsuccessfully with status = %lld, " \
+        "details: " #msg "\n",                                         \
+        (long long)(status));                                          \
+      CUDSS_EXAMPLE_FREE;                                              \
+      exit(-2);                                                        \
+    }                                                                  \
   } while (0);
 
 // RMM pool fragmentation makes the workspace size smaller than the actual free space on the GPU
@@ -150,7 +152,10 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     cudssGetProperty(MAJOR_VERSION, &major);
     cudssGetProperty(MINOR_VERSION, &minor);
     cudssGetProperty(PATCH_LEVEL, &patch);
-    settings.log.printf("cuDSS Version               : %d.%d.%d\n", major, minor, patch);
+    settings.log.printf("cuDSS Version               : %lld.%lld.%lld\n",
+                        (long long)(major),
+                        (long long)(minor),
+                        (long long)(patch));
 
     cuda_error = cudaSuccess;
     status     = CUDSS_STATUS_SUCCESS;
@@ -169,14 +174,14 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
       settings.log.printf(
         "   Initial GPU resources retrieved via "
         "cuDeviceGetDevResource() have type "
-        "%d and SM count %d\n",
-        initial_device_GPU_resources.type,
-        initial_device_GPU_resources.sm.smCount);
+        "%lld and SM count %lld\n",
+        (long long)(initial_device_GPU_resources.type),
+        (long long)(initial_device_GPU_resources.sm.smCount));
 #endif
 
       // 2. Partition the GPU resources
       auto total_SMs   = initial_device_GPU_resources.sm.smCount;
-      auto barrier_sms = raft::alignTo(static_cast<i_t>(total_SMs * 0.75f), 8);
+      auto barrier_sms = raft::alignTo(static_cast<i_t>(total_SMs * 0.75f), i_t{8});
       CUdevResource resource;
       auto cuDevSmResourceSplitByCount_func =
         cuopt::get_driver_entry_point("cuDevSmResourceSplitByCount");
@@ -189,13 +194,13 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
         reinterpret_cast<decltype(::cuGetErrorString)*>(cuGetErrorString_func));
 #ifdef DEBUG
       settings.log.printf(
-        "   Resources were split into %d resource groups (had "
-        "requested %d) with %d SMs each (had "
-        "requested % d)\n",
-        n_groups,
-        n_groups,
-        resource.sm.smCount,
-        barrier_sms);
+        "   Resources were split into %lld resource groups (had "
+        "requested %lld) with %lld SMs each (had "
+        "requested % lld)\n",
+        (long long)(n_groups),
+        (long long)(n_groups),
+        (long long)(resource.sm.smCount),
+        (long long)(barrier_sms));
 #endif
       // 3. Create the resource descriptor
       auto constexpr const n_resource_desc = 1;
@@ -208,10 +213,10 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
 #ifdef DEBUG
       settings.log.printf(
         "   For the resource descriptor of barrier green context "
-        "we will combine %d resources of "
-        "%d SMs each\n",
-        n_resource_desc,
-        resource.sm.smCount);
+        "we will combine %lld resources of "
+        "%lld SMs each\n",
+        (long long)(n_resource_desc),
+        (long long)(resource.sm.smCount));
 #endif
 
       // Only perform this if CUDA version is more than 13
@@ -220,7 +225,7 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
       // already guarded above.
       // 4. Create the green context and stream for that green
       // context CUstream barrier_green_ctx_stream;
-      i_t stream_priority;
+      int stream_priority;
       cudaStream_t cuda_stream    = handle_ptr_->get_stream();
       cudaError_t priority_result = cudaStreamGetPriority(cuda_stream, &stream_priority);
       RAFT_CUDA_TRY(priority_result);
@@ -487,9 +492,9 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
       }
       if (status != CUDSS_STATUS_SUCCESS) {
         settings_.log.printf(
-          "FAILED: CUDSS call ended unsuccessfully with status = %d, details: cuDSSExecute for "
+          "FAILED: CUDSS call ended unsuccessfully with status = %lld, details: cuDSSExecute for "
           "reordering\n",
-          status);
+          (long long)(status));
         return -1;
       }
       f_t reordering_time = toc(start_symbolic);
@@ -503,9 +508,9 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
       }
       if (status != CUDSS_STATUS_SUCCESS) {
         settings_.log.printf(
-          "FAILED: CUDSS call ended unsuccessfully with status = %d, details: cuDSSExecute for "
+          "FAILED: CUDSS call ended unsuccessfully with status = %lld, details: cuDSSExecute for "
           "symbolic factorization\n",
-          status);
+          (long long)(status));
         return -1;
       }
     }
@@ -546,7 +551,8 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
 
     auto d_nnz = Arow.row_start.element(Arow.m, Arow.row_start.stream());
     if (nnz != d_nnz) {
-      settings_.log.printf("Error: nnz %d != A_in.col_start[A_in.n] %d\n", nnz, d_nnz);
+      settings_.log.printf(
+        "Error: nnz %lld != A_in.col_start[A_in.n] %lld\n", (long long)(nnz), (long long)(d_nnz));
       return -1;
     }
 
@@ -561,9 +567,9 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     }
     if (status != CUDSS_STATUS_SUCCESS) {
       settings_.log.printf(
-        "FAILED: CUDSS call ended unsuccessfully with status = %d, details: cuDSSExecute for "
+        "FAILED: CUDSS call ended unsuccessfully with status = %lld, details: cuDSSExecute for "
         "factorization\n",
-        status);
+        (long long)(status));
       return -1;
     }
 
@@ -586,7 +592,7 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     handle_ptr_->get_stream().synchronize();
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     if (info != 0) {
-      settings_.log.printf("Factorization failed info %d\n", info);
+      settings_.log.printf("Factorization failed info %lld\n", (long long)(info));
       return -1;
     }
 
@@ -620,7 +626,8 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     settings_.log.printf("Finished checking matrices\n");
 #endif
     if (A_in.n != n) {
-      printf("Analyze input does not match size %d != %d\n", A_in.n, n);
+      printf(
+        "Analyze input does not match size %lld != %lld\n", (long long)(A_in.n), (long long)(n));
       return -1;
     }
 
@@ -740,11 +747,14 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     csr_matrix_t<i_t, f_t> Arow(A_in.n, A_in.m, A_in.col_start[A_in.n]);
     A_in.to_compressed_row(Arow);
 
-    if (A_in.n != n) { settings_.log.printf("Error A in n %d != size %d\n", A_in.n, n); }
+    if (A_in.n != n) {
+      settings_.log.printf("Error A in n %lld != size %lld\n", (long long)(A_in.n), (long long)(n));
+    }
 
     if (nnz != A_in.col_start[A_in.n]) {
-      settings_.log.printf(
-        "Error: nnz %d != A_in.col_start[A_in.n] %d\n", nnz, A_in.col_start[A_in.n]);
+      settings_.log.printf("Error: nnz %lld != A_in.col_start[A_in.n] %lld\n",
+                           (long long)(nnz),
+                           (long long)(A_in.col_start[A_in.n]));
       return -1;
     }
 
@@ -780,7 +790,7 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     RAFT_CUDA_TRY(cudaStreamSynchronize(stream));
     handle_ptr_->get_stream().synchronize();
     if (info != 0) {
-      settings_.log.printf("Factorization failed info %d\n", info);
+      settings_.log.printf("Factorization failed info %lld\n", (long long)(info));
       return -1;
     }
 
@@ -818,11 +828,13 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
   {
     handle_ptr_->get_stream().synchronize();
     if (static_cast<i_t>(b.size()) != n) {
-      settings_.log.printf("Error: b.size() %d != n %d\n", b.size(), n);
+      settings_.log.printf(
+        "Error: b.size() %lld != n %lld\n", (long long)(b.size()), (long long)(n));
       return -1;
     }
     if (static_cast<i_t>(x.size()) != n) {
-      settings_.log.printf("Error: x.size() %d != n %d\n", x.size(), n);
+      settings_.log.printf(
+        "Error: x.size() %lld != n %lld\n", (long long)(x.size()), (long long)(n));
       return -1;
     }
 
@@ -837,9 +849,9 @@ class sparse_cholesky_cudss_t : public sparse_cholesky_base_t<i_t, f_t> {
     }
     if (status != CUDSS_STATUS_SUCCESS) {
       settings_.log.printf(
-        "FAILED: CUDSS call ended unsuccessfully with status = %d, details: cuDSSExecute for "
+        "FAILED: CUDSS call ended unsuccessfully with status = %lld, details: cuDSSExecute for "
         "solve\n",
-        status);
+        (long long)(status));
       return -1;
     }
 

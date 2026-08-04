@@ -55,7 +55,7 @@ template <typename i_t>
 i_t get_max_var_threshold(i_t n_vars)
 {
   if (n_vars < 50) {
-    return std::max(1, n_vars - 1);
+    return std::max<i_t>(1, n_vars - 1);
   } else if (n_vars < 80) {
     return n_vars - 2;
   } else if (n_vars < 200) {
@@ -574,8 +574,8 @@ void population_t<i_t, f_t>::compute_new_weights()
 
     infeasibility_importance = std::min(max_infeasibility_weight, infeasibility_importance);
     thrust::for_each(best_sol.handle_ptr->get_thrust_policy(),
-                     thrust::counting_iterator(0),
-                     thrust::counting_iterator(0) + weights.cstr_weights.size(),
+                     thrust::counting_iterator(i_t(0)),
+                     thrust::counting_iterator(i_t(0)) + weights.cstr_weights.size(),
                      [v            = best_sol.view(),
                       cstr_weights = weights.cstr_weights.data(),
                       l2_norm_ptr  = l2_norm.data(),
@@ -592,8 +592,8 @@ void population_t<i_t, f_t>::compute_new_weights()
 
     thrust::for_each(
       best_sol.handle_ptr->get_thrust_policy(),
-      thrust::counting_iterator(0),
-      thrust::counting_iterator(0) + weights.cstr_weights.size(),
+      thrust::counting_iterator(i_t(0)),
+      thrust::counting_iterator(i_t(0)) + weights.cstr_weights.size(),
       [v = best_sol.view(), cstr_weights = weights.cstr_weights.data()] __device__(i_t idx) {
         cstr_weights[idx] *= weight_decrease_ratio;
         cstr_weights[idx] = max(cstr_weights[idx], 10.);

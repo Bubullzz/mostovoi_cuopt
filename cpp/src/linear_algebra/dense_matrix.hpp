@@ -195,8 +195,9 @@ class dense_matrix_t {
   void triangular_solve(const dense_vector_t<i_t, f_t>& b, dense_vector_t<i_t, f_t>& x)
   {
     if (static_cast<i_t>(b.size()) != n) {
-      printf(
-        "dense_matrix_t::triangular_solve: b.size() %d != n %d\n", static_cast<i_t>(b.size()), n);
+      printf("dense_matrix_t::triangular_solve: b.size() %lld != n %lld\n",
+             (long long)(static_cast<i_t>(b.size())),
+             (long long)(n));
       exit(1);
     }
     x.resize(n, 0.0);

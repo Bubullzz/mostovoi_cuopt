@@ -111,7 +111,7 @@ TEST(optimization_problem_t, test_set_get_fields)
   auto problem = optimization_problem_t<cuopt_int_t, double>(&handle);
 
   double A_host[]      = {1.0, 2.0, 3.0};
-  int indices_host[]   = {0, 1, 2};
+  cuopt_int_t indices_host[]   = {0, 1, 2};
   double b_host[]      = {4.0, 5.0, 6.0};
   double c_host[]      = {7.0, 8.0, 9.0};
   double var_lb_host[] = {0.0, 0.1, 0.2};
@@ -256,8 +256,8 @@ TEST(optimization_problem_t, test_check_problem_validity)
 
   // Set A_CSR_matrix
   double A_host[]    = {1.0};
-  int indices_host[] = {0};
-  int offset_host[]  = {0, 1};
+  cuopt_int_t indices_host[] = {0};
+  cuopt_int_t offset_host[]  = {0, 1};
   op_problem_.set_csr_constraint_matrix(A_host, 1, indices_host, 1, offset_host, 2);
 
   // Test if exception is thrown when c is not set
@@ -333,8 +333,8 @@ TEST(optimization_problem_t, test_csr_validity)
   raft::handle_t handle;
   auto op_problem_   = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0};
-  int indices_host[] = {0, 0};
-  int offset_host[]  = {0, 1, 2};
+  cuopt_int_t indices_host[] = {0, 0};
+  cuopt_int_t offset_host[]  = {0, 1, 2};
   op_problem_.set_csr_constraint_matrix(A_host, 2, indices_host, 2, offset_host, 3);
   op_problem_.set_constraint_bounds(A_host, 2);
   op_problem_.set_objective_coefficients(A_host, 1);
@@ -345,7 +345,7 @@ TEST(optimization_problem_t, test_csr_validity)
 
   // Test case 0: A_indices and A_values have different size
   {
-    int incorrect_indices_size[] = {0};
+    cuopt_int_t incorrect_indices_size[] = {0};
     op_problem_.set_csr_constraint_matrix(A_host, 2, incorrect_indices_size, 1, offset_host, 3);
     EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
@@ -353,7 +353,7 @@ TEST(optimization_problem_t, test_csr_validity)
 
   // Test case 1: A_offsets first value not 0
   {
-    int incorrect_first_offset[] = {1, 1, 2};
+    cuopt_int_t incorrect_first_offset[] = {1, 1, 2};
     op_problem_.set_csr_constraint_matrix(A_host, 2, indices_host, 2, incorrect_first_offset, 3);
     EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
@@ -361,7 +361,7 @@ TEST(optimization_problem_t, test_csr_validity)
 
   // Test case 2: A_offsets not in increasing order
   {
-    int unsorted_offsets[] = {0, 2, 1};
+    cuopt_int_t unsorted_offsets[] = {0, 2, 1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, indices_host, 2, unsorted_offsets, 3);
     EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
@@ -369,7 +369,7 @@ TEST(optimization_problem_t, test_csr_validity)
 
   // Test case 3: A_indices value is negative
   {
-    int negative_indices_host[] = {0, -1};
+    cuopt_int_t negative_indices_host[] = {0, -1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, negative_indices_host, 2, offset_host, 3);
     EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
@@ -377,7 +377,7 @@ TEST(optimization_problem_t, test_csr_validity)
 
   // Test case 4: A_indices value is greater than number of vars
   {
-    int too_big_indices_host[] = {0, 1};
+    cuopt_int_t too_big_indices_host[] = {0, 1};
     op_problem_.set_csr_constraint_matrix(A_host, 2, too_big_indices_host, 2, offset_host, 3);
     EXPECT_THROW((problem_checking_t<cuopt_int_t, double>::check_problem_representation(op_problem_)),
                  cuopt::logic_error);
@@ -391,8 +391,8 @@ TEST(optimization_problem_t, test_row_type_invalidity_char)
   // Constraints set through row types
   auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
-  int indices_host[] = {0, 0, 0};
-  int offset_host[]  = {0, 1, 2, 3};
+  cuopt_int_t indices_host[] = {0, 0, 0};
+  cuopt_int_t offset_host[]  = {0, 1, 2, 3};
   op_problem_1.set_csr_constraint_matrix(A_host, 3, indices_host, 3, offset_host, 4);
   op_problem_1.set_constraint_bounds(A_host, 3);
   op_problem_1.set_objective_coefficients(A_host, 1);
@@ -410,8 +410,8 @@ TEST(optimization_problem_t, test_row_type_invalidity_size)
   // Constraints set through row types
   auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
-  int indices_host[] = {0, 0, 0};
-  int offset_host[]  = {0, 1, 2, 3};
+  cuopt_int_t indices_host[] = {0, 0, 0};
+  cuopt_int_t offset_host[]  = {0, 1, 2, 3};
   op_problem_1.set_csr_constraint_matrix(A_host, 3, indices_host, 3, offset_host, 4);
   op_problem_1.set_constraint_bounds(A_host, 3);
   op_problem_1.set_objective_coefficients(A_host, 1);
@@ -431,8 +431,8 @@ TEST(optimization_problem_t, test_variable_invalidity_size)
 
   auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
-  int indices_host[] = {0, 0, 0};
-  int offset_host[]  = {0, 1, 2, 3};
+  cuopt_int_t indices_host[] = {0, 0, 0};
+  cuopt_int_t offset_host[]  = {0, 1, 2, 3};
   op_problem_1.set_csr_constraint_matrix(A_host, 3, indices_host, 3, offset_host, 4);
   op_problem_1.set_constraint_lower_bounds(A_host, 3);
   op_problem_1.set_constraint_bounds(A_host, 3);
@@ -460,8 +460,8 @@ TEST(optimization_problem_t, test_semi_continuous_equal_bounds_validity)
 
   auto op_problem    = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0};
-  int indices[]      = {0};
-  int offsets[]      = {0, 1};
+  cuopt_int_t indices[]      = {0};
+  cuopt_int_t offsets[]      = {0, 1};
   double row_lb[]    = {0.0};
   double row_ub[]    = {10.0};
   double objective[] = {1.0};
@@ -486,8 +486,8 @@ TEST(optimization_problem_t, test_constraints_invalidity_size)
 
   auto op_problem_1  = optimization_problem_t<cuopt_int_t, double>(&handle);
   double A_host[]    = {1.0, 1.0, 1.0};
-  int indices_host[] = {0, 0, 0};
-  int offset_host[]  = {0, 1, 2, 3};
+  cuopt_int_t indices_host[] = {0, 0, 0};
+  cuopt_int_t offset_host[]  = {0, 1, 2, 3};
   op_problem_1.set_csr_constraint_matrix(A_host, 3, indices_host, 3, offset_host, 4);
   op_problem_1.set_constraint_lower_bounds(A_host, 2);
   op_problem_1.set_constraint_bounds(A_host, 3);

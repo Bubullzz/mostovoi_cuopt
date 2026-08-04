@@ -170,45 +170,48 @@ i_t inverse_permutation(const std::vector<i_t>& p, std::vector<i_t>& pinv)
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template double vector_norm_inf<int, double, std::allocator<double>>(const std::vector<double>& x);
+template double vector_norm_inf<cuopt_int_t, double, std::allocator<double>>(
+  const std::vector<double>& x);
 
-template double vector_norm2_squared<int, double, std::allocator<double>>(
+template double vector_norm2_squared<cuopt_int_t, double, std::allocator<double>>(
   const std::vector<double, std::allocator<double>>& x);
 
-template double vector_norm2<int, double, std::allocator<double>>(
+template double vector_norm2<cuopt_int_t, double, std::allocator<double>>(
   const std::vector<double, std::allocator<double>>& x);
 
-template double vector_norm2_squared<int, double, barrier::PinnedHostAllocator<double>>(
+template double vector_norm2_squared<cuopt_int_t, double, barrier::PinnedHostAllocator<double>>(
   const std::vector<double, barrier::PinnedHostAllocator<double>>&);
-template double vector_norm2<int, double, barrier::PinnedHostAllocator<double>>(
+template double vector_norm2<cuopt_int_t, double, barrier::PinnedHostAllocator<double>>(
   const std::vector<double, barrier::PinnedHostAllocator<double>>&);
 
 template double vector_norm1<cuopt_int_t, double>(const std::vector<double>& x);
 
-template double dot<cuopt_int_t, double>(const std::vector<double>& x, const std::vector<double>& y);
+template double dot<cuopt_int_t, double>(const std::vector<double>& x,
+                                         const std::vector<double>& y);
 
 template double sparse_dot<cuopt_int_t, double>(const std::vector<cuopt_int_t>& xind,
-                                        const std::vector<double>& xval,
-                                        const std::vector<cuopt_int_t>& yind,
-                                        const std::vector<double>& yval);
+                                                const std::vector<double>& xval,
+                                                const std::vector<cuopt_int_t>& yind,
+                                                const std::vector<double>& yval);
 
 template double sparse_dot<cuopt_int_t, double>(cuopt_int_t const* xind,
-                                        double const* xval,
-                                        cuopt_int_t nx,
-                                        cuopt_int_t const* yind,
-                                        cuopt_int_t ny,
-                                        double const* y_scatter_val);
+                                                double const* xval,
+                                                cuopt_int_t nx,
+                                                cuopt_int_t const* yind,
+                                                cuopt_int_t ny,
+                                                double const* y_scatter_val);
 
 template double sparse_dot<cuopt_int_t, double>(
   cuopt_int_t* xind, double* xval, cuopt_int_t nx, cuopt_int_t* yind, double* yval, cuopt_int_t ny);
 
 template cuopt_int_t permute_vector<cuopt_int_t, double>(const std::vector<cuopt_int_t>& p,
-                                         const std::vector<double>& b,
-                                         std::vector<double>& x);
+                                                         const std::vector<double>& b,
+                                                         std::vector<double>& x);
 template cuopt_int_t inverse_permute_vector<cuopt_int_t, double>(const std::vector<cuopt_int_t>& p,
-                                                 const std::vector<double>& b,
-                                                 std::vector<double>& x);
-template int inverse_permutation<int>(const std::vector<int>& p, std::vector<int>& pinv);
+                                                                 const std::vector<double>& b,
+                                                                 std::vector<double>& x);
+template cuopt_int_t inverse_permutation<cuopt_int_t>(const std::vector<cuopt_int_t>& p,
+                                                      std::vector<cuopt_int_t>& pinv);
 
 #endif
 

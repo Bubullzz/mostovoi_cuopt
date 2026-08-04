@@ -5,6 +5,8 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
+
 #include <pdlp/utilities/ping_pong_graph.cuh>
 
 namespace cuopt::mathematical_optimization::pdlp {
@@ -16,6 +18,6 @@ ping_pong_graph_t<i_t>::ping_pong_graph_t(rmm::cuda_stream_view stream_view,
 {
 }
 
-template class ping_pong_graph_t<int>;
+template class ping_pong_graph_t<cuopt_int_t>;
 
 }  // namespace cuopt::mathematical_optimization::pdlp

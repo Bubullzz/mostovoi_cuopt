@@ -1044,8 +1044,8 @@ TEST(qps_parser, quadratic_objective_basic)
 
   // Test setting quadratic objective matrix
   std::vector<double> Q_values = {2.0, 1.0, 1.0, 2.0};  // 2x2 matrix
-  std::vector<int> Q_indices   = {0, 1, 0, 1};
-  std::vector<int> Q_offsets   = {0, 2, 4};  // CSR offsets
+  std::vector<cuopt_int_t> Q_indices   = {0, 1, 0, 1};
+  std::vector<cuopt_int_t> Q_offsets   = {0, 2, 4};  // CSR offsets
 
   model.set_quadratic_objective_matrix(Q_values, Q_indices, Q_offsets);
 
@@ -2797,8 +2797,8 @@ TEST(append_quadratic_constraint, merges_duplicate_entries)
   using model_t = mps_data_model_t<cuopt_int_t, double>;
   model_t model;
   const std::vector<double> vals = {2.0, 3.0};
-  const std::vector<int> rows    = {0, 0};
-  const std::vector<int> cols    = {1, 1};
+  const std::vector<cuopt_int_t> rows    = {0, 0};
+  const std::vector<cuopt_int_t> cols    = {1, 1};
   model.append_quadratic_constraint(0, "QC0", 'L', {}, {}, 0.0, vals, rows, cols);
 
   ASSERT_TRUE(model.has_quadratic_constraints());
@@ -2814,8 +2814,8 @@ TEST(append_quadratic_constraint, collapses_symmetric_mps_halves)
   using model_t = mps_data_model_t<cuopt_int_t, double>;
   model_t model;
   const std::vector<double> vals = {2.0, 2.0};
-  const std::vector<int> rows    = {0, 1};
-  const std::vector<int> cols    = {1, 0};
+  const std::vector<cuopt_int_t> rows    = {0, 1};
+  const std::vector<cuopt_int_t> cols    = {1, 0};
   model.append_quadratic_constraint(0, "QC0", 'L', {}, {}, 0.0, vals, rows, cols);
 
   ASSERT_TRUE(model.has_quadratic_constraints());
@@ -2831,8 +2831,8 @@ TEST(append_quadratic_constraint, sums_both_orientations_for_off_diagonal_pair)
   using model_t = mps_data_model_t<cuopt_int_t, double>;
   model_t model;
   const std::vector<double> vals = {2.0, 3.0};
-  const std::vector<int> rows    = {0, 1};
-  const std::vector<int> cols    = {1, 0};
+  const std::vector<cuopt_int_t> rows    = {0, 1};
+  const std::vector<cuopt_int_t> cols    = {1, 0};
   model.append_quadratic_constraint(0, "QC0", 'L', {}, {}, 0.0, vals, rows, cols);
 
   ASSERT_TRUE(model.has_quadratic_constraints());
@@ -2860,10 +2860,10 @@ TEST(qps_parser, qcmatrix_append_api)
 
   // MPS-style symmetric halves [[10, 2], [2, 2]] -> canonical (0,0,10), (0,1,4), (1,1,2)
   const std::vector<double> mps_qc0_values    = {10.0, 2.0, 2.0, 2.0};
-  const std::vector<int> mps_qc0_row_indices  = {0, 0, 1, 1};
-  const std::vector<int> mps_qc0_col_indices  = {0, 1, 0, 1};
+  const std::vector<cuopt_int_t> mps_qc0_row_indices  = {0, 0, 1, 1};
+  const std::vector<cuopt_int_t> mps_qc0_col_indices  = {0, 1, 0, 1};
   const std::vector<double> qc0_linear_values = {1.0, 1.0};
-  const std::vector<int> qc0_linear_indices   = {0, 1};
+  const std::vector<cuopt_int_t> qc0_linear_indices   = {0, 1};
   model.append_quadratic_constraint(0,
                                     "QC0",
                                     'L',
@@ -2876,10 +2876,10 @@ TEST(qps_parser, qcmatrix_append_api)
 
   // API-style canonical COO [[4, 2], [2, 6]] -> stored unchanged after merge/sort
   const std::vector<double> api_qc1_values    = {4.0, 2.0, 6.0};
-  const std::vector<int> api_qc1_row_indices  = {0, 0, 1};
-  const std::vector<int> api_qc1_col_indices  = {0, 1, 1};
+  const std::vector<cuopt_int_t> api_qc1_row_indices  = {0, 0, 1};
+  const std::vector<cuopt_int_t> api_qc1_col_indices  = {0, 1, 1};
   const std::vector<double> qc1_linear_values = {3.0, 1.0};
-  const std::vector<int> qc1_linear_indices   = {0, 1};
+  const std::vector<cuopt_int_t> qc1_linear_indices   = {0, 1};
   model.append_quadratic_constraint(1,
                                     "QC1",
                                     'L',
@@ -2895,8 +2895,8 @@ TEST(qps_parser, qcmatrix_append_api)
   ASSERT_EQ(2u, qcs.size());
 
   const std::vector<double> qc0_canon_vals     = {10.0, 4.0, 2.0};
-  const std::vector<int> qc0_canon_row_indices = {0, 0, 1};
-  const std::vector<int> qc0_canon_col_indices = {0, 1, 1};
+  const std::vector<cuopt_int_t> qc0_canon_row_indices = {0, 0, 1};
+  const std::vector<cuopt_int_t> qc0_canon_col_indices = {0, 1, 1};
 
   EXPECT_EQ(0, qcs[0].constraint_row_index);
   EXPECT_EQ("QC0", qcs[0].constraint_row_name);

@@ -13,10 +13,10 @@
 #include <unordered_map>
 
 #if GF2_PRESOLVE_DEBUG
-#define NOT_GF2(reason, ...)                                                  \
-  do {                                                                        \
-    printf("NO : Cons %d is not gf2: " reason "\n", cstr_idx, ##__VA_ARGS__); \
-    goto not_valid;                                                           \
+#define NOT_GF2(reason, ...)                                                                 \
+  do {                                                                                       \
+    printf("NO : Cons %lld is not gf2: " reason "\n", (long long)(cstr_idx), ##__VA_ARGS__); \
+    goto not_valid;                                                                          \
   } while (0)
 #else
 #define NOT_GF2(reason, ...) \

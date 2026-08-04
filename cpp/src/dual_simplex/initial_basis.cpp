@@ -181,12 +181,14 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
     //       S    is (N - col_singletons - row_singletons) x (m - col_singletons - row_singletons)
 
     if (num_singletons > 0) {
-      settings.log.debug(
-        "Singletons found %d (row %d col %d)\n", num_singletons, row_singletons, col_singletons);
+      settings.log.debug("Singletons found %lld (row %lld col %lld)\n",
+                         (long long)(num_singletons),
+                         (long long)(row_singletons),
+                         (long long)(col_singletons));
 
       i_t S_rows = N - num_singletons;
       i_t S_cols = m - num_singletons;
-      settings.log.debug("S_rows %d S_cols %d\n", S_rows, S_cols);
+      settings.log.debug("S_rows %lld S_cols %lld\n", (long long)(S_rows), (long long)(S_cols));
       i_t S_pivots = 0;
       if (S_cols > 0) {
         csc_matrix_t<i_t, f_t> S(S_rows, S_cols, 1);
@@ -212,7 +214,7 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
           }
         }
         S.col_start[S_cols] = Snz;
-        settings.log.debug("Snz %d\n", Snz);
+        settings.log.debug("Snz %lld\n", (long long)(Snz));
         std::vector<i_t> S_p_inv(S_rows);
         std::vector<i_t> S_q(S_cols);
         if (Snz > 0) {
@@ -231,7 +233,7 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
             S_p_inv[k] = k;
           }
         }
-        settings.log.debug("S_pivots %d\n", S_pivots);
+        settings.log.debug("S_pivots %lld\n", (long long)(S_pivots));
         // Fix up column permutations
         std::vector<i_t> col_perm_sav(m - num_singletons);
         i_t q_j = 0;
@@ -268,7 +270,7 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
 
   f_t factorization_time = toc(factorization_start);
   settings.log.printf("Initial basis factorization time: %.2f seconds\n", factorization_time);
-  settings.log.debug("pivots %d m %d\n", pivots, m);
+  settings.log.debug("pivots %lld m %lld\n", (long long)(pivots), (long long)(m));
 
   if (pivots < 0) {
     settings.log.printf("Aborting: right looking LU factorization\n");
@@ -294,8 +296,9 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
     const i_t t = p[k];
     vstatus[t]  = variable_status_t::BASIC;  // variable x_j is basic
   }
-  settings.log.debug(
-    "%d basic variables set. Setting remaining %d to nonbasic\n", pivots, N - pivots);
+  settings.log.debug("%lld basic variables set. Setting remaining %lld to nonbasic\n",
+                     (long long)(pivots),
+                     (long long)(N - pivots));
   for (i_t k = pivots; k < N; ++k) {
     const i_t t = p[k];
     const i_t j = candidate_columns[t];
@@ -316,7 +319,7 @@ i_t initial_basis_selection(const lp_problem_t<i_t, f_t>& problem,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int initial_basis_selection<cuopt_int_t, double>(
+template cuopt_int_t initial_basis_selection<cuopt_int_t, double>(
   const lp_problem_t<cuopt_int_t, double>& problem,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   const std::vector<cuopt_int_t>& candidate_columns,

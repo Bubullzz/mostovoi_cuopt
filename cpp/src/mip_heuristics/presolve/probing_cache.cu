@@ -747,7 +747,7 @@ std::vector<i_t> compute_priority_indices_by_implied_integers(problem_t<i_t, f_t
   void* d_temp_storage      = nullptr;
   size_t temp_storage_bytes = 0;
   auto input_transform_it   = thrust::make_transform_iterator(
-    thrust::make_counting_iterator(0), [view = problem.view()] __device__(i_t idx) -> i_t {
+    thrust::make_counting_iterator(i_t(0)), [view = problem.view()] __device__(i_t idx) -> i_t {
       return view.is_integer_var(view.variables[idx]);
     });
   // keeps the number of constraints that contain integer variables
@@ -783,7 +783,7 @@ std::vector<i_t> compute_priority_indices_by_implied_integers(problem_t<i_t, f_t
   rmm::device_uvector<i_t> count_per_variable(problem.n_variables,
                                               problem.handle_ptr->get_stream());
   auto input_transform_it_2 = thrust::make_transform_iterator(
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     [num_int_vars_per_constraint = make_span(num_int_vars_per_constraint),
      view                        = problem.view()] __device__(i_t idx) -> i_t {
       return num_int_vars_per_constraint[view.reverse_constraints[idx]];
@@ -817,7 +817,7 @@ std::vector<i_t> compute_priority_indices_by_implied_integers(problem_t<i_t, f_t
                                      0,
                                      problem.handle_ptr->get_stream());
   thrust::for_each(problem.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(problem.n_variables),
                    [count_per_variable = make_span(count_per_variable),
                     view               = problem.view()] __device__(i_t idx) {
@@ -937,7 +937,7 @@ bool compute_probing_cache(bound_presolve_t<i_t, f_t>& bound_presolve,
                problem.handle_ptr->get_stream());
     problem.handle_ptr->sync_stream();
     if (n_of_implied_singletons - last_it_implied_singletons <
-        (size_t)std::max(2, (min(100, problem.n_variables / 50)))) {
+        (size_t)std::max<i_t>(2, std::min<i_t>(100, problem.n_variables / 50))) {
       early_exit = true;
     }
     last_it_implied_singletons = n_of_implied_singletons;
@@ -952,10 +952,11 @@ bool compute_probing_cache(bound_presolve_t<i_t, f_t>& bound_presolve,
   return problem_is_infeasible.load();
 }
 
-#define INSTANTIATE(F_TYPE)                                                                        \
-  template bool compute_probing_cache<cuopt_int_t, F_TYPE>(bound_presolve_t<cuopt_int_t, F_TYPE> & bound_presolve, \
-                                                   problem_t<cuopt_int_t, F_TYPE> & problem,               \
-                                                   timer_t timer);                                 \
+#define INSTANTIATE(F_TYPE)                                 \
+  template bool compute_probing_cache<cuopt_int_t, F_TYPE>( \
+    bound_presolve_t<cuopt_int_t, F_TYPE> & bound_presolve, \
+    problem_t<cuopt_int_t, F_TYPE> & problem,               \
+    timer_t timer);                                         \
   template class probing_cache_t<cuopt_int_t, F_TYPE>;
 
 #if MIP_INSTANTIATE_FLOAT

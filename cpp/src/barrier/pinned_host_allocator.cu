@@ -5,6 +5,8 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/constants.h>
+
 #include <raft/util/cuda_utils.cuh>
 
 #include <linear_algebra/vector_math.hpp>
@@ -51,7 +53,7 @@ template bool operator==(const PinnedHostAllocator<double>&,
 template bool operator!=(const PinnedHostAllocator<double>&,
                          const PinnedHostAllocator<double>&) noexcept;
 #endif
-template class PinnedHostAllocator<int>;
+template class PinnedHostAllocator<cuopt_int_t>;
 
 }  // namespace cuopt::mathematical_optimization::barrier
 
@@ -61,7 +63,7 @@ namespace cuopt::mathematical_optimization {
 // PinnedHostAllocator must live in mathematical_optimization (the template's namespace).
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 template double
-vector_norm_inf<int,
+vector_norm_inf<cuopt_int_t,
                 double,
                 cuopt::mathematical_optimization::barrier::PinnedHostAllocator<double>>(
   const std::vector<double, cuopt::mathematical_optimization::barrier::PinnedHostAllocator<double>>&

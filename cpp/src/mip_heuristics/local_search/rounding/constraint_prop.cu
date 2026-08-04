@@ -231,7 +231,7 @@ void constraint_prop_t<i_t, f_t>::sort_by_interval_and_frac(solution_t<i_t, f_t>
   subsection_offsets.set_element(0, 0, sol.handle_ptr->get_stream());
   subsection_offsets.set_element(n_subsections, vars.size(), sol.handle_ptr->get_stream());
   thrust::for_each(sol.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator((i_t)vars.size() - 1),
                    [bnds    = make_span(sol.problem_ptr->variable_bounds),
                     offsets = make_span(subsection_offsets),
@@ -262,8 +262,8 @@ void constraint_prop_t<i_t, f_t>::sort_by_interval_and_frac(solution_t<i_t, f_t>
                    });
   // if there are any empty sections fill their offsets as the previous offset
   thrust::for_each(sol.handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
-                   thrust::make_counting_iterator(1),
+                   thrust::make_counting_iterator(i_t(0)),
+                   thrust::make_counting_iterator(i_t(1)),
                    [offsets = subsection_offsets.data()] __device__(i_t idx) {
                      i_t last_existing_offset = 0;
                      for (i_t i = n_subsections; i > 0; --i) {
@@ -386,7 +386,7 @@ void constraint_prop_t<i_t, f_t>::collapse_crossing_bounds(problem_t<i_t, f_t>& 
   auto original_v_bnds = make_span(orig_problem.variable_bounds);
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
+    thrust::make_counting_iterator(i_t(0)),
     thrust::make_counting_iterator((i_t)v_bnds.size()),
     [v_bnds,
      original_v_bnds,
@@ -744,7 +744,7 @@ void constraint_prop_t<i_t, f_t>::restore_original_bounds_on_unfixed(
   const raft::handle_t* handle_ptr)
 {
   thrust::for_each(handle_ptr->get_thrust_policy(),
-                   thrust::make_counting_iterator(0),
+                   thrust::make_counting_iterator(i_t(0)),
                    thrust::make_counting_iterator(problem.n_variables),
                    [p_v = problem.view(), op_v = original_problem.view()] __device__(i_t var_idx) {
                      auto p_v_var_bnd = p_v.variable_bounds[var_idx];

@@ -30,15 +30,15 @@ struct violation {
 };
 
 bool test_constraint_and_variable_sanity(
-  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& op_problem,
+  const cuopt::mathematical_optimization::io::mps_data_model_t<cuopt_int_t, double>& op_problem,
   const std::vector<double>& primal_vars,
   double abs_tol,
   double rel_tol,
   double int_tol = 1e-5)
 {
   const std::vector<double>& values                  = op_problem.get_constraint_matrix_values();
-  const std::vector<int>& indices                    = op_problem.get_constraint_matrix_indices();
-  const std::vector<int>& offsets                    = op_problem.get_constraint_matrix_offsets();
+  const std::vector<cuopt_int_t>& indices                    = op_problem.get_constraint_matrix_indices();
+  const std::vector<cuopt_int_t>& offsets                    = op_problem.get_constraint_matrix_offsets();
   const std::vector<double>& constraint_lower_bounds = op_problem.get_constraint_lower_bounds();
   const std::vector<double>& constraint_upper_bounds = op_problem.get_constraint_upper_bounds();
   const std::vector<double>& variable_lower_bounds   = op_problem.get_variable_lower_bounds();

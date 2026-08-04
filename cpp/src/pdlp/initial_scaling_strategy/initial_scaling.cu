@@ -184,11 +184,11 @@ __global__ void inf_norm_row_kernel(
   const typename mip::problem_t<i_t, f_t>::view_t op_problem,
   typename pdlp_initial_scaling_strategy_t<i_t, f_t>::view_t initial_scaling_view)
 {
-  for (int row = blockIdx.x; row < op_problem.n_constraints; row += gridDim.x) {
+  for (i_t row = blockIdx.x; row < op_problem.n_constraints; row += gridDim.x) {
     i_t row_offset              = op_problem.offsets[row];
     i_t nnz_in_row              = op_problem.offsets[row + 1] - row_offset;
     f_t constraint_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[row];
-    for (int j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
+    for (i_t j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
       i_t col                   = op_problem.variables[row_offset + j];
       f_t variable_scale_factor = initial_scaling_view.cummulative_variable_scaling[col];
       f_t scaled_val =
@@ -210,11 +210,11 @@ __global__ void inf_norm_col_kernel(
   const i_t* A_T_offsets,
   const i_t* A_T_indices)
 {
-  for (int col = blockIdx.x; col < op_problem.n_variables; col += gridDim.x) {
+  for (i_t col = blockIdx.x; col < op_problem.n_variables; col += gridDim.x) {
     i_t col_offset            = A_T_offsets[col];
     i_t nnz_in_col            = A_T_offsets[col + 1] - col_offset;
     f_t variable_scale_factor = initial_scaling_view.cummulative_variable_scaling[col];
-    for (int j = threadIdx.x; j < nnz_in_col; j += blockDim.x) {
+    for (i_t j = threadIdx.x; j < nnz_in_col; j += blockDim.x) {
       i_t row                     = A_T_indices[col_offset + j];
       f_t constraint_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[row];
       f_t scaled_val = (A_T[col_offset + j] * constraint_scale_factor) * variable_scale_factor;
@@ -315,7 +315,7 @@ __global__ void pock_chambolle_scaling_kernel_row(
   i_t nnz_in_row              = op_problem.offsets[row + 1] - row_offset;
   f_t constraint_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[row];
 
-  for (int j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
+  for (i_t j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
     i_t col                   = op_problem.variables[row_offset + j];
     f_t variable_scale_factor = initial_scaling_view.cummulative_variable_scaling[col];
     f_t scaled_val =
@@ -357,7 +357,7 @@ __global__ void pock_chambolle_scaling_kernel_col(
   i_t nnz_in_col            = A_T_offsets[col + 1] - col_offset;
   f_t variable_scale_factor = initial_scaling_view.cummulative_variable_scaling[col];
 
-  for (int j = threadIdx.x; j < nnz_in_col; j += blockDim.x) {
+  for (i_t j = threadIdx.x; j < nnz_in_col; j += blockDim.x) {
     i_t row                     = A_T_indices[col_offset + j];
     f_t constraint_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[row];
     f_t scaled_val = (A_T[col_offset + j] * constraint_scale_factor) * variable_scale_factor;
@@ -435,12 +435,12 @@ __global__ void scale_problem_kernel(
   const typename pdlp_initial_scaling_strategy_t<i_t, f_t>::view_t initial_scaling_view,
   const typename mip::problem_t<i_t, f_t>::view_t op_problem)
 {
-  for (int row = blockIdx.x; row < op_problem.n_constraints; row += gridDim.x) {
+  for (i_t row = blockIdx.x; row < op_problem.n_constraints; row += gridDim.x) {
     i_t row_offset              = op_problem.offsets[row];
     i_t nnz_in_row              = op_problem.offsets[row + 1] - row_offset;
     f_t constraint_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[row];
 
-    for (int j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
+    for (i_t j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
       i_t col                   = op_problem.variables[row_offset + j];
       f_t variable_scale_factor = initial_scaling_view.cummulative_variable_scaling[col];
       op_problem.coefficients[row_offset + j] =
@@ -456,11 +456,11 @@ __global__ void scale_transposed_problem_kernel(
   i_t* A_T_offsets,
   i_t* A_T_indices)
 {
-  for (int row = blockIdx.x; row < initial_scaling_view.primal_size; row += gridDim.x) {
+  for (i_t row = blockIdx.x; row < initial_scaling_view.primal_size; row += gridDim.x) {
     i_t row_offset              = A_T_offsets[row];
     i_t nnz_in_row              = A_T_offsets[row + 1] - row_offset;
     f_t constraint_scale_factor = initial_scaling_view.cummulative_variable_scaling[row];
-    for (int j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
+    for (i_t j = threadIdx.x; j < nnz_in_row; j += blockDim.x) {
       i_t col                   = A_T_indices[row_offset + j];
       f_t variable_scale_factor = initial_scaling_view.cummulative_constraint_matrix_scaling[col];
       A_T[row_offset + j] = A_T[row_offset + j] * constraint_scale_factor * variable_scale_factor;
@@ -561,8 +561,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::apply_cummulative_scaling_to_pro
   // also scale A_T in cusparse view
   i_t number_of_blocks_transposed = op_problem_scaled_.n_variables / block_size;
   if (op_problem_scaled_.n_variables % block_size) number_of_blocks_transposed++;
-  i_t number_of_threads_transposed =
-    std::min<i_t>(op_problem_scaled_.n_constraints, block_size);
+  i_t number_of_threads_transposed = std::min<i_t>(op_problem_scaled_.n_constraints, block_size);
 
   scale_transposed_problem_kernel<i_t, f_t>
     <<<number_of_blocks_transposed, number_of_threads_transposed, 0, stream_view_>>>(
@@ -732,7 +731,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::scale_solutions(
       cuda::std::make_tuple(
         primal_solution.data(),
         thrust::make_transform_iterator(
-          thrust::make_counting_iterator(0),
+          thrust::make_counting_iterator(i_t(0)),
           problem_wrapped_iterator<f_t>(cummulative_variable_scaling_.data(), primal_size_h_))),
       primal_solution.data(),
       primal_solution.size(),
@@ -758,7 +757,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::scale_solutions(
     cub::DeviceTransform::Transform(
       cuda::std::make_tuple(dual_solution.data(),
                             thrust::make_transform_iterator(
-                              thrust::make_counting_iterator(0),
+                              thrust::make_counting_iterator(i_t(0)),
                               problem_wrapped_iterator<f_t>(
                                 cummulative_constraint_matrix_scaling_.data(), dual_size_h_))),
       dual_solution.data(),
@@ -786,7 +785,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::scale_solutions(
       cuda::std::make_tuple(
         dual_slack.data(),
         thrust::make_transform_iterator(
-          thrust::make_counting_iterator(0),
+          thrust::make_counting_iterator(i_t(0)),
           problem_wrapped_iterator<f_t>(cummulative_variable_scaling_.data(), primal_size_h_))),
       dual_slack.data(),
       dual_slack.size(),
@@ -854,7 +853,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::unscale_solutions(
       cuda::std::make_tuple(
         primal_solution.data(),
         thrust::make_transform_iterator(
-          thrust::make_counting_iterator(0),
+          thrust::make_counting_iterator(i_t(0)),
           problem_wrapped_iterator<f_t>(cummulative_variable_scaling_.data(), primal_size_h_))),
       primal_solution.data(),
       primal_solution.size(),
@@ -883,7 +882,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::unscale_solutions(
     cub::DeviceTransform::Transform(
       cuda::std::make_tuple(dual_solution.data(),
                             thrust::make_transform_iterator(
-                              thrust::make_counting_iterator(0),
+                              thrust::make_counting_iterator(i_t(0)),
                               problem_wrapped_iterator<f_t>(
                                 cummulative_constraint_matrix_scaling_.data(), dual_size_h_))),
       dual_solution.data(),
@@ -911,7 +910,7 @@ void pdlp_initial_scaling_strategy_t<i_t, f_t>::unscale_solutions(
       cuda::std::make_tuple(
         dual_slack.data(),
         thrust::make_transform_iterator(
-          thrust::make_counting_iterator(0),
+          thrust::make_counting_iterator(i_t(0)),
           problem_wrapped_iterator<f_t>(cummulative_variable_scaling_.data(), primal_size_h_))),
       dual_slack.data(),
       dual_slack.size(),
@@ -1036,41 +1035,43 @@ pdlp_initial_scaling_strategy_t<i_t, f_t>::view()
   return v;
 }
 
-#define INSTANTIATE(F_TYPE)                                                                   \
-  template class pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>;                                \
-                                                                                              \
-  template __global__ void inf_norm_row_kernel<cuopt_int_t, F_TYPE>(                                  \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
-    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view);      \
-                                                                                              \
-  template __global__ void inf_norm_col_kernel<cuopt_int_t, F_TYPE>(                                  \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
-    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,       \
-    const F_TYPE* A_T,                                                                        \
-    const cuopt_int_t* A_T_offsets,                                                                   \
-    const cuopt_int_t* A_T_indices);                                                                  \
-                                                                                              \
-  template __global__ void pock_chambolle_scaling_kernel_col<cuopt_int_t, F_TYPE, 128>(       \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
-    F_TYPE alpha,                                                                             \
-    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,       \
-    const F_TYPE* A_T,                                                                        \
-    const cuopt_int_t* A_T_offsets,                                                           \
-    const cuopt_int_t* A_T_indices);                                                          \
-                                                                                              \
-  template __global__ void pock_chambolle_scaling_kernel_row<cuopt_int_t, F_TYPE, 128>(       \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                            \
-    F_TYPE alpha,                                                                             \
-    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view);      \
-                                                                                              \
-  template __global__ void scale_problem_kernel<cuopt_int_t, F_TYPE>(                                 \
-    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view, \
-    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem);                           \
-                                                                                              \
-  template __global__ void scale_transposed_problem_kernel<cuopt_int_t, F_TYPE>(                      \
-    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view, \
-    F_TYPE* A_T,                                                                              \
-    cuopt_int_t* A_T_offsets,                                                                         \
+#define INSTANTIATE(F_TYPE)                                                                      \
+  template class pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>;                           \
+                                                                                                 \
+  template __global__ void inf_norm_row_kernel<cuopt_int_t, F_TYPE>(                             \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                       \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view); \
+                                                                                                 \
+  template __global__ void inf_norm_col_kernel<cuopt_int_t, F_TYPE>(                             \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                       \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,  \
+    const F_TYPE* A_T,                                                                           \
+    const cuopt_int_t* A_T_offsets,                                                              \
+    const cuopt_int_t* A_T_indices);                                                             \
+                                                                                                 \
+  template __global__ void pock_chambolle_scaling_kernel_col<cuopt_int_t, F_TYPE, 128>(          \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                       \
+    F_TYPE alpha,                                                                                \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view,  \
+    const F_TYPE* A_T,                                                                           \
+    const cuopt_int_t* A_T_offsets,                                                              \
+    const cuopt_int_t* A_T_indices);                                                             \
+                                                                                                 \
+  template __global__ void pock_chambolle_scaling_kernel_row<cuopt_int_t, F_TYPE, 128>(          \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem,                       \
+    F_TYPE alpha,                                                                                \
+    typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t initial_scaling_view); \
+                                                                                                 \
+  template __global__ void scale_problem_kernel<cuopt_int_t, F_TYPE>(                            \
+    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t                  \
+      initial_scaling_view,                                                                      \
+    const typename mip::problem_t<cuopt_int_t, F_TYPE>::view_t op_problem);                      \
+                                                                                                 \
+  template __global__ void scale_transposed_problem_kernel<cuopt_int_t, F_TYPE>(                 \
+    const typename pdlp_initial_scaling_strategy_t<cuopt_int_t, F_TYPE>::view_t                  \
+      initial_scaling_view,                                                                      \
+    F_TYPE* A_T,                                                                                 \
+    cuopt_int_t* A_T_offsets,                                                                    \
     cuopt_int_t* A_T_indices);
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT

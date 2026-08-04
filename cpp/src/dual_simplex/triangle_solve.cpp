@@ -158,33 +158,36 @@ i_t sparse_triangle_solve(const sparse_vector_t<i_t, f_t>& b,
 // upper_triangular_solve, and upper_triangular_transpose_solve are now
 // templated on vector types and defined in the header file, so no explicit instantiation needed.
 
-template int reach<cuopt_int_t, double>(const sparse_vector_t<cuopt_int_t, double>& b,
-                                const std::optional<std::vector<cuopt_int_t>>& pinv,
-                                csc_matrix_t<cuopt_int_t, double>& G,
-                                std::vector<cuopt_int_t>& xi,
-                                double& work_estimate);
+template cuopt_int_t reach<cuopt_int_t, double>(const sparse_vector_t<cuopt_int_t, double>& b,
+                                                const std::optional<std::vector<cuopt_int_t>>& pinv,
+                                                csc_matrix_t<cuopt_int_t, double>& G,
+                                                std::vector<cuopt_int_t>& xi,
+                                                double& work_estimate);
 
-template int depth_first_search<cuopt_int_t, double>(cuopt_int_t j,
-                                             const std::optional<std::vector<cuopt_int_t>>& pinv,
-                                             csc_matrix_t<cuopt_int_t, double>& G,
-                                             int top,
-                                             std::vector<cuopt_int_t>& xi,
-                                             std::vector<cuopt_int_t>::iterator pstack,
-                                             double& work_estimate);
+template cuopt_int_t depth_first_search<cuopt_int_t, double>(
+  cuopt_int_t j,
+  const std::optional<std::vector<cuopt_int_t>>& pinv,
+  csc_matrix_t<cuopt_int_t, double>& G,
+  cuopt_int_t top,
+  std::vector<cuopt_int_t>& xi,
+  std::vector<cuopt_int_t>::iterator pstack,
+  double& work_estimate);
 
-template int sparse_triangle_solve<cuopt_int_t, double, true>(const sparse_vector_t<cuopt_int_t, double>& b,
-                                                      const std::optional<std::vector<cuopt_int_t>>& pinv,
-                                                      std::vector<cuopt_int_t>& xi,
-                                                      csc_matrix_t<cuopt_int_t, double>& G,
-                                                      double* x,
-                                                      double& work_estimate);
+template cuopt_int_t sparse_triangle_solve<cuopt_int_t, double, true>(
+  const sparse_vector_t<cuopt_int_t, double>& b,
+  const std::optional<std::vector<cuopt_int_t>>& pinv,
+  std::vector<cuopt_int_t>& xi,
+  csc_matrix_t<cuopt_int_t, double>& G,
+  double* x,
+  double& work_estimate);
 
-template int sparse_triangle_solve<cuopt_int_t, double, false>(const sparse_vector_t<cuopt_int_t, double>& b,
-                                                       const std::optional<std::vector<cuopt_int_t>>& pinv,
-                                                       std::vector<cuopt_int_t>& xi,
-                                                       csc_matrix_t<cuopt_int_t, double>& G,
-                                                       double* x,
-                                                       double& work_estimate);
+template cuopt_int_t sparse_triangle_solve<cuopt_int_t, double, false>(
+  const sparse_vector_t<cuopt_int_t, double>& b,
+  const std::optional<std::vector<cuopt_int_t>>& pinv,
+  std::vector<cuopt_int_t>& xi,
+  csc_matrix_t<cuopt_int_t, double>& G,
+  double* x,
+  double& work_estimate);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

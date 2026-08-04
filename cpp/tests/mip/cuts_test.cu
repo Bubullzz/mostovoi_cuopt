@@ -739,9 +739,9 @@ io::mps_data_model_t<cuopt_int_t, double> append_literal_cut_prefix_to_lp_model(
   auto model_with_cuts = base_lp_model;
   if (prefix_end_exclusive == 0) { return model_with_cuts; }
 
-  std::vector<double> matrix_values  = base_lp_model.get_constraint_matrix_values();
-  std::vector<int> matrix_indices    = base_lp_model.get_constraint_matrix_indices();
-  std::vector<int> matrix_offsets    = base_lp_model.get_constraint_matrix_offsets();
+  std::vector<double> matrix_values       = base_lp_model.get_constraint_matrix_values();
+  std::vector<cuopt_int_t> matrix_indices = base_lp_model.get_constraint_matrix_indices();
+  std::vector<cuopt_int_t> matrix_offsets = base_lp_model.get_constraint_matrix_offsets();
   std::vector<double> constraint_rhs = base_lp_model.get_constraint_bounds();
   std::vector<double> constraint_lbs = base_lp_model.get_constraint_lower_bounds();
   std::vector<double> constraint_ubs = base_lp_model.get_constraint_upper_bounds();
@@ -1683,7 +1683,7 @@ struct flow_cover_test_problem_t {
   simplex::simplex_solver_settings_t<cuopt_int_t, double> settings;
   simplex::lp_problem_t<cuopt_int_t, double> lp;
   csr_matrix_t<cuopt_int_t, double> Arow;
-  std::vector<int> new_slacks;
+  std::vector<cuopt_int_t> new_slacks;
   std::vector<simplex::variable_type_t> var_types;
 
   flow_cover_test_problem_t() : handle(), settings(), lp(&handle, 1, 1, 1), Arow(0, 0, 0) {}
@@ -1702,7 +1702,7 @@ flow_cover_test_problem_t build_flow_cover_test_problem(
   simplex::convert_user_problem(
     host_problem, test_problem.settings, test_problem.lp, test_problem.new_slacks, dualize_info);
   test_problem.var_types = host_problem.var_types;
-  if (test_problem.lp.num_cols > static_cast<int>(test_problem.var_types.size())) {
+  if (test_problem.lp.num_cols > static_cast<cuopt_int_t>(test_problem.var_types.size())) {
     test_problem.var_types.resize(test_problem.lp.num_cols, simplex::variable_type_t::CONTINUOUS);
   }
   test_problem.lp.A.to_compressed_row(test_problem.Arow);

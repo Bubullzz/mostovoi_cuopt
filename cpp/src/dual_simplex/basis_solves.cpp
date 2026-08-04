@@ -73,25 +73,25 @@ void write_singleton_info(i_t m,
   FILE* file = fopen("singleton_debug.m", "w");
   if (file != NULL) {
     fprintf(file,
-            "m = %d; col_singletons = %d; row_singletons = %d;\n",
-            m,
-            col_singletons,
-            row_singletons);
+            "m = %lld; col_singletons = %lld; row_singletons = %lld;\n",
+            (long long)(m),
+            (long long)(col_singletons),
+            (long long)(row_singletons));
     B.print_matrix(file);
     fprintf(file, "B = sparse(ijx(:,1), ijx(:,2), ijx(:,3), m, m);\n");
     fprintf(file, "row_perm = [\n");
     for (i_t i = 0; i < m; ++i) {
-      fprintf(file, "%d\n", row_perm[i] + 1);
+      fprintf(file, "%lld\n", (long long)(row_perm[i] + 1));
     }
     fprintf(file, "];\n");
     fprintf(file, "col_perm=[\n");
     for (i_t i = 0; i < m; ++i) {
-      fprintf(file, "%d\n", col_perm[i] + 1);
+      fprintf(file, "%lld\n", (long long)(col_perm[i] + 1));
     }
     fprintf(file, "];\n;");
     fprintf(file, "row_perm_inv = [\n");
     for (i_t i = 0; i < m; ++i) {
-      fprintf(file, "%d\n", row_perm_inv[i] + 1);
+      fprintf(file, "%lld\n", (long long)(row_perm_inv[i] + 1));
     }
     fprintf(file, "];\n");
   }
@@ -114,10 +114,10 @@ void write_factor_info(const char* filename,
   FILE* file = fopen(filename, "w");
   if (file != NULL) {
     fprintf(file,
-            "m = %d; row_singletons = %d; col_singletons = %d;\n",
-            m,
-            row_singletons,
-            col_singletons);
+            "m = %lld; row_singletons = %lld; col_singletons = %lld;\n",
+            (long long)(m),
+            (long long)(row_singletons),
+            (long long)(col_singletons));
     B.print_matrix(file);
     fprintf(file, "B = sparse(ijx(:, 1), ijx(:, 2), ijx(:,3), m, m);\n");
     C.print_matrix(file);
@@ -130,12 +130,12 @@ void write_factor_info(const char* filename,
     fprintf(file, "U = sparse(ijx(:,1), ijx(:,2), ijx(:,3), m, m);\n");
     fprintf(file, "row_perm_1 = [\n");
     for (i_t i = 0; i < m; i++) {
-      fprintf(file, "%d;\n", row_perm[i] + 1);
+      fprintf(file, "%lld;\n", (long long)(row_perm[i] + 1));
     }
     fprintf(file, "];\n");
     fprintf(file, "col_perm = [\n");
     for (i_t j = 0; j < m; ++j) {
-      fprintf(file, "%d;\n", col_perm[j] + 1);
+      fprintf(file, "%lld;\n", (long long)(col_perm[j] + 1));
     }
     fprintf(file, "];\n");
   }
@@ -148,7 +148,7 @@ void write_basis_info(const csc_matrix_t<i_t, f_t>& B)
   FILE* file = fopen("basis.m", "w");
   if (file != NULL) {
     i_t m = B.m;
-    fprintf(file, "m = %d;\n", m);
+    fprintf(file, "m = %lld;\n", (long long)(m));
     B.print_matrix(file);
     fprintf(file, "B = sparse(ijx(:, 1), ijx(:, 2), ijx(:,3), m, m);\n");
   }
@@ -195,10 +195,10 @@ i_t factorize_basis(const csc_matrix_t<i_t, f_t>& A,
     work_estimate += 3 * m;
 
 #ifdef PRINT_SINGLETONS
-    printf("Singletons row %d col %d num %d\n",
-           row_singletons,
-           col_singletons,
-           row_singletons + col_singletons);
+    printf("Singletons row %lld col %lld num %lld\n",
+           (long long)(row_singletons),
+           (long long)(col_singletons),
+           (long long)(row_singletons + col_singletons));
 #endif
     constexpr bool write_out = false;
     if (write_out) {
@@ -548,11 +548,11 @@ i_t factorize_basis(const csc_matrix_t<i_t, f_t>& A,
         for (i_t k = 0; k < m; ++k) {
           const i_t col_start = L.col_start[k];
           if (L.i[col_start] != k) {
-            printf("col %d Li %d col singletons %d num singletons %d\n",
-                   k,
-                   L.i[col_start],
-                   col_singletons,
-                   num_singletons);
+            printf("col %lld Li %lld col singletons %lld num singletons %lld\n",
+                   (long long)(k),
+                   (long long)(L.i[col_start]),
+                   (long long)(col_singletons),
+                   (long long)(num_singletons));
           }
           assert(L.i[col_start] == k);
         }
@@ -587,13 +587,14 @@ i_t factorize_basis(const csc_matrix_t<i_t, f_t>& A,
 
         const f_t norm_diff = E.norm1();
         printf(
-          "|| L*U - B(row_perm, col_perm) || %e. m %d row singletons %d col singletons %d Sdim "
-          "%d\n",
+          "|| L*U - B(row_perm, col_perm) || %e. m %lld row singletons %lld col singletons %lld "
+          "Sdim "
+          "%lld\n",
           norm_diff,
-          m,
-          row_singletons,
-          col_singletons,
-          Sdim);
+          (long long)(m),
+          (long long)(row_singletons),
+          (long long)(col_singletons),
+          (long long)(Sdim));
         assert(norm_diff < 1e-3);
       }
       p    = row_perm;
@@ -651,7 +652,8 @@ i_t factorize_basis(const csc_matrix_t<i_t, f_t>& A,
     return CONCURRENT_HALT_RETURN;
   }
   if (verbose) {
-    printf("Right Lnz+Unz %d t %.3f\n", L.col_start[m] + U.col_start[m], toc(fact_start));
+    printf(
+      "Right Lnz+Unz %lld t %.3f\n", (long long)(L.col_start[m] + U.col_start[m]), toc(fact_start));
   }
   constexpr bool check_lu = false;
   if (check_lu) {
@@ -666,10 +668,10 @@ i_t factorize_basis(const csc_matrix_t<i_t, f_t>& A,
     csc_matrix_t<i_t, f_t> E(m, m, 1);
     add(C, D, 1.0, -1.0, E);
 
-    write_factor_info("rightlu_factor.m", m, 0, 0, B, C, D, L, U, p, q);
+    write_factor_info("rightlu_factor.m", m, i_t(0), i_t(0), B, C, D, L, U, p, q);
 
     const f_t norm_diff = E.norm1();
-    printf("|| L*U - B(row_perm, col_perm) || %e. m %d\n", norm_diff, m);
+    printf("|| L*U - B(row_perm, col_perm) || %e. m %lld\n", norm_diff, (long long)(m));
     assert(norm_diff < 1e-3);
   }
 
@@ -936,67 +938,72 @@ i_t b_solve(const csc_matrix_t<i_t, f_t>& L,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int reorder_basic_list<int>(const std::vector<int>& q, std::vector<int>& basic_list);
+template cuopt_int_t reorder_basic_list<cuopt_int_t>(const std::vector<cuopt_int_t>& q,
+                                                     std::vector<cuopt_int_t>& basic_list);
 
-template void get_basis_from_vstatus<int>(int m,
-                                          const std::vector<variable_status_t>& vstatus,
-                                          std::vector<int>& basis_list,
-                                          std::vector<int>& nonbasic_list,
-                                          std::vector<int>& superbasic_list);
+template void get_basis_from_vstatus<cuopt_int_t>(cuopt_int_t m,
+                                                  const std::vector<variable_status_t>& vstatus,
+                                                  std::vector<cuopt_int_t>& basis_list,
+                                                  std::vector<cuopt_int_t>& nonbasic_list,
+                                                  std::vector<cuopt_int_t>& superbasic_list);
 
-template int factorize_basis<int>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                  const std::vector<cuopt_int_t>& basis_list,
-                                  double start_time,
-                                  csc_matrix_t<cuopt_int_t, double>& L,
-                                  csc_matrix_t<cuopt_int_t, double>& U,
-                                  std::vector<cuopt_int_t>& p,
-                                  std::vector<cuopt_int_t>& pinv,
-                                  std::vector<cuopt_int_t>& q,
-                                  std::vector<cuopt_int_t>& deficient,
-                                  std::vector<cuopt_int_t>& slacks_needed,
-                                  double& work_estimate);
+template cuopt_int_t factorize_basis<cuopt_int_t>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  const std::vector<cuopt_int_t>& basis_list,
+  double start_time,
+  csc_matrix_t<cuopt_int_t, double>& L,
+  csc_matrix_t<cuopt_int_t, double>& U,
+  std::vector<cuopt_int_t>& p,
+  std::vector<cuopt_int_t>& pinv,
+  std::vector<cuopt_int_t>& q,
+  std::vector<cuopt_int_t>& deficient,
+  std::vector<cuopt_int_t>& slacks_needed,
+  double& work_estimate);
 
-template int basis_repair<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                       const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                       const std::vector<double>& lower,
-                                       const std::vector<double>& upper,
-                                       const std::vector<cuopt_int_t>& deficient,
-                                       const std::vector<cuopt_int_t>& slacks_needed,
-                                       std::vector<cuopt_int_t>& basis_list,
-                                       std::vector<cuopt_int_t>& nonbasic_list,
-                                       std::vector<cuopt_int_t>& superbasic_list,
-                                       std::vector<variable_status_t>& vstatus,
-                                       double& work_estimate);
+template cuopt_int_t basis_repair<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  const std::vector<double>& lower,
+  const std::vector<double>& upper,
+  const std::vector<cuopt_int_t>& deficient,
+  const std::vector<cuopt_int_t>& slacks_needed,
+  std::vector<cuopt_int_t>& basis_list,
+  std::vector<cuopt_int_t>& nonbasic_list,
+  std::vector<cuopt_int_t>& superbasic_list,
+  std::vector<variable_status_t>& vstatus,
+  double& work_estimate);
 
-template int form_b<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                 const std::vector<cuopt_int_t>& basic_list,
-                                 csc_matrix_t<cuopt_int_t, double>& B,
-                                 double& work_estimate);
+template cuopt_int_t form_b<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
+                                                 const std::vector<cuopt_int_t>& basic_list,
+                                                 csc_matrix_t<cuopt_int_t, double>& B,
+                                                 double& work_estimate);
 
-template int b_multiply<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                     const std::vector<cuopt_int_t>& basic_list,
-                                     const std::vector<double>& x,
-                                     std::vector<double>& y);
+template cuopt_int_t b_multiply<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
+                                                     const std::vector<cuopt_int_t>& basic_list,
+                                                     const std::vector<double>& x,
+                                                     std::vector<double>& y);
 
-template int b_transpose_multiply<cuopt_int_t, double>(const lp_problem_t<cuopt_int_t, double>& lp,
-                                               const std::vector<cuopt_int_t>& basic_list,
-                                               const std::vector<double>& x,
-                                               std::vector<double>& y);
+template cuopt_int_t b_transpose_multiply<cuopt_int_t, double>(
+  const lp_problem_t<cuopt_int_t, double>& lp,
+  const std::vector<cuopt_int_t>& basic_list,
+  const std::vector<double>& x,
+  std::vector<double>& y);
 
 // Solves B'*y = c, given L*U = B(p, :). This version supports a dense vector
-template int b_transpose_solve<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& L,
-                                            const csc_matrix_t<cuopt_int_t, double>& U,
-                                            const std::vector<cuopt_int_t>& p,
-                                            const std::vector<double>& rhs,
-                                            std::vector<double>& solution);
+template cuopt_int_t b_transpose_solve<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& L,
+  const csc_matrix_t<cuopt_int_t, double>& U,
+  const std::vector<cuopt_int_t>& p,
+  const std::vector<double>& rhs,
+  std::vector<double>& solution);
 
 // Solves the system B*x = b, given L*U = B(p, :)
-template int b_solve<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& L,
-                                  const csc_matrix_t<cuopt_int_t, double>& U,
-                                  const std::vector<cuopt_int_t>& p,
-                                  const std::vector<double>& rhs,
-                                  std::vector<double>& solution);
+template cuopt_int_t b_solve<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& L,
+                                                  const csc_matrix_t<cuopt_int_t, double>& U,
+                                                  const std::vector<cuopt_int_t>& p,
+                                                  const std::vector<double>& rhs,
+                                                  std::vector<double>& solution);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

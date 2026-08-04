@@ -36,13 +36,17 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_breakpoints(std::vector<i_t>&
       if (vstatus_[j] == variable_status_t::NONBASIC_LOWER && delta_z_[j] < -pivot_tol) {
         indicies[idx] = k;
         ratios[idx]   = std::max((-dual_tol - z_[j]) / delta_z_[j], 0.0);
-        if constexpr (verbose) { settings_.log.printf("ratios[%d] = %e\n", idx, ratios[idx]); }
+        if constexpr (verbose) {
+          settings_.log.printf("ratios[%lld] = %e\n", (long long)(idx), ratios[idx]);
+        }
         idx++;
       }
       if (vstatus_[j] == variable_status_t::NONBASIC_UPPER && delta_z_[j] > pivot_tol) {
         indicies[idx] = k;
         ratios[idx]   = std::max((dual_tol - z_[j]) / delta_z_[j], 0.0);
-        if constexpr (verbose) { settings_.log.printf("ratios[%d] = %e\n", idx, ratios[idx]); }
+        if constexpr (verbose) {
+          settings_.log.printf("ratios[%lld] = %e\n", (long long)(idx), ratios[idx]);
+        }
         idx++;
       }
     }
@@ -128,7 +132,9 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_step_length(f_t& step_length,
   std::vector<f_t> ratios(nz);
   work_estimate_ += 2 * nz;
   i_t num_breakpoints = compute_breakpoints(indicies, ratios);
-  if constexpr (verbose) { settings_.log.printf("Initial breakpoints %d\n", num_breakpoints); }
+  if constexpr (verbose) {
+    settings_.log.printf("Initial breakpoints %lld\n", (long long)(num_breakpoints));
+  }
   if (num_breakpoints == 0) {
     nonbasic_entering = -1;
     return RATIO_TEST_NO_ENTERING_VARIABLE;
@@ -145,10 +151,11 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_step_length(f_t& step_length,
   if (!continue_search) {
     if constexpr (verbose) {
       settings_.log.printf(
-        "BFRT stopping. No bound flips. Step length %e Nonbasic entering %d Entering %d pivot %e\n",
+        "BFRT stopping. No bound flips. Step length %e Nonbasic entering %lld Entering %lld pivot "
+        "%e\n",
         step_length,
-        nonbasic_entering,
-        entering_index,
+        (long long)(nonbasic_entering),
+        (long long)(entering_index),
         std::abs(delta_z_[entering_index]));
     }
     return entering_index;
@@ -156,10 +163,11 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_step_length(f_t& step_length,
 
   if constexpr (verbose) {
     settings_.log.printf(
-      "Continuing past initial step length %e entering index %d nonbasic entering %d slope %e\n",
+      "Continuing past initial step length %e entering index %lld nonbasic entering %lld slope "
+      "%e\n",
       step_length,
-      entering_index,
-      nonbasic_entering,
+      (long long)(entering_index),
+      (long long)(nonbasic_entering),
       slope);
   }
 
@@ -175,8 +183,9 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_step_length(f_t& step_length,
       if (ratios[k] > max_ratio) { max_ratio = ratios[k]; }
     }
     work_estimate_ += 2 * num_breakpoints;
-    settings_.log.printf(
-      "Starting heap passes. %d breakpoints max ratio %e\n", num_breakpoints - 1, max_ratio);
+    settings_.log.printf("Starting heap passes. %lld breakpoints max ratio %e\n",
+                         (long long)(num_breakpoints - 1),
+                         max_ratio);
     bucket_pass(
       indicies, ratios, num_breakpoints - 1, slope, step_length, nonbasic_entering, entering_index);
   }
@@ -185,11 +194,12 @@ i_t bound_flipping_ratio_test_t<i_t, f_t>::compute_step_length(f_t& step_length,
     indicies, ratios, num_breakpoints - 1, slope, step_length, nonbasic_entering, entering_index);
 
   if constexpr (verbose) {
-    settings_.log.printf("BFRT step length %e entering index %d non basic entering %d pivot %e\n",
-                         step_length,
-                         entering_index,
-                         nonbasic_entering,
-                         std::abs(delta_z_[entering_index]));
+    settings_.log.printf(
+      "BFRT step length %e entering index %lld non basic entering %lld pivot %e\n",
+      step_length,
+      (long long)(entering_index),
+      (long long)(nonbasic_entering),
+      std::abs(delta_z_[entering_index]));
   }
   return entering_index;
 }
@@ -213,8 +223,8 @@ void bound_flipping_ratio_test_t<i_t, f_t>::heap_passes(const std::vector<i_t>& 
   for (i_t k = 0; k < N; ++k) {
     bare_idx[k] = k;
     if constexpr (verbose) {
-      settings_.log.printf("Adding index %d ratio %e pivot %e to heap\n",
-                           current_indicies[k],
+      settings_.log.printf("Adding index %lld ratio %e pivot %e to heap\n",
+                           (long long)(current_indicies[k]),
                            current_ratios[k],
                            std::abs(delta_z[nonbasic_list[current_indicies[k]]]));
     }
@@ -250,12 +260,12 @@ void bound_flipping_ratio_test_t<i_t, f_t>::heap_passes(const std::vector<i_t>& 
       const f_t pivot       = std::abs(delta_z[j]);
       if constexpr (verbose) {
         settings_.log.printf(
-          "heap %d step-length %.12e pivot %e nonbasic entering %d slope %e delta_slope %e new "
+          "heap %lld step-length %.12e pivot %e nonbasic entering %lld slope %e delta_slope %e new "
           "slope %e\n",
-          bare_idx.size(),
+          (long long)(bare_idx.size()),
           current_ratios[heap_index],
           pivot,
-          nonbasic_entering,
+          (long long)(nonbasic_entering),
           slope,
           delta_slope,
           slope - delta_slope);
@@ -314,8 +324,8 @@ void bound_flipping_ratio_test_t<i_t, f_t>::bucket_pass(const std::vector<i_t>& 
   cumulative_sum[0] = buckets[0];
   if (cumulative_sum[0] > slope) {
     settings_.log.printf(
-      "Bucket 0. Count in bucket %d. Slope %e. Cumulative sum %e. Bucket value %e\n",
-      bucket_count[0],
+      "Bucket 0. Count in bucket %lld. Slope %e. Cumulative sum %e. Bucket value %e\n",
+      (long long)(bucket_count[0]),
       slope,
       cumulative_sum[0],
       buckets[0]);
@@ -333,10 +343,11 @@ void bound_flipping_ratio_test_t<i_t, f_t>::bucket_pass(const std::vector<i_t>& 
 
   if (exceeded) {
     settings_.log.printf(
-      "Value in bucket %d. Count in buckets %d. Slope %e. Cumulative sum %e. Next sum %e Bucket "
+      "Value in bucket %lld. Count in buckets %lld. Slope %e. Cumulative sum %e. Next sum %e "
+      "Bucket "
       "value %e\n",
-      k,
-      bucket_count[k],
+      (long long)(k),
+      (long long)(bucket_count[k]),
       slope,
       cumulative_sum[k - 1],
       cumulative_sum[k],

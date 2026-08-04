@@ -95,8 +95,8 @@ i_t preconditioned_conjugate_gradient(const T& op,
     iter++;
 
     if (show_pcg_info) {
-      settings.log.printf("PCG iter %3d 2-norm_residual %.2e inf-norm_residual %.2e\n",
-                          iter,
+      settings.log.printf("PCG iter %3lld 2-norm_residual %.2e inf-norm_residual %.2e\n",
+                          (long long)(iter),
                           norm_residual,
                           vector_norm_inf<i_t, f_t>(residual));
     }
@@ -107,10 +107,10 @@ i_t preconditioned_conjugate_gradient(const T& op,
   norm_residual = vector_norm2<i_t, f_t>(residual);
   if (norm_residual < initial_norm_residual) {
     if (show_pcg_info) {
-      settings.log.printf("PCG improved residual 2-norm %.2e/%.2e in %d iterations\n",
+      settings.log.printf("PCG improved residual 2-norm %.2e/%.2e in %lld iterations\n",
                           norm_residual,
                           initial_norm_residual,
-                          iter);
+                          (long long)(iter));
     }
     xinout = x;
   } else {

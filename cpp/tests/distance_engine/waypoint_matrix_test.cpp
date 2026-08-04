@@ -221,10 +221,10 @@ class waypoint_matrix_cost_matrix_test_t
   std::vector<f_t> weights;
 };
 
-typedef waypoint_matrix_waypoints_sequence_test_t<cuopt_int_t, float>
+typedef waypoint_matrix_waypoints_sequence_test_t<int, float>
   float_waypoint_matrix_waypoints_sequence_test_t;
-typedef waypoint_matrix_shortest_path_cost_t<cuopt_int_t, float> float_waypoint_matrix_shortest_path_cost_t;
-typedef waypoint_matrix_cost_matrix_test_t<cuopt_int_t, float> float_waypoint_matrix_cost_matrix_test_t;
+typedef waypoint_matrix_shortest_path_cost_t<int, float> float_waypoint_matrix_shortest_path_cost_t;
+typedef waypoint_matrix_cost_matrix_test_t<int, float> float_waypoint_matrix_cost_matrix_test_t;
 
 TEST_P(float_waypoint_matrix_waypoints_sequence_test_t, compute_waypoint_sequence)
 {

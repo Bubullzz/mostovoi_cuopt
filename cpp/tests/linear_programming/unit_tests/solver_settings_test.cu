@@ -81,8 +81,8 @@ TEST(SolverSettingsTest, warm_start_smaller_vector)
 
   std::vector<double> primal      = {0.0, 1.0, 2.0, 3.0};
   std::vector<double> dual        = {0.0, 1.0, 2.0, 3.0};
-  std::vector<int> primal_mapping = {1, 0};     // Only two variables and 0 - 1 swapped
-  std::vector<int> dual_mapping   = {0, 2, 1};  // Only three constraints and  1 - 2 swapped
+  std::vector<cuopt_int_t> primal_mapping = {1, 0};     // Only two variables and 0 - 1 swapped
+  std::vector<cuopt_int_t> dual_mapping   = {0, 2, 1};  // Only three constraints and  1 - 2 swapped
 
   std::vector<double> primal_expected = {1.0, 0.0};
   std::vector<double> dual_expected   = {0.0, 2.0, 1.0};
@@ -104,9 +104,9 @@ TEST(SolverSettingsTest, warm_start_smaller_vector)
   rmm::device_uvector<double> last_restart_duality_gap_dual_solution =
     cuopt::device_copy(dual, handle_.get_stream());
 
-  rmm::device_uvector<int> d_primal_mapping =
+  rmm::device_uvector<cuopt_int_t> d_primal_mapping =
     cuopt::device_copy(primal_mapping, handle_.get_stream());
-  rmm::device_uvector<int> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
+  rmm::device_uvector<cuopt_int_t> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
 
   pdlp_warm_start_data_t<cuopt_int_t, double> warm_start_data =
     pdlp_warm_start_data_t<cuopt_int_t, double>(current_primal_solution,
@@ -181,8 +181,8 @@ TEST(SolverSettingsTest, warm_start_bigger_vector)
 
   std::vector<double> primal      = {0.0, 1.0, 2.0, 3.0};
   std::vector<double> dual        = {0.0, 1.0, 2.0};
-  std::vector<int> primal_mapping = {0, 1, 2, 3, 4, 5};  // Only two variables and 0 - 1 swapped
-  std::vector<int> dual_mapping   = {
+  std::vector<cuopt_int_t> primal_mapping = {0, 1, 2, 3, 4, 5};  // Only two variables and 0 - 1 swapped
+  std::vector<cuopt_int_t> dual_mapping   = {
     0, 1, 2, 3, 4, 5, 6};  // Only three constraints and  1 - 2 swapped
 
   std::vector<double> primal_expected = {0.0, 1.0, 2.0, 3.0, 0.0, 0.0};
@@ -205,9 +205,9 @@ TEST(SolverSettingsTest, warm_start_bigger_vector)
   rmm::device_uvector<double> last_restart_duality_gap_dual_solution =
     cuopt::device_copy(dual, handle_.get_stream());
 
-  rmm::device_uvector<int> d_primal_mapping =
+  rmm::device_uvector<cuopt_int_t> d_primal_mapping =
     cuopt::device_copy(primal_mapping, handle_.get_stream());
-  rmm::device_uvector<int> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
+  rmm::device_uvector<cuopt_int_t> d_dual_mapping = cuopt::device_copy(dual_mapping, handle_.get_stream());
 
   pdlp_warm_start_data_t<cuopt_int_t, double> warm_start_data =
     pdlp_warm_start_data_t<cuopt_int_t, double>(current_primal_solution,

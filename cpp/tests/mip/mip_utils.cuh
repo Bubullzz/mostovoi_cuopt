@@ -101,8 +101,8 @@ static void test_constraint_sanity_per_row(
   double rel_tolerance)
 {
   const std::vector<double>& values                  = op_problem.get_constraint_matrix_values();
-  const std::vector<int>& indices                    = op_problem.get_constraint_matrix_indices();
-  const std::vector<int>& offsets                    = op_problem.get_constraint_matrix_offsets();
+  const std::vector<cuopt_int_t>& indices                    = op_problem.get_constraint_matrix_indices();
+  const std::vector<cuopt_int_t>& offsets                    = op_problem.get_constraint_matrix_offsets();
   const std::vector<double>& constraint_lower_bounds = op_problem.get_constraint_lower_bounds();
   const std::vector<double>& constraint_upper_bounds = op_problem.get_constraint_upper_bounds();
   const std::vector<double>& variable_lower_bounds   = op_problem.get_variable_lower_bounds();
@@ -111,7 +111,7 @@ static void test_constraint_sanity_per_row(
   auto h_solution = cuopt::host_copy(solution, solution.stream());
   // CSR SpMV
   for (size_t i = 0; i < offsets.size() - 1; ++i) {
-    for (int j = offsets[i]; j < offsets[i + 1]; ++j) {
+    for (cuopt_int_t j = offsets[i]; j < offsets[i + 1]; ++j) {
       residual[i] += values[j] * h_solution[indices[j]];
     }
   }
@@ -135,14 +135,14 @@ static void test_constraint_sanity_per_row(
   double rel_tolerance)
 {
   const std::vector<double>& values                  = op_problem.get_constraint_matrix_values();
-  const std::vector<int>& indices                    = op_problem.get_constraint_matrix_indices();
-  const std::vector<int>& offsets                    = op_problem.get_constraint_matrix_offsets();
+  const std::vector<cuopt_int_t>& indices                    = op_problem.get_constraint_matrix_indices();
+  const std::vector<cuopt_int_t>& offsets                    = op_problem.get_constraint_matrix_offsets();
   const std::vector<double>& constraint_lower_bounds = op_problem.get_constraint_lower_bounds();
   const std::vector<double>& constraint_upper_bounds = op_problem.get_constraint_upper_bounds();
   std::vector<double> residual(constraint_lower_bounds.size(), 0.0);
   // CSR SpMV
   for (size_t i = 0; i < offsets.size() - 1; ++i) {
-    for (int j = offsets[i]; j < offsets[i + 1]; ++j) {
+    for (cuopt_int_t j = offsets[i]; j < offsets[i + 1]; ++j) {
       residual[i] += values[j] * solution[indices[j]];
     }
   }

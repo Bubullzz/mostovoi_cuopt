@@ -10,6 +10,7 @@
 
 #include <mip_heuristics/problem/problem.cuh>
 
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/copy_helpers.hpp>
 #include <utilities/macros.cuh>
 
@@ -120,17 +121,24 @@ __global__ void check_constraint_data(raft::device_span<i_t> reorg_ids,
 
   if (!bnd_match) {
     if (threadIdx.x == 0) {
-      printf("vertex id %d orig id %d bounds mismatch\n", new_idx, idx);
+      printf(
+        "vertex id %lld orig id %lld bounds mismatch\n", (long long)(new_idx), (long long)(idx));
       atomicAdd(errors, 1);
     }
   }
   for (i_t i = threadIdx.x; i < (src_read_end - src_read_beg); i += blockDim.x) {
     if (coeff[i + dst_read_beg] != pb.coefficients[i + src_read_beg]) {
-      printf("coeff mismatch vertex id %d orig id %d at edge index %d\n", new_idx, idx, i);
+      printf("coeff mismatch vertex id %lld orig id %lld at edge index %lld\n",
+             (long long)(new_idx),
+             (long long)(idx),
+             (long long)(i));
       atomicAdd(errors, 1);
     }
     if (edge[i + dst_read_beg] != pb.variables[i + src_read_beg]) {
-      printf("edge mismatch vertex id %d orig id %d at edge index %d\n", new_idx, idx, i);
+      printf("edge mismatch vertex id %lld orig id %lld at edge index %lld\n",
+             (long long)(new_idx),
+             (long long)(idx),
+             (long long)(i));
       atomicAdd(errors, 1);
     }
     if (edge[i + dst_read_beg] >= pb.variables.size()) { printf("oob\n"); }
@@ -161,21 +169,29 @@ __global__ void check_variable_data(raft::device_span<i_t> reorg_ids,
 
   if (threadIdx.x == 0) {
     if (!bnd_match) {
-      printf("vertex id %d orig id %d bounds mismatch\n", new_idx, idx);
+      printf(
+        "vertex id %lld orig id %lld bounds mismatch\n", (long long)(new_idx), (long long)(idx));
       atomicAdd(errors, 1);
     }
     if (!var_type_match) {
-      printf("vertex id %d orig id %d var type mismatch\n", new_idx, idx);
+      printf(
+        "vertex id %lld orig id %lld var type mismatch\n", (long long)(new_idx), (long long)(idx));
       atomicAdd(errors, 1);
     }
   }
   for (i_t i = threadIdx.x; i < (src_read_end - src_read_beg); i += blockDim.x) {
     if (coeff[i + dst_read_beg] != pb.reverse_coefficients[i + src_read_beg]) {
-      printf("coeff mismatch vertex id %d orig id %d at edge index %d\n", new_idx, idx, i);
+      printf("coeff mismatch vertex id %lld orig id %lld at edge index %lld\n",
+             (long long)(new_idx),
+             (long long)(idx),
+             (long long)(i));
       atomicAdd(errors, 1);
     }
     if (edge[i + dst_read_beg] != pb.reverse_constraints[i + src_read_beg]) {
-      printf("edge mismatch vertex id %d orig id %d at edge index %d\n", blockIdx.x, idx, i);
+      printf("edge mismatch vertex id %lld orig id %lld at edge index %lld\n",
+             (long long)(blockIdx.x),
+             (long long)(idx),
+             (long long)(i));
       atomicAdd(errors, 1);
     }
   }

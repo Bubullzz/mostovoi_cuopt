@@ -277,7 +277,7 @@ class trailing_matrix_t {
       nz++;
     }
     if (nsearch > 10) {
-      if constexpr (verbose) { printf("nsearch %d\n", nsearch); }
+      if constexpr (verbose) { printf("nsearch %lld\n", (long long)(nsearch)); }
     }
     return nsearch;
   }
@@ -630,12 +630,16 @@ class trailing_matrix_t {
 
     printf("Column reallocation histogram (shortfall -> count):\n");
     for (size_t k = 0; k < col_realloc_hist_.size(); k++) {
-      if (col_realloc_hist_[k] > 0) { printf("  %4zu: %d\n", k, col_realloc_hist_[k]); }
+      if (col_realloc_hist_[k] > 0) {
+        printf("  %4zu: %lld\n", k, (long long)(col_realloc_hist_[k]));
+      }
     }
 
     printf("Row reallocation histogram (shortfall -> count):\n");
     for (size_t k = 0; k < row_realloc_hist_.size(); k++) {
-      if (row_realloc_hist_[k] > 0) { printf("  %4zu: %d\n", k, row_realloc_hist_[k]); }
+      if (row_realloc_hist_[k] > 0) {
+        printf("  %4zu: %lld\n", k, (long long)(row_realloc_hist_[k]));
+      }
     }
 
     f_t ci_mb = static_cast<f_t>(c_i_.size() * sizeof(i_t)) / (1024.0 * 1024.0);
@@ -955,7 +959,9 @@ i_t right_looking_lu(const csc_matrix_t<i_t, f_t>& A,
     const i_t col_end   = L.col_start[j + 1];
     for (i_t p = col_start; p < col_end; ++p) {
       const i_t i = L.i[p];
-      if (i < j) { printf("Found L(%d, %d) not lower triangular!\n", i, j); }
+      if (i < j) {
+        printf("Found L(%lld, %lld) not lower triangular!\n", (long long)(i), (long long)(j));
+      }
       assert(i >= j);
     }
   }
@@ -987,7 +993,9 @@ i_t right_looking_lu(const csc_matrix_t<i_t, f_t>& A,
     const i_t col_end   = U.col_start[j + 1];
     for (i_t p = col_start; p < col_end; ++p) {
       const i_t i = U.i[p];
-      if (i > j) { printf("Found U(%d, %d) not upper triangluar\n", i, j); }
+      if (i > j) {
+        printf("Found U(%lld, %lld) not upper triangluar\n", (long long)(i), (long long)(j));
+      }
       assert(i <= j);
     }
   }
@@ -1041,7 +1049,7 @@ i_t right_looking_lu_row_permutation_only(const csc_matrix_t<i_t, f_t>& A,
     constexpr f_t threshold_tol = 1.0 / 10.0;
     trailing_matrix.markowitz_search(pivot_tol, threshold_tol, pivot_i, pivot_j, pivot_val);
     if (pivot_i == -1 || pivot_j == -1) {
-      settings.log.debug("Breaking can't find a pivot %d\n", k);
+      settings.log.debug("Breaking can't find a pivot %lld\n", (long long)(k));
       break;
     }
     // Pivot
@@ -1061,11 +1069,11 @@ i_t right_looking_lu_row_permutation_only(const csc_matrix_t<i_t, f_t>& A,
 
     if (toc(last_print) > 10.0) {
       settings.log.printf(
-        "Right-looking LU factorization: Pivots %d m %d n %d in "
+        "Right-looking LU factorization: Pivots %lld m %lld n %lld in "
         "%.2f seconds\n",
-        pivots,
-        m,
-        n,
+        (long long)(pivots),
+        (long long)(m),
+        (long long)(n),
         toc(factorization_start_time));
       last_print = tic();
     }
@@ -1079,7 +1087,8 @@ i_t right_looking_lu_row_permutation_only(const csc_matrix_t<i_t, f_t>& A,
   // Finalize the permutation pinv
   // We will have only defined pinv[0..n-1]. When n < m, we still need to define
   // pinv[n..m]
-  settings.log.debug("Pivots %d m %d n %d\n", pivots, m, n);
+  settings.log.debug(
+    "Pivots %lld m %lld n %lld\n", (long long)(pivots), (long long)(m), (long long)(n));
   if (m > n || pivots < n) {
     i_t start = pivots;
     for (i_t i = 0; i < m; ++i) {
@@ -1790,18 +1799,19 @@ i_t right_looking_ldlt(const csc_matrix_t<i_t, f_t>& A,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template int right_looking_lu<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                           const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                           double tol,
-                                           const std::vector<cuopt_int_t>& column_list,
-                                           double start_time,
-                                           std::vector<cuopt_int_t>& q,
-                                           csc_matrix_t<cuopt_int_t, double>& L,
-                                           csc_matrix_t<cuopt_int_t, double>& U,
-                                           std::vector<cuopt_int_t>& pinv,
-                                           double& work_estimate);
+template cuopt_int_t right_looking_lu<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  double tol,
+  const std::vector<cuopt_int_t>& column_list,
+  double start_time,
+  std::vector<cuopt_int_t>& q,
+  csc_matrix_t<cuopt_int_t, double>& L,
+  csc_matrix_t<cuopt_int_t, double>& U,
+  std::vector<cuopt_int_t>& pinv,
+  double& work_estimate);
 
-template int right_looking_lu_row_permutation_only<cuopt_int_t, double>(
+template cuopt_int_t right_looking_lu_row_permutation_only<cuopt_int_t, double>(
   const csc_matrix_t<cuopt_int_t, double>& A,
   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
   double tol,
@@ -1809,14 +1819,15 @@ template int right_looking_lu_row_permutation_only<cuopt_int_t, double>(
   std::vector<cuopt_int_t>& q,
   std::vector<cuopt_int_t>& pinv);
 
-template int right_looking_ldlt<cuopt_int_t, double>(const csc_matrix_t<cuopt_int_t, double>& A,
-                                             const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                             double pivot_tol,
-                                             double start_time,
-                                             std::vector<cuopt_int_t>& perm,
-                                             csc_matrix_t<cuopt_int_t, double>& L,
-                                             std::vector<double>& D,
-                                             double& work_estimate);
+template cuopt_int_t right_looking_ldlt<cuopt_int_t, double>(
+  const csc_matrix_t<cuopt_int_t, double>& A,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  double pivot_tol,
+  double start_time,
+  std::vector<cuopt_int_t>& perm,
+  csc_matrix_t<cuopt_int_t, double>& L,
+  std::vector<double>& D,
+  double& work_estimate);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex

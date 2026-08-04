@@ -33,8 +33,8 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
 {
   simplex::user_problem_t<i_t, f_t> user_problem(handle_ptr);
 
-  int m                  = problem.get_n_constraints();
-  int n                  = problem.get_n_variables();
+  i_t m                  = problem.get_n_constraints();
+  i_t n                  = problem.get_n_variables();
   auto A_values          = problem.get_constraint_matrix_values_host();
   auto A_indices         = problem.get_constraint_matrix_indices_host();
   auto A_offsets         = problem.get_constraint_matrix_offsets_host();
@@ -59,7 +59,7 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
   auto constraint_lower_bounds = problem.get_constraint_lower_bounds_host();
   auto constraint_upper_bounds = problem.get_constraint_upper_bounds_host();
 
-  for (int i = 0; i < m; ++i) {
+  for (i_t i = 0; i < m; ++i) {
     const f_t constraint_lower_bound = constraint_lower_bounds[i];
     const f_t constraint_upper_bound = constraint_upper_bounds[i];
     if (constraint_lower_bound == constraint_upper_bound) {
@@ -89,7 +89,7 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
   user_problem.var_types.resize(n);
 
   auto variable_types = problem.get_variable_types_host();
-  for (int j = 0; j < n; ++j) {
+  for (i_t j = 0; j < n; ++j) {
     user_problem.var_types[j] =
       variable_types[j] == var_t::CONTINUOUS
         ? cuopt::mathematical_optimization::simplex::variable_type_t::CONTINUOUS
@@ -116,9 +116,9 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
 {
   simplex::user_problem_t<i_t, f_t> user_problem(handle_ptr);
 
-  int m                  = model.n_constraints;
-  int n                  = model.n_variables;
-  int nz                 = model.nnz;
+  i_t m                  = model.n_constraints;
+  i_t n                  = model.n_variables;
+  i_t nz                 = model.nnz;
   user_problem.num_rows  = m;
   user_problem.num_cols  = n;
   user_problem.objective = cuopt::host_copy(model.objective_coefficients, handle_ptr->get_stream());
@@ -140,7 +140,7 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
 
   // All constraints have lower and upper bounds
   // lr <= a_i^T x <= ur
-  for (int i = 0; i < m; ++i) {
+  for (i_t i = 0; i < m; ++i) {
     const double constraint_lower_bound = model_constraint_lower_bounds[i];
     const double constraint_upper_bound = model_constraint_upper_bounds[i];
     if (constraint_lower_bound == constraint_upper_bound) {
@@ -167,8 +167,8 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
   user_problem.problem_name = model.original_problem_ptr->get_problem_name();
   if (model.row_names.size() > 0) {
     user_problem.row_names.resize(m);
-    for (int i = 0; i < m; ++i) {
-      if (i < (int)model.row_names.size()) {
+    for (i_t i = 0; i < m; ++i) {
+      if (i < static_cast<i_t>(model.row_names.size())) {
         user_problem.row_names[i] = model.row_names[i];
       } else {
         user_problem.row_names[i] = "c" + std::to_string(i);
@@ -177,8 +177,8 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
   }
   if (model.var_names.size() > 0) {
     user_problem.col_names.resize(n);
-    for (int j = 0; j < n; ++j) {
-      if (j < (int)model.var_names.size()) {
+    for (i_t j = 0; j < n; ++j) {
+      if (j < static_cast<i_t>(model.var_names.size())) {
         user_problem.col_names[j] = model.var_names[j];
       } else {
         user_problem.col_names[j] = "_CUOPT_x" + std::to_string(j);
@@ -190,7 +190,7 @@ static simplex::user_problem_t<i_t, f_t> cuopt_problem_to_user_problem(
   user_problem.var_types.resize(n);
 
   auto model_variable_types = cuopt::host_copy(model.variable_types, handle_ptr->get_stream());
-  for (int j = 0; j < n; ++j) {
+  for (i_t j = 0; j < n; ++j) {
     user_problem.var_types[j] =
       model_variable_types[j] == var_t::CONTINUOUS
         ? cuopt::mathematical_optimization::simplex::variable_type_t::CONTINUOUS

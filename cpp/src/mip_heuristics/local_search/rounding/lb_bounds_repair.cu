@@ -15,6 +15,7 @@
 #include <thrust/tuple.h>
 #include <mip_heuristics/logger.cuh>
 #include <mip_heuristics/mip_constants.hpp>
+#include <utilities/atomic_helpers.cuh>
 #include <utilities/seed_generator.cuh>
 
 namespace cuopt::mathematical_optimization::mip {
@@ -63,8 +64,8 @@ std::tuple<f_t, i_t> lb_bounds_repair_t<i_t, f_t>::get_ii_violation(
   lb_bound_presolve.calculate_constraint_slack(problem.handle_ptr);
   thrust::for_each(
     handle_ptr->get_thrust_policy(),
-    thrust::make_counting_iterator(0),
-    thrust::make_counting_iterator(0) + problem.n_constraints,
+    thrust::make_counting_iterator(i_t(0)),
+    thrust::make_counting_iterator(i_t(0)) + problem.n_constraints,
     [tolerances              = problem.tolerances,
      violated_cstr_map       = violated_cstr_map.data(),
      constraint_lower_bounds = problem.constraint_lower_bounds,
@@ -91,8 +92,8 @@ std::tuple<f_t, i_t> lb_bounds_repair_t<i_t, f_t>::get_ii_violation(
       cstr_violations_down[cstr_idx] = curr_cstr_violation_down;
     });
   auto iter           = thrust::copy_if(handle_ptr->get_thrust_policy(),
-                              thrust::make_counting_iterator(0),
-                              thrust::make_counting_iterator(0) + problem.n_constraints,
+                              thrust::make_counting_iterator(i_t(0)),
+                              thrust::make_counting_iterator(i_t(0)) + problem.n_constraints,
                               violated_cstr_map.data(),
                               violated_constraints.data(),
                               cuda::std::identity{});

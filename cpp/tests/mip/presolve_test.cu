@@ -81,8 +81,8 @@ TEST(gf2_presolve, uses_compact_constraint_indices)
   constexpr int y_offset         = x_offset + num_gf2_vars;
 
   std::vector<double> values;
-  std::vector<int> indices;
-  std::vector<int> offsets{0};
+  std::vector<cuopt_int_t> indices;
+  std::vector<cuopt_int_t> offsets{0};
   std::vector<double> constraint_lb(num_rows, 1.0);
   std::vector<double> constraint_ub(num_rows, 2.0);
 

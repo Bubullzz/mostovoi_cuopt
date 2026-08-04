@@ -9,6 +9,8 @@
 
 #include "solution.cuh"
 
+#include <utilities/atomic_helpers.cuh>
+
 #include <raft/util/reduction.cuh>
 
 namespace cuopt::mathematical_optimization::mip {

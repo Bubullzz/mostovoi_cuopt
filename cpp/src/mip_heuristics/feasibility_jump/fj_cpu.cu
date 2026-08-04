@@ -1075,7 +1075,7 @@ static void recompute_lhs(fj_cpu_climber_t<i_t, f_t>& fj_cpu)
     auto c_lb                       = fj_cpu.h_cstr_lb[cstr_idx];
     auto c_ub                       = fj_cpu.h_cstr_ub[cstr_idx];
     auto delta_it =
-      thrust::make_transform_iterator(thrust::make_counting_iterator(0), [&fj_cpu](i_t j) {
+      thrust::make_transform_iterator(thrust::make_counting_iterator(i_t(0)), [&fj_cpu](i_t j) {
         return fj_cpu.h_coefficients[j] * fj_cpu.h_assignment[fj_cpu.h_variables[j]];
       });
     fj_cpu.h_lhs[cstr_idx] =
@@ -1679,7 +1679,7 @@ void cpufj_solve(fj_cpu_climber_t<i_t, f_t>* fj_cpu, f_t in_time_limit, double w
     }
 
     if (score > fj_staged_score_t::zero() && !should_perturb) {
-      apply_move(*fj_cpu, move.var_idx, move.value, false);
+      apply_move<i_t, f_t>(*fj_cpu, move.var_idx, move.value, false);
       // Track move types
       if (is_lift) fj_cpu->n_lift_moves_window++;
       if (is_mtm_viol) fj_cpu->n_mtm_viol_moves_window++;
@@ -1693,7 +1693,7 @@ void cpufj_solve(fj_cpu_climber_t<i_t, f_t>* fj_cpu, f_t in_time_limit, double w
           fj_cpu->cached_mtm_moves[i].first = 0;
       }
       thrust::tie(move, score) =
-        find_mtm_move_viol(*fj_cpu, 1, true);  // pick a single random violated constraint
+        find_mtm_move_viol(*fj_cpu, i_t(1), true);  // pick a single random violated constraint
       i_t var_idx = move.var_idx >= 0 ? move.var_idx : 0;
       f_t delta   = move.var_idx >= 0 ? move.value : 0;
       apply_move(*fj_cpu, var_idx, delta, true);
@@ -1856,10 +1856,10 @@ template std::unique_ptr<fj_cpu_climber_t<cuopt_int_t, float>> init_fj_cpu_stand
   fj_settings_t settings);
 template void finalize_fj_cpu_host_initialization(
   fj_cpu_climber_t<cuopt_int_t, float>& fj_cpu,
-  int n_variables,
-  int n_constraints,
-  int n_integer_vars,
-  int nnz,
+  cuopt_int_t n_variables,
+  cuopt_int_t n_constraints,
+  cuopt_int_t n_integer_vars,
+  cuopt_int_t nnz,
   const typename mip_solver_settings_t<cuopt_int_t, float>::tolerances_t& tolerances);
 #endif
 
@@ -1876,10 +1876,10 @@ template std::unique_ptr<fj_cpu_climber_t<cuopt_int_t, double>> init_fj_cpu_stan
   fj_settings_t settings);
 template void finalize_fj_cpu_host_initialization(
   fj_cpu_climber_t<cuopt_int_t, double>& fj_cpu,
-  int n_variables,
-  int n_constraints,
-  int n_integer_vars,
-  int nnz,
+  cuopt_int_t n_variables,
+  cuopt_int_t n_constraints,
+  cuopt_int_t n_integer_vars,
+  cuopt_int_t nnz,
   const typename mip_solver_settings_t<cuopt_int_t, double>::tolerances_t& tolerances);
 #endif
 

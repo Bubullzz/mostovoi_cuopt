@@ -343,7 +343,7 @@ class deterministic_diving_worker_t
   void queue_integer_solution(f_t objective, const std::vector<f_t>& solution, i_t depth)
   {
     this->integer_solutions.push_back(
-      {objective, solution, depth, this->worker_id, this->next_solution_seq++});
+      {objective, solution, depth, static_cast<int>(this->worker_id), this->next_solution_seq++});
     ++this->total_integer_solutions;
   }
 };

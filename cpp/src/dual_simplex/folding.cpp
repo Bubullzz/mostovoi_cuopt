@@ -212,8 +212,8 @@ i_t find_colors_to_split(const std::vector<i_t>& colors_to_update,
   colors_to_split.clear();
   for (i_t color : colors_to_update) {
     if (max_sum_by_color[color] < min_sum_by_color[color]) {
-      printf("Color %d has max sum %e < min sum %e\n",
-             color,
+      printf("Color %lld has max sum %e < min sum %e\n",
+             (long long)(color),
              max_sum_by_color[color],
              min_sum_by_color[color]);
       return -1;
@@ -253,15 +253,15 @@ i_t split_colors(i_t color,
     const i_t remaining_size =
       colors[color].vertices.size() - vertices_to_refine_by_color[color].size();
     if (remaining_size < 0) {
-      printf("Negative remaining size %d\n", remaining_size);
+      printf("Negative remaining size %lld\n", (long long)(remaining_size));
 
-      printf("Color %d vertices\n", color);
+      printf("Color %lld vertices\n", (long long)(color));
       for (i_t v : colors[color].vertices) {
-        printf("Vertex %d\n", v);
+        printf("Vertex %lld\n", (long long)(v));
       }
-      printf("Vertices to refine by color %d\n", color);
+      printf("Vertices to refine by color %lld\n", (long long)(color));
       for (i_t v : vertices_to_refine_by_color[color]) {
-        printf("Vertex %d\n", v);
+        printf("Vertex %lld\n", (long long)(v));
       }
       return -1;
     }
@@ -283,10 +283,10 @@ i_t split_colors(i_t color,
   }
   bool only_one = sum_to_sizes.size() == 1;
   if (only_one) {
-    printf("Color %d has only one sum. color_sums size %ld. In stack %d\n",
-           color,
+    printf("Color %lld has only one sum. color_sums size %ld. In stack %lld\n",
+           (long long)(color),
            color_sums.size(),
-           in_stack);
+           (long long)(in_stack));
     return -1;
   }
 
@@ -342,8 +342,8 @@ i_t split_colors(i_t color,
   }
 
   if (vertices_considered != colors[color].vertices.size()) {
-    printf("Vertices considered %d does not match color size %ld\n",
-           vertices_considered,
+    printf("Vertices considered %lld does not match color size %ld\n",
+           (long long)(vertices_considered),
            colors[color].vertices.size());
     return -1;
   }
@@ -439,19 +439,19 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
   i_t col_lower_bound = 0;
 
   color_lower_bounds(A, A_row, row_lower_bound, col_lower_bound);
-  settings.log.debug("Folding: Row lower bound %d / %d col lower bound %d / %d\n",
-                     row_lower_bound,
-                     row_threshold,
-                     col_lower_bound,
-                     col_threshold);
+  settings.log.debug("Folding: Row lower bound %lld / %lld col lower bound %lld / %lld\n",
+                     (long long)(row_lower_bound),
+                     (long long)(row_threshold),
+                     (long long)(col_lower_bound),
+                     (long long)(col_threshold));
   if (row_lower_bound > row_threshold || col_lower_bound > col_threshold) {
     settings.log.debug(
-      "Folding: Row lower bound %d is greater than row threshold %d or col lower bound %d is "
-      "greater than col threshold %d\n",
-      row_lower_bound,
-      row_threshold,
-      col_lower_bound,
-      col_threshold);
+      "Folding: Row lower bound %lld is greater than row threshold %lld or col lower bound %lld is "
+      "greater than col threshold %lld\n",
+      (long long)(row_lower_bound),
+      (long long)(row_threshold),
+      (long long)(col_lower_bound),
+      (long long)(col_threshold));
     return coloring_status_t::COLORING_FAILED;
   }
 
@@ -597,8 +597,9 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
       static_cast<i_t>(colors_per_refinement * static_cast<f_t>(color_stack.size()));
 
     if (total_colors_seen >= max_colors - 10) {
-      settings.log.debug(
-        "Folding: Increase max colors from %d to %d\n", max_colors, max_colors * 2);
+      settings.log.debug("Folding: Increase max colors from %lld to %lld\n",
+                         (long long)(max_colors),
+                         (long long)(max_colors * 2));
       max_colors *= 2;
       color_in_stack.resize(max_colors, 0);
       vertices_to_refine_by_color.resize(max_colors);
@@ -610,7 +611,7 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
 #ifdef DEBUG
     for (i_t k = 0; k < max_vertices; k++) {
       if (vertex_to_sum[k] != 0.0) {
-        settings.log.printf("Folding: Vertex %d has sum %e\n", k, vertex_to_sum[k]);
+        settings.log.printf("Folding: Vertex %lld has sum %e\n", (long long)(k), vertex_to_sum[k]);
         return coloring_status_t::COLORING_FAILED;
       }
     }
@@ -625,8 +626,8 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
 #ifdef DEBUG
     for (i_t k = 0; k < total_colors_seen; k++) {
       if (vertices_to_refine_by_color[k].size() != 0) {
-        settings.log.printf("Folding: Color %d has %ld vertices to refine. Not cleared\n",
-                            k,
+        settings.log.printf("Folding: Color %lld has %ld vertices to refine. Not cleared\n",
+                            (long long)(k),
                             vertices_to_refine_by_color[k].size());
         return coloring_status_t::COLORING_FAILED;
       }
@@ -636,16 +637,16 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
 #ifdef DEBUG
     for (i_t i = 0; i < m; i++) {
       if (row_color_map[i] >= total_colors_seen) {
-        settings.log.printf("Folding: Row color %d is not in the colors vector\n",
-                            row_color_map[i]);
+        settings.log.printf("Folding: Row color %lld is not in the colors vector\n",
+                            (long long)(row_color_map[i]));
         return coloring_status_t::COLORING_FAILED;
       }
     }
     for (i_t j = 0; j < n; j++) {
       if (col_color_map[j] >= total_colors_seen) {
-        settings.log.printf("Folding: Column color %d is not in the colors vector. %d\n",
-                            col_color_map[j],
-                            num_colors);
+        settings.log.printf("Folding: Column color %lld is not in the colors vector. %lld\n",
+                            (long long)(col_color_map[j]),
+                            (long long)(num_colors));
         return coloring_status_t::COLORING_FAILED;
       }
     }
@@ -664,10 +665,10 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
           for (i_t v : color.vertices) {
             if (row_color_map[v] != color.color) {
               settings.log.printf(
-                "Folding: Row color map %d does not match color %d for vertex %d\n",
-                row_color_map[v],
-                color.color,
-                v);
+                "Folding: Row color map %lld does not match color %lld for vertex %lld\n",
+                (long long)(row_color_map[v]),
+                (long long)(color.color),
+                (long long)(v));
               return coloring_status_t::COLORING_FAILED;
             }
           }
@@ -676,10 +677,10 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
           for (i_t v : color.vertices) {
             if (col_color_map[v] != color.color) {
               settings.log.printf(
-                "Folding: Column color map %d does not match color %d for vertex %d\n",
-                col_color_map[v],
-                color.color,
-                v);
+                "Folding: Column color map %lld does not match color %lld for vertex %lld\n",
+                (long long)(col_color_map[v]),
+                (long long)(color.color),
+                (long long)(v));
               return coloring_status_t::COLORING_FAILED;
             }
           }
@@ -709,30 +710,36 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
       f_t elapsed        = toc(start_time);
       i_t current_colors = num_row_colors + num_col_colors;
       last_log_time      = tic();
-      settings.log.printf(
-        "Folding: %d refinements %d colors in %.2fs\n", num_refinements, current_colors, elapsed);
+      settings.log.printf("Folding: %lld refinements %lld colors in %.2fs\n",
+                          (long long)(num_refinements),
+                          (long long)(current_colors),
+                          elapsed);
 #ifdef PRINT_INFO
       settings.log.debug(
-        "Number of refinements %8d. Number of colors %d (row colors %d, col colors %d) stack size "
+        "Number of refinements %8lld. Number of colors %lld (row colors %lld, col colors %lld) "
+        "stack size "
         "%ld colors per "
-        "refinement %.2f projected colors %d in %.2f seconds\n",
-        num_refinements,
-        num_row_colors + num_col_colors,
-        num_row_colors,
-        num_col_colors,
+        "refinement %.2f projected colors %lld in %.2f seconds\n",
+        (long long)(num_refinements),
+        (long long)(num_row_colors + num_col_colors),
+        (long long)(num_row_colors),
+        (long long)(num_col_colors),
         color_stack.size(),
         colors_per_refinement,
-        projected_colors,
+        (long long)(projected_colors),
         elapsed);
 #endif
     }
     if (num_row_colors >= max_vertices) {
-      settings.log.printf("Folding: Too many row colors %d max %d\n", num_row_colors, max_vertices);
+      settings.log.printf("Folding: Too many row colors %lld max %lld\n",
+                          (long long)(num_row_colors),
+                          (long long)(max_vertices));
       return coloring_status_t::COLORING_FAILED;
     }
     if (num_col_colors >= max_vertices) {
-      settings.log.printf(
-        "Folding: Too many column colors %d max %d\n", num_col_colors, max_vertices);
+      settings.log.printf("Folding: Too many column colors %lld max %lld\n",
+                          (long long)(num_col_colors),
+                          (long long)(max_vertices));
       return coloring_status_t::COLORING_FAILED;
     }
 
@@ -741,8 +748,9 @@ coloring_status_t color_graph(const csc_matrix_t<i_t, f_t>& A,
       return coloring_status_t::COLORING_FAILED;
     }
   }
-  settings.log.printf(
-    "Folding: Colors %d. Refinements: %d\n", num_row_colors + num_col_colors, num_refinements);
+  settings.log.printf("Folding: Colors %lld. Refinements: %lld\n",
+                      (long long)(num_row_colors + num_col_colors),
+                      (long long)(num_refinements));
 
   return coloring_status_t::COLORING_SUCCESS;
 }
@@ -811,10 +819,10 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   i_t m_prime      = m + 1 + nz_ub;
   i_t n_prime      = n + nz_ub + 1;
   i_t augmented_nz = problem.A.col_start[n] + nz_obj + nz_rhs + 3 * nz_ub + 1;
-  settings.log.debug("Folding: Augmented matrix has %d rows, %d columns, %d nonzeros\n",
-                     m_prime,
-                     n_prime,
-                     augmented_nz);
+  settings.log.debug("Folding: Augmented matrix has %lld rows, %lld columns, %lld nonzeros\n",
+                     (long long)(m_prime),
+                     (long long)(n_prime),
+                     (long long)(augmented_nz));
 
   csc_matrix_t<i_t, f_t> augmented(m_prime, n_prime, augmented_nz);
   i_t nnz         = 0;
@@ -873,16 +881,19 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   augmented.x[nnz] = inf;
   nnz++;
   augmented.col_start[n + nz_ub + 1] = nnz;  // Finalize the matrix
-  settings.log.debug("Folding: Augmented matrix has %d nonzeros predicted %d\n", nnz, augmented_nz);
+  settings.log.debug("Folding: Augmented matrix has %lld nonzeros predicted %lld\n",
+                     (long long)(nnz),
+                     (long long)(augmented_nz));
 
   // Ensure only 1 inf in the augmented matrice
   i_t num_inf = 0;
   for (i_t p = 0; p < augmented_nz; p++) {
     if (augmented.x[p] == inf) { num_inf++; }
   }
-  settings.log.debug("Folding: Augmented matrix has %d infs\n", num_inf);
+  settings.log.debug("Folding: Augmented matrix has %lld infs\n", (long long)(num_inf));
   if (num_inf != 1) {
-    settings.log.printf("Folding: Augmented matrix has %d infs, expected 1\n", num_inf);
+    settings.log.printf("Folding: Augmented matrix has %lld infs, expected 1\n",
+                        (long long)(num_inf));
     return;
   }
 
@@ -946,7 +957,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       if (color.row_or_column == kRow) {
         if (color.vertices.size() == 1) {
           if (*color.vertices.begin() == m + nz_ub) {
-            settings.log.debug("Folding: Row color %d is the objective color\n", color.color);
+            settings.log.debug("Folding: Row color %lld is the objective color\n",
+                               (long long)(color.color));
             found_objective_color = true;
             objective_color       = color_count;
           } else {
@@ -961,8 +973,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
           for (++it; it != color.vertices.end(); ++it) {
             if (full_rhs[*it] != rhs_value) {
               settings.log.printf(
-                "Folding: RHS value for vertex %d is %e, but should be %e. Difference is %e\n",
-                *it,
+                "Folding: RHS value for vertex %lld is %e, but should be %e. Difference is %e\n",
+                (long long)(*it),
                 full_rhs[*it],
                 rhs_value,
                 full_rhs[*it] - rhs_value);
@@ -999,7 +1011,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       if (color.row_or_column == kCol) {
         if (color.vertices.size() == 1) {
           if (*color.vertices.begin() == n_prime - 1) {
-            settings.log.debug("Folding: Column color %d is the rhs color\n", color.color);
+            settings.log.debug("Folding: Column color %lld is the rhs color\n",
+                               (long long)(color.color));
             found_rhs_color = true;
             rhs_color       = color_count;
           } else {
@@ -1014,9 +1027,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
           for (; it != color.vertices.end(); ++it) {
             if (full_objective[*it] != objective_value) {
               settings.log.printf(
-                "Folding: Objective value for vertex %d is %e, but should be %e. Difference is "
+                "Folding: Objective value for vertex %lld is %e, but should be %e. Difference is "
                 "%e\n",
-                *it,
+                (long long)(*it),
                 full_objective[*it],
                 objective_value,
                 full_objective[*it] - objective_value);
@@ -1056,7 +1069,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
 
   i_t previous_rows = m + nz_ub;
   i_t reduced_rows  = num_row_colors - 1;
-  settings.log.debug("Folding: previous_rows %d reduced_rows %d\n", previous_rows, reduced_rows);
+  settings.log.debug("Folding: previous_rows %lld reduced_rows %lld\n",
+                     (long long)(previous_rows),
+                     (long long)(reduced_rows));
 
   // Construct the matrix Pi_P
   // Pi_vP = { 1 if v in P
@@ -1075,9 +1090,11 @@ void folding(lp_problem_t<i_t, f_t>& problem,
     }
   }
   Pi_P.col_start[reduced_rows] = nnz;
-  settings.log.debug("Folding: Pi_P nz %d predicted %d\n", nnz, previous_rows);
+  settings.log.debug(
+    "Folding: Pi_P nz %lld predicted %lld\n", (long long)(nnz), (long long)(previous_rows));
   if (nnz != previous_rows) {
-    settings.log.printf("Folding: Pi_P nz %d predicted %d\n", nnz, previous_rows);
+    settings.log.printf(
+      "Folding: Pi_P nz %lld predicted %lld\n", (long long)(nnz), (long long)(previous_rows));
     return;
   }
 #ifdef WRITE_PI_P
@@ -1097,8 +1114,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   settings.log.debug("Folding: Constructing C^s row\n");
   csr_matrix_t<i_t, f_t> C_s_row(reduced_rows, previous_rows, previous_rows);
   nnz = 0;
-  settings.log.debug(
-    "Folding: row_colors size %ld reduced_rows %d\n", row_colors.size(), reduced_rows);
+  settings.log.debug("Folding: row_colors size %ld reduced_rows %lld\n",
+                     row_colors.size(),
+                     (long long)(reduced_rows));
   if (row_colors.size() != reduced_rows) {
     settings.log.printf("Folding: Bad row colors\n");
     return;
@@ -1119,7 +1137,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
     }
   }
   C_s_row.row_start[reduced_rows] = nnz;
-  settings.log.debug("Folding: C_s nz %d predicted %d\n", nnz, previous_rows);
+  settings.log.debug(
+    "Folding: C_s nz %lld predicted %lld\n", (long long)(nnz), (long long)(previous_rows));
   settings.log.debug("Folding: Converting C^s row to compressed column\n");
 
   // csc_matrix_t<i_t, f_t> C_s(reduced_rows, previous_rows, 1);
@@ -1156,8 +1175,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   settings.log.debug("Folding: Constructing D\n");
   i_t previous_cols = n + nz_ub;
   i_t reduced_cols  = num_col_colors - 1;
-  settings.log.debug(
-    "Folding: previous columns %d reduced columns %d\n", previous_cols, reduced_cols);
+  settings.log.debug("Folding: previous columns %lld reduced columns %lld\n",
+                     (long long)(previous_cols),
+                     (long long)(reduced_cols));
   presolve_info.folding_info.D.resize(previous_cols, reduced_cols, previous_cols);
   csc_matrix_t<i_t, f_t>& D = presolve_info.folding_info.D;
   nnz                       = 0;
@@ -1177,7 +1197,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
     }
   }
   D.col_start[reduced_cols] = nnz;
-  settings.log.debug("Folding: D nz %d predicted %d\n", nnz, previous_cols);
+  settings.log.debug(
+    "Folding: D nz %lld predicted %lld\n", (long long)(nnz), (long long)(previous_cols));
 #ifdef WRITE_D
   fid = fopen("D.txt", "w");
   D.write_matrix_market(fid);
@@ -1200,7 +1221,8 @@ void folding(lp_problem_t<i_t, f_t>& problem,
     }
   }
   D_s_row.row_start[reduced_cols] = nnz;
-  settings.log.debug("Folding: D^s row nz %d predicted %d\n", nnz, previous_cols);
+  settings.log.debug(
+    "Folding: D^s row nz %lld predicted %lld\n", (long long)(nnz), (long long)(previous_cols));
   settings.log.debug("Folding: Converting D^s row to compressed column\n");
   // csc_matrix_t<i_t, f_t> D_s(reduced_cols, previous_cols, 1);
   presolve_info.folding_info.D_s.resize(reduced_cols, previous_cols, 1);
@@ -1247,7 +1269,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       X_col_sums[j] += X.x[p];
     }
     if (std::abs(X_col_sums[j] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: X_col_sums[%d] = %f\n", j, X_col_sums[j]);
+      settings.log.printf("Folding: X_col_sums[%lld] = %f\n", (long long)(j), X_col_sums[j]);
       return;
     }
   }
@@ -1260,7 +1282,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       X_row_sums[i] += X_row.x[p];
     }
     if (std::abs(X_row_sums[i] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: X_row_sums[%d] = %f\n", i, X_row_sums[i]);
+      settings.log.printf("Folding: X_row_sums[%lld] = %f\n", (long long)(i), X_row_sums[i]);
       return;
     }
   }
@@ -1280,7 +1302,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       Y_col_sums[j] += Y.x[p];
     }
     if (std::abs(Y_col_sums[j] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: Y_col_sums[%d] = %f\n", j, Y_col_sums[j]);
+      settings.log.printf("Folding: Y_col_sums[%lld] = %f\n", (long long)(j), Y_col_sums[j]);
       return;
     }
   }
@@ -1293,7 +1315,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       Y_row_sums[i] += Y_row.x[p];
     }
     if (std::abs(Y_row_sums[i] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: Y_row_sums[%d] = %f\n", i, Y_row_sums[i]);
+      settings.log.printf("Folding: Y_row_sums[%lld] = %f\n", (long long)(i), Y_row_sums[i]);
       return;
     }
   }
@@ -1312,7 +1334,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   matrix_vector_multiply(Pi_P, 1.0, C_s_times_e, 0.0, X_row_sums);
   for (i_t i = 0; i < previous_rows; i++) {
     if (std::abs(X_row_sums[i] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: X_row_sums[%d] = %f\n", i, X_row_sums[i]);
+      settings.log.printf("Folding: X_row_sums[%lld] = %f\n", (long long)(i), X_row_sums[i]);
       return;
     }
   }
@@ -1324,7 +1346,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   matrix_transpose_vector_multiply(C_s, 1.0, Pi_P_T_times_e, 0.0, X_col_sums);
   for (i_t j = 0; j < previous_rows; j++) {
     if (std::abs(X_col_sums[j] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: X_col_sums[%d] = %f\n", j, X_col_sums[j]);
+      settings.log.printf("Folding: X_col_sums[%lld] = %f\n", (long long)(j), X_col_sums[j]);
       return;
     }
   }
@@ -1343,7 +1365,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   matrix_vector_multiply(D, 1.0, D_s_times_e, 0.0, Y_row_sums);
   for (i_t i = 0; i < previous_cols; i++) {
     if (std::abs(Y_row_sums[i] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: Y_row_sums[%d] = %f\n", i, Y_row_sums[i]);
+      settings.log.printf("Folding: Y_row_sums[%lld] = %f\n", (long long)(i), Y_row_sums[i]);
       return;
     }
   }
@@ -1355,7 +1377,7 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   matrix_transpose_vector_multiply(D_s, 1.0, D_T_times_e, 0.0, Y_col_sums);
   for (i_t j = 0; j < previous_cols; j++) {
     if (std::abs(Y_col_sums[j] - 1.0) > 1e-6) {
-      settings.log.printf("Folding: Y_col_sums[%d] = %f\n", j, Y_col_sums[j]);
+      settings.log.printf("Folding: Y_col_sums[%lld] = %f\n", (long long)(j), Y_col_sums[j]);
       return;
     }
   }
@@ -1452,9 +1474,9 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       }
     }
   }
-  settings.log.printf("Folding: Column partition max error = %.2e, violations = %d\n",
+  settings.log.printf("Folding: Column partition max error = %.2e, violations = %lld\n",
                       max_col_partition_error,
-                      col_partition_violations);
+                      (long long)(col_partition_violations));
 
   // Step 3: Precompute col_row_color_sum[col][row_color]
   std::vector<std::unordered_map<i_t, f_t>> col_row_color_sum(A_tilde.n);
@@ -1493,16 +1515,16 @@ void folding(lp_problem_t<i_t, f_t>& problem,
       }
     }
   }
-  settings.log.printf("Folding: Row partition max error = %.2e, violations = %d\n",
+  settings.log.printf("Folding: Row partition max error = %.2e, violations = %lld\n",
                       max_row_partition_error,
-                      row_partition_violations);
+                      (long long)(row_partition_violations));
 
   if (col_partition_violations == 0 && row_partition_violations == 0) {
     settings.log.printf("Folding: Partition is equitable within tolerance\n");
   } else {
-    settings.log.printf("Folding: Partition has %d column + %d row violations\n",
-                        col_partition_violations,
-                        row_partition_violations);
+    settings.log.printf("Folding: Partition has %lld column + %lld row violations\n",
+                        (long long)(col_partition_violations),
+                        (long long)(row_partition_violations));
   }
 
 #ifdef BUILD_MATRIX_X_AND_Y
@@ -1516,15 +1538,17 @@ void folding(lp_problem_t<i_t, f_t>& problem,
 #endif
 
   if (A_tilde.m != previous_rows || A_tilde.n != previous_cols) {
-    settings.log.printf("Folding: A_tilde has %d rows and %d cols, expected %d and %d\n",
-                        A_tilde.m,
-                        A_tilde.n,
-                        previous_rows,
-                        previous_cols);
+    settings.log.printf("Folding: A_tilde has %lld rows and %lld cols, expected %lld and %lld\n",
+                        (long long)(A_tilde.m),
+                        (long long)(A_tilde.n),
+                        (long long)(previous_rows),
+                        (long long)(previous_cols));
     return;
   }
 
-  settings.log.debug("Folding: partial A_tilde nz %d predicted %d\n", nnz, A_nnz + 2 * nz_ub);
+  settings.log.debug("Folding: partial A_tilde nz %lld predicted %lld\n",
+                     (long long)(nnz),
+                     (long long)(A_nnz + 2 * nz_ub));
 
 // Define DEBUG to enable expensive XA=AY verification
 #ifdef DEBUG
@@ -1589,8 +1613,10 @@ void folding(lp_problem_t<i_t, f_t>& problem,
         diff += (xa_v[i] - ay_v[i]) * (xa_v[i] - ay_v[i]);
       }
       diff = std::sqrt(diff);
-      settings.log.printf(
-        "Folding: Trial %d: ||XA*v - AY*v||_2 = %e, ||v||_2 = %e\n", trial, diff, norm_v);
+      settings.log.printf("Folding: Trial %lld: ||XA*v - AY*v||_2 = %e, ||v||_2 = %e\n",
+                          (long long)(trial),
+                          diff,
+                          norm_v);
 
       if (diff > 1e-7 * norm_v) {
         settings.log.printf("Folding: Large difference detected in XA*v vs AY*v, ||diff||_2 = %e\n",
@@ -1606,11 +1632,11 @@ void folding(lp_problem_t<i_t, f_t>& problem,
                           std::greater<std::pair<f_t, i_t>>());
         for (i_t k = 0; k < std::min((i_t)5, previous_rows); ++k) {
           i_t i = diffs_with_idx[k].second;
-          settings.log.printf("   i=%d: (XA*v)[%d]=%e  (AY*v)[%d]=%e  diff=%e\n",
-                              i,
-                              i,
+          settings.log.printf("   i=%lld: (XA*v)[%lld]=%e  (AY*v)[%lld]=%e  diff=%e\n",
+                              (long long)(i),
+                              (long long)(i),
                               xa_v[i],
-                              i,
+                              (long long)(i),
                               ay_v[i],
                               xa_v[i] - ay_v[i]);
         }
@@ -1657,16 +1683,18 @@ void folding(lp_problem_t<i_t, f_t>& problem,
   matrix_transpose_vector_multiply(D, 1.0, c_tilde, 0.0, c_prime);
 
   if (reduced_rows > reduced_cols) {
-    settings.log.printf("Folding: Reduced rows %d > reduced cols %d\n", reduced_rows, reduced_cols);
+    settings.log.printf("Folding: Reduced rows %lld > reduced cols %lld\n",
+                        (long long)(reduced_rows),
+                        (long long)(reduced_cols));
     return;
   }
 
   // Construct a new problem
   settings.log.printf(
-    "Folding: Constructing reduced problem: %d constraints %d variables and %d nonzeros\n",
-    reduced_rows,
-    reduced_cols,
-    A_prime.col_start[reduced_cols]);
+    "Folding: Constructing reduced problem: %lld constraints %lld variables and %lld nonzeros\n",
+    (long long)(reduced_rows),
+    (long long)(reduced_cols),
+    (long long)(A_prime.col_start[reduced_cols]));
 
 #ifdef SOLVE_REDUCED_PROBLEM
   user_problem_t<i_t, f_t> reduced_problem(problem.handle_ptr);
@@ -1744,9 +1772,10 @@ void folding(lp_problem_t<i_t, f_t>& problem,
 
 #ifdef DUAL_SIMPLEX_INSTANTIATE_DOUBLE
 
-template void folding<cuopt_int_t, double>(lp_problem_t<cuopt_int_t, double>& problem,
-                                   const simplex_solver_settings_t<cuopt_int_t, double>& settings,
-                                   presolve_info_t<cuopt_int_t, double>& presolve_info);
+template void folding<cuopt_int_t, double>(
+  lp_problem_t<cuopt_int_t, double>& problem,
+  const simplex_solver_settings_t<cuopt_int_t, double>& settings,
+  presolve_info_t<cuopt_int_t, double>& presolve_info);
 #endif
 
 }  // namespace cuopt::mathematical_optimization::simplex
