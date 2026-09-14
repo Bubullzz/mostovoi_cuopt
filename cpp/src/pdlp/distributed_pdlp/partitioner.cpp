@@ -62,6 +62,8 @@ template <typename i_t, typename f_t>
 std::vector<i_t> kaminpar_partitioner_t<i_t, f_t>::partition(
   partitioner_input_t<i_t, f_t> const& input) const
 {
+  float nnz_partition_weight = 1.0f;
+  
   cuopt_expects(input.nb_parts >= 1,
                 error_type_t::ValidationError,
                 "kaminpar_partitioner: nb_parts must be >= 1");
@@ -113,6 +115,9 @@ std::vector<i_t> kaminpar_partitioner_t<i_t, f_t>::partition(
   std::vector<kaminpar::shm::EdgeID> xadj(static_cast<std::size_t>(nvtx) + 1);
   std::vector<kaminpar::shm::NodeID> adjncy(2 * static_cast<std::size_t>(nnz));
 
+  // Node weights are used to balance the partition. We use the number of nnzs in the constraint/variable to balance the partition.
+  std::vector<kaminpar::shm::NodeWeight> vwgt(static_cast<std::size_t>(nvtx));
+
   // CSR already represents an adjency list of cstr -> variables.
   // Adding the transpose to represent the var -> cstr edges.
   // Casting the types to KaMinPar friendly types
@@ -138,12 +143,22 @@ std::vector<i_t> kaminpar_partitioner_t<i_t, f_t>::partition(
     adjncy[nnz + k] = static_cast<kaminpar::shm::NodeID>(A_t_cols[k]);
   }
 
+  for (i_t i = 0; i < nb_cstr; ++i) {
+    const auto deg = static_cast<kaminpar::shm::NodeWeight>(A_offsets[i + 1] - A_offsets[i]);
+    vwgt[i]        = 1.0f + nnz_partition_weight * deg;
+  }
+  for (i_t j = 0; j < nb_vars; ++j) {
+    const auto deg = static_cast<kaminpar::shm::NodeWeight>(A_t_offsets[j + 1] - A_t_offsets[j]);
+    vwgt[nb_cstr + j] = 1.0f + nnz_partition_weight * deg;
+  }
+
   std::vector<kaminpar::shm::BlockID> block_of(static_cast<std::size_t>(nvtx));
 
   kaminpar::KaMinPar engine(nthreads, kaminpar::shm::create_default_context());
   engine.set_output_level(kaminpar::OutputLevel::QUIET);
   engine.copy_graph(std::span<const kaminpar::shm::EdgeID>(xadj),
-                    std::span<const kaminpar::shm::NodeID>(adjncy));
+                    std::span<const kaminpar::shm::NodeID>(adjncy),
+                    std::span<const kaminpar::shm::NodeWeight>(vwgt));
   engine.set_k(static_cast<kaminpar::shm::BlockID>(input.nb_parts));
   engine.set_uniform_max_block_weights(kaminpar_max_block_weight_imbalance);
 
