@@ -33,6 +33,13 @@
 
 #include <cuopt/version_config.hpp>
 
+#include <cstdint>
+#if defined(CUOPT_INDEX_64BIT)
+using index_t = std::int64_t;
+#else
+using index_t = std::int32_t;
+#endif
+
 static char cuda_module_loading_env[] = "CUDA_MODULE_LOADING=EAGER";
 
 /**
@@ -113,14 +120,14 @@ int run_single_file(const std::string& file_path,
 
   std::string base_filename = file_path.substr(file_path.find_last_of("/\\") + 1);
 
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_data_model;
+  cuopt::mathematical_optimization::io::mps_data_model_t<index_t, double> mps_data_model;
   bool parsing_failed = false;
   auto timer          = cuopt::timer_t(settings.get_parameter<double>(CUOPT_TIME_LIMIT));
   {
     CUOPT_LOG_INFO("Reading file %s", base_filename.c_str());
     try {
       mps_data_model =
-        cuopt::mathematical_optimization::io::read<int, double>(file_path, mps_reader);
+        cuopt::mathematical_optimization::io::read<index_t, double>(file_path, mps_reader);
     } catch (const std::logic_error& e) {
       CUOPT_LOG_ERROR("Parser exception: %s", e.what());
       parsing_failed = true;
