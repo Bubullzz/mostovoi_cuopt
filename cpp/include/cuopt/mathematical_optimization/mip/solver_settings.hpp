@@ -122,30 +122,30 @@ class mip_solver_settings_t {
   f_t time_limit                = std::numeric_limits<f_t>::infinity();
   f_t work_limit                = std::numeric_limits<f_t>::infinity();
   f_t semi_continuous_big_m     = f_t(1e10);
-  i_t node_limit                = std::numeric_limits<i_t>::max();
+  int node_limit                = std::numeric_limits<int>::max();
   bool heuristics_only          = false;
-  i_t reliability_branching     = -1;
-  i_t num_cpu_threads           = -1;  // -1 means use default number of threads in branch and bound
-  i_t symmetry                  = -1;
-  i_t max_cut_passes            = 10;  // number of cut passes to make
-  i_t mir_cuts                  = -1;
-  i_t mixed_integer_gomory_cuts = -1;
-  i_t knapsack_cuts             = -1;
-  i_t flow_cover_cuts           = -1;
-  i_t clique_cuts               = -1;
-  i_t zero_half_cuts            = -1;
-  i_t implied_bound_cuts        = -1;
-  i_t strong_chvatal_gomory_cuts = -1;
-  i_t reduced_cost_strengthening = -1;
-  i_t objective_step             = 1;  // 0 = disable objective step tightening, 1 = enable
+  int reliability_branching     = -1;
+  int num_cpu_threads           = -1;  // -1 means use default number of threads in branch and bound
+  int symmetry                  = -1;
+  int max_cut_passes            = 10;  // number of cut passes to make
+  int mir_cuts                  = -1;
+  int mixed_integer_gomory_cuts = -1;
+  int knapsack_cuts             = -1;
+  int flow_cover_cuts           = -1;
+  int clique_cuts               = -1;
+  int zero_half_cuts            = -1;
+  int implied_bound_cuts        = -1;
+  int strong_chvatal_gomory_cuts = -1;
+  int reduced_cost_strengthening = -1;
+  int objective_step             = 1;  // 0 = disable objective step tightening, 1 = enable
   f_t cut_change_threshold       = -1.0;
   f_t cut_min_orthogonality      = 0.5;
-  i_t mip_batch_pdlp_strong_branching{
+  int mip_batch_pdlp_strong_branching{
     0};  // 0 = DS only, 1 = cooperative DS + PDLP, 2 = batch PDLP only
-  i_t mip_batch_pdlp_reliability_branching{
+  int mip_batch_pdlp_reliability_branching{
     0};  // 0 = DS only, 1 = cooperative DS + PDLP, 2 = batch PDLP only
-  i_t strong_branching_simplex_iteration_limit = -1;
-  i_t num_gpus                                 = 1;
+  int strong_branching_simplex_iteration_limit = -1;
+  int num_gpus                                 = 1;
   method_t method{method_t::Concurrent};
   bool log_to_console = true;
 
@@ -191,7 +191,7 @@ class mip_solver_settings_t {
    * Controls the initial seed for random number generation in the solver.
    * Use -1 to generate a random seed.
    */
-  i_t seed = -1;
+  int seed = -1;
   // this is for extracting info from different places of the solver during
   // benchmarks
   benchmark_info_t* benchmark_info_ptr = nullptr;

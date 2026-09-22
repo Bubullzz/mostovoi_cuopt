@@ -285,7 +285,7 @@ class pdlp_solver_settings_t {
   tolerances_t tolerances;
   bool detect_infeasibility{false};
   bool strict_infeasibility{false};
-  i_t iteration_limit{std::numeric_limits<i_t>::max()};
+  int iteration_limit{std::numeric_limits<int>::max()};
   f_t time_limit{std::numeric_limits<f_t>::infinity()};
   pdlp_solver_mode_t pdlp_solver_mode{pdlp_solver_mode_t::Stable3};
   bool log_to_console{true};
@@ -296,24 +296,24 @@ class pdlp_solver_settings_t {
   bool per_constraint_residual{false};
   bool crossover{false};
   bool cudss_deterministic{false};
-  i_t folding{-1};
-  i_t augmented{-1};
-  i_t dualize{-1};
-  i_t ordering{-1};
+  int folding{-1};
+  int augmented{-1};
+  int dualize{-1};
+  int ordering{-1};
   barrier_dual_initial_point_t barrier_dual_initial_point{barrier_dual_initial_point_t::Automatic};
-  i_t postsolve_info{-1};
-  i_t barrier_presolve_bound_free_variables{-1};  // -1 automatic, 0 disabled, 1 enabled
+  int postsolve_info{-1};
+  int barrier_presolve_bound_free_variables{-1};  // -1 automatic, 0 disabled, 1 enabled
   // Ruiz equilibration for QCQP (barrier) scaling: -1 automatic (row/column
   // imbalance heuristic), 0 disabled, 1 enabled. Distinct from PDLP's own Ruiz
   // scaling in pdlp_hyper_params_t.
-  i_t qcqp_ruiz_equilibration{-1};
+  int qcqp_ruiz_equilibration{-1};
   // Margin used to push the barrier method's initial iterate into the interior of the
   // nonnegative orthant / SOC (values are shifted to be at least this far from the boundary).
   f_t barrier_initial_point_safeguard{10.0};
   bool eliminate_dense_columns{true};
   pdlp_precision_t pdlp_precision{pdlp_precision_t::DefaultPrecision};
   bool barrier_iterative_refinement{true};
-  i_t barrier_adaptive_regularization{-1};  // -1 automatic, 0 disabled, 1 enabled
+  int barrier_adaptive_regularization{-1};  // -1 automatic, 0 disabled, 1 enabled
   // Initial regularization for the barrier method's augmented KKT system, applied to the first
   // factorization only (adaptive regularization, if enabled, still scales it up/down on later
   // iterations). -1 automatic (uses the built-in heuristic), else the literal starting value.

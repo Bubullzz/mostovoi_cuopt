@@ -8,6 +8,7 @@
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/io/parser.hpp>
 #include <cuopt/mathematical_optimization/mip/solver_settings.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
@@ -33,12 +34,7 @@
 
 #include <cuopt/version_config.hpp>
 
-#include <cstdint>
-#if defined(CUOPT_INDEX_64BIT)
-using index_t = std::int64_t;
-#else
-using index_t = std::int32_t;
-#endif
+using cuopt::mathematical_optimization::index_t;
 
 static char cuda_module_loading_env[] = "CUDA_MODULE_LOADING=EAGER";
 
@@ -86,7 +82,7 @@ inline auto make_async() { return std::make_shared<rmm::mr::cuda_async_memory_re
  * @return cuopt::init_logger_t
  */
 inline cuopt::init_logger_t dummy_logger(
-  const cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
+  const cuopt::mathematical_optimization::solver_settings_t<index_t, double>& settings)
 {
   return cuopt::init_logger_t(settings.template get_parameter<std::string>(CUOPT_LOG_FILE),
                               settings.template get_parameter<bool>(CUOPT_LOG_TO_CONSOLE));
@@ -106,7 +102,7 @@ int run_single_file(const std::string& file_path,
                     const std::string& initial_solution_file,
                     bool solve_relaxation,
                     cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
-                    cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
+                    cuopt::mathematical_optimization::solver_settings_t<index_t, double>& settings)
 {
   // The CLI and the solver library have separate loggers that both write this file.
   // Configure the solver's first so its own initializer reuses that configuration rather
@@ -144,17 +140,17 @@ int run_single_file(const std::string& file_path,
   // Create handle only for GPU memory backend (avoid CUDA init on CPU-only hosts)
   auto memory_backend = cuopt::mathematical_optimization::get_memory_backend_type();
   std::unique_ptr<raft::handle_t> handle_ptr;
-  std::unique_ptr<cuopt::mathematical_optimization::optimization_problem_interface_t<int, double>>
+  std::unique_ptr<cuopt::mathematical_optimization::optimization_problem_interface_t<index_t, double>>
     problem_interface;
 
   if (memory_backend == cuopt::mathematical_optimization::memory_backend_t::GPU) {
     handle_ptr = std::make_unique<raft::handle_t>();
     problem_interface =
-      std::make_unique<cuopt::mathematical_optimization::optimization_problem_t<int, double>>(
+      std::make_unique<cuopt::mathematical_optimization::optimization_problem_t<index_t, double>>(
         handle_ptr.get());
   } else {
     problem_interface =
-      std::make_unique<cuopt::mathematical_optimization::cpu_optimization_problem_t<int, double>>();
+      std::make_unique<cuopt::mathematical_optimization::cpu_optimization_problem_t<index_t, double>>();
   }
 
   // Distributed PDLP is used for large problems that don't fit on a single GPU.
@@ -214,7 +210,7 @@ int run_single_file(const std::string& file_path,
       // Remote execution: problem_interface holds a cpu_optimization_problem_t.
       // solve_lp/mip_remote live in cuopt_client, which this binary already links.
       auto* cpu_prob =
-        dynamic_cast<cuopt::mathematical_optimization::cpu_optimization_problem_t<int, double>*>(
+        dynamic_cast<cuopt::mathematical_optimization::cpu_optimization_problem_t<index_t, double>*>(
           problem_interface.get());
       if (cpu_prob == nullptr) {
         CUOPT_LOG_ERROR("Remote execution requires the CPU memory backend.");
@@ -327,12 +323,12 @@ int main(int argc, char* argv[])
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--dump-hyper-params") {
-      cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
+      cuopt::mathematical_optimization::solver_settings_t<index_t, double> settings;
       settings.dump_parameters_to_file("/dev/stdout", true);
       return 0;
     }
     if (arg == "--dump-params") {
-      cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
+      cuopt::mathematical_optimization::solver_settings_t<index_t, double> settings;
       settings.dump_parameters_to_file("/dev/stdout", false);
       return 0;
     }
@@ -403,7 +399,7 @@ int main(int argc, char* argv[])
 
   {
     // Add all solver settings as arguments
-    cuopt::mathematical_optimization::solver_settings_t<int, double> dummy_settings;
+    cuopt::mathematical_optimization::solver_settings_t<index_t, double> dummy_settings;
 
     auto int_params    = dummy_settings.get_int_parameters();
     auto double_params = dummy_settings.get_float_parameters();
@@ -489,7 +485,7 @@ int main(int argc, char* argv[])
     mps_reader = cuopt::mathematical_optimization::io::mps_reader_type_t::fast_experimental;
   }
 
-  cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
+  cuopt::mathematical_optimization::solver_settings_t<index_t, double> settings;
   try {
     if (!params_file.empty()) { settings.load_parameters_from_file(params_file); }
     for (auto& [key, val] : settings_strings) {

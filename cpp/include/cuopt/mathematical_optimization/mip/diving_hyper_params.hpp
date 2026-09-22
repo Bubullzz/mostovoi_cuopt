@@ -16,15 +16,15 @@ namespace cuopt::mathematical_optimization {
 template <typename i_t, typename f_t>
 struct mip_diving_hyper_params_t {
   // -1 automatic, 0 disabled, 1 enabled
-  i_t line_search_diving   = -1;
-  i_t pseudocost_diving    = -1;
-  i_t guided_diving        = -1;
-  i_t coefficient_diving   = -1;
-  i_t farkas_diving        = -1;
-  i_t vector_length_diving = -1;
+  int line_search_diving   = -1;
+  int pseudocost_diving    = -1;
+  int guided_diving        = -1;
+  int coefficient_diving   = -1;
+  int farkas_diving        = -1;
+  int vector_length_diving = -1;
 
   // The maximum number of nodes when performing a dive.
-  i_t node_limit = 500;
+  int node_limit = 500;
 
   // The maximum number of dual simplex iteration allowed
   // in a single dive.
@@ -32,7 +32,7 @@ struct mip_diving_hyper_params_t {
   int64_t iteration_limit_offset = 10000;
 
   // The maximum backtracking allowed.
-  i_t backtrack_limit = 5;
+  int backtrack_limit = 5;
 
   // For the Farkas diving to be effective, the coefficients in the objective function
   // must have distinct values. The low tolerance here disables Farkas diving for

@@ -7,6 +7,7 @@
 
 #include <cuopt/error.hpp>
 #include <cuopt/export.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 #include <math_optimization/solution_writer.hpp>
@@ -400,7 +401,7 @@ template class CUOPT_EXPORT pdlp_solver_settings_t<int, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class CUOPT_EXPORT pdlp_solver_settings_t<int, double>;
+template class CUOPT_EXPORT pdlp_solver_settings_t<index_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

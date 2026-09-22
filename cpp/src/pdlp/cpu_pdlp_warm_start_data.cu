@@ -8,6 +8,7 @@
 #include <cuda/stream>
 #include <cuopt/export.hpp>
 #include <cuopt/mathematical_optimization/cpu_pdlp_warm_start_data.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
 #include <mip_heuristics/mip_constants.hpp>
 #include <raft/core/copy.hpp>
@@ -111,18 +112,18 @@ pdlp_warm_start_data_t<i_t, f_t> convert_to_gpu_warmstart(
 }
 
 #if MIP_INSTANTIATE_DOUBLE
-template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<int, double> convert_to_cpu_warmstart(
-  const pdlp_warm_start_data_t<int, double>&, cuda::stream_ref);
-template CUOPT_EXPORT pdlp_warm_start_data_t<int, double> convert_to_gpu_warmstart(
-  const cpu_pdlp_warm_start_data_t<int, double>&, cuda::stream_ref);
+template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<index_t, double> convert_to_cpu_warmstart(
+  const pdlp_warm_start_data_t<index_t, double>&, cuda::stream_ref);
+template CUOPT_EXPORT pdlp_warm_start_data_t<index_t, double> convert_to_gpu_warmstart(
+  const cpu_pdlp_warm_start_data_t<index_t, double>&, cuda::stream_ref);
 #endif
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<int, float> convert_to_cpu_warmstart(
-  const pdlp_warm_start_data_t<int, float>&, cuda::stream_ref);
+template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<index_t, float> convert_to_cpu_warmstart(
+  const pdlp_warm_start_data_t<index_t, float>&, cuda::stream_ref);
 
-template CUOPT_EXPORT pdlp_warm_start_data_t<int, float> convert_to_gpu_warmstart(
-  const cpu_pdlp_warm_start_data_t<int, float>&, cuda::stream_ref);
+template CUOPT_EXPORT pdlp_warm_start_data_t<index_t, float> convert_to_gpu_warmstart(
+  const cpu_pdlp_warm_start_data_t<index_t, float>&, cuda::stream_ref);
 #endif
 
 }  // namespace cuopt::mathematical_optimization

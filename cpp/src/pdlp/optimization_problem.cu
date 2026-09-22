@@ -7,6 +7,7 @@
 
 #include <cuopt/export.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem_utils.hpp>
 #include <cuopt/mathematical_optimization/solve_remote.hpp>
@@ -1661,15 +1662,15 @@ optimization_problem_t<i_t, other_f_t> optimization_problem_t<i_t, f_t>::convert
 // ==============================================================================
 // Explicit template instantiations matching MIP constants
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class CUOPT_EXPORT optimization_problem_t<int32_t, float>;
+template class CUOPT_EXPORT optimization_problem_t<index_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template class CUOPT_EXPORT optimization_problem_t<int32_t, double>;
+template class CUOPT_EXPORT optimization_problem_t<index_t, double>;
 #endif
 
 #if PDLP_INSTANTIATE_FLOAT || MIP_INSTANTIATE_FLOAT
-template CUOPT_EXPORT optimization_problem_t<int32_t, float>
-  optimization_problem_t<int32_t, double>::convert_to_other_prec<float>(cuda::stream_ref) const;
+template CUOPT_EXPORT optimization_problem_t<index_t, float>
+  optimization_problem_t<index_t, double>::convert_to_other_prec<float>(cuda::stream_ref) const;
 #endif
 
 // GPU-target warm-start handling, declared in optimization_problem_utils.hpp.
@@ -1740,14 +1741,14 @@ void copy_warmstart_data_to_host(solver_settings_t<i_t, f_t>& solver_settings)
 // instantiates under MIP_INSTANTIATE_FLOAT. Widening the guard here without widening it
 // there leaves libcuopt.so with undefined references to those accessors.
 #if MIP_INSTANTIATE_FLOAT
-template CUOPT_EXPORT void copy_warmstart_data_to_device(solver_settings_t<int, float>&,
+template CUOPT_EXPORT void copy_warmstart_data_to_device(solver_settings_t<index_t, float>&,
                                                          const raft::handle_t*);
-template CUOPT_EXPORT void copy_warmstart_data_to_host(solver_settings_t<int, float>&);
+template CUOPT_EXPORT void copy_warmstart_data_to_host(solver_settings_t<index_t, float>&);
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template CUOPT_EXPORT void copy_warmstart_data_to_device(solver_settings_t<int, double>&,
+template CUOPT_EXPORT void copy_warmstart_data_to_device(solver_settings_t<index_t, double>&,
                                                          const raft::handle_t*);
-template CUOPT_EXPORT void copy_warmstart_data_to_host(solver_settings_t<int, double>&);
+template CUOPT_EXPORT void copy_warmstart_data_to_host(solver_settings_t<index_t, double>&);
 #endif
 
 }  // namespace cuopt::mathematical_optimization

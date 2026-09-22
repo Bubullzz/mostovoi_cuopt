@@ -7,6 +7,7 @@
 
 #include <cuopt/error.hpp>
 #include <cuopt/export.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 #include <mip_heuristics/mip_constants.hpp>
 #include <utilities/logger.hpp>
@@ -87,7 +88,7 @@ void solver_settings_t<i_t, f_t>::set_parameter_from_string(const std::string& n
   bool output = false;
   for (auto& param : int_parameters) {
     if (param.param_name == name) {
-      i_t value_int;
+      int value_int;
       if (string_to_int(value, value_int)) {
         if (value_int < param.min_value || value_int > param.max_value) {
           throw std::invalid_argument("Parameter " + name + " value " + value + " out of range");
@@ -157,7 +158,7 @@ void solver_settings_t<i_t, f_t>::set_parameter(const std::string& name, T value
 {
   bool found  = false;
   bool output = false;
-  if constexpr (std::is_same_v<T, i_t>) {
+  if constexpr (std::is_same_v<T, int>) {
     for (auto& param : int_parameters) {
       if (param.param_name == name) {
         if (value < param.min_value || value > param.max_value) {
@@ -218,7 +219,7 @@ template <typename i_t, typename f_t>
 template <typename T>
 T solver_settings_t<i_t, f_t>::get_parameter(const std::string& name) const
 {
-  if constexpr (std::is_same_v<T, i_t>) {
+  if constexpr (std::is_same_v<T, int>) {
     for (auto& param : int_parameters) {
       if (param.param_name == name) { return *param.value_ptr; }
     }
@@ -299,7 +300,7 @@ const std::vector<parameter_info_t<f_t>>& solver_settings_t<i_t, f_t>::get_float
 }
 
 template <typename i_t, typename f_t>
-const std::vector<parameter_info_t<i_t>>& solver_settings_t<i_t, f_t>::get_int_parameters() const
+const std::vector<parameter_info_t<int>>& solver_settings_t<i_t, f_t>::get_int_parameters() const
 {
   return int_parameters;
 }
@@ -497,47 +498,47 @@ template CUOPT_EXPORT std::string solver_settings_t<int, float>::get_parameter(
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template CUOPT_EXPORT void solver_settings_t<int, double>::set_parameter_from_string(
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::set_parameter_from_string(
   const std::string&, const std::string&);
-template CUOPT_EXPORT std::string solver_settings_t<int, double>::get_parameter_as_string(
+template CUOPT_EXPORT std::string solver_settings_t<index_t, double>::get_parameter_as_string(
   const std::string&) const;
-template CUOPT_EXPORT void solver_settings_t<int, double>::set_mip_callback(
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::set_mip_callback(
   internals::base_solution_callback_t*, void*);
 template CUOPT_EXPORT const std::vector<internals::base_solution_callback_t*>
-solver_settings_t<int, double>::get_mip_callbacks() const;
-template CUOPT_EXPORT pdlp_solver_settings_t<int, double>&
-solver_settings_t<int, double>::get_pdlp_settings();
-template CUOPT_EXPORT mip_solver_settings_t<int, double>&
-solver_settings_t<int, double>::get_mip_settings();
+solver_settings_t<index_t, double>::get_mip_callbacks() const;
+template CUOPT_EXPORT pdlp_solver_settings_t<index_t, double>&
+solver_settings_t<index_t, double>::get_pdlp_settings();
+template CUOPT_EXPORT mip_solver_settings_t<index_t, double>&
+solver_settings_t<index_t, double>::get_mip_settings();
 template CUOPT_EXPORT const std::vector<parameter_info_t<double>>&
-solver_settings_t<int, double>::get_float_parameters() const;
+solver_settings_t<index_t, double>::get_float_parameters() const;
 template CUOPT_EXPORT const std::vector<parameter_info_t<int>>&
-solver_settings_t<int, double>::get_int_parameters() const;
+solver_settings_t<index_t, double>::get_int_parameters() const;
 template CUOPT_EXPORT const std::vector<parameter_info_t<bool>>&
-solver_settings_t<int, double>::get_bool_parameters() const;
+solver_settings_t<index_t, double>::get_bool_parameters() const;
 template CUOPT_EXPORT const std::vector<std::string>
-solver_settings_t<int, double>::get_parameter_names() const;
+solver_settings_t<index_t, double>::get_parameter_names() const;
 template CUOPT_EXPORT const std::vector<parameter_info_t<std::string>>&
-solver_settings_t<int, double>::get_string_parameters() const;
-template CUOPT_EXPORT const pdlp_warm_start_data_view_t<int, double>&
-solver_settings_t<int, double>::get_pdlp_warm_start_data_view() const noexcept;
-template CUOPT_EXPORT void solver_settings_t<int, double>::load_parameters_from_file(
+solver_settings_t<index_t, double>::get_string_parameters() const;
+template CUOPT_EXPORT const pdlp_warm_start_data_view_t<index_t, double>&
+solver_settings_t<index_t, double>::get_pdlp_warm_start_data_view() const noexcept;
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::load_parameters_from_file(
   const std::string&);
-template CUOPT_EXPORT bool solver_settings_t<int, double>::dump_parameters_to_file(
+template CUOPT_EXPORT bool solver_settings_t<index_t, double>::dump_parameters_to_file(
   const std::string&, bool) const;
-template CUOPT_EXPORT void solver_settings_t<int, double>::set_parameter(const std::string& name,
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::set_parameter(const std::string& name,
                                                                          int value);
-template CUOPT_EXPORT void solver_settings_t<int, double>::set_parameter(const std::string& name,
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::set_parameter(const std::string& name,
                                                                          double value);
-template CUOPT_EXPORT void solver_settings_t<int, double>::set_parameter(const std::string& name,
+template CUOPT_EXPORT void solver_settings_t<index_t, double>::set_parameter(const std::string& name,
                                                                          bool value);
-template CUOPT_EXPORT int solver_settings_t<int, double>::get_parameter(
+template CUOPT_EXPORT int solver_settings_t<index_t, double>::get_parameter(
   const std::string& name) const;
-template CUOPT_EXPORT double solver_settings_t<int, double>::get_parameter(
+template CUOPT_EXPORT double solver_settings_t<index_t, double>::get_parameter(
   const std::string& name) const;
-template CUOPT_EXPORT bool solver_settings_t<int, double>::get_parameter(
+template CUOPT_EXPORT bool solver_settings_t<index_t, double>::get_parameter(
   const std::string& name) const;
-template CUOPT_EXPORT std::string solver_settings_t<int, double>::get_parameter(
+template CUOPT_EXPORT std::string solver_settings_t<index_t, double>::get_parameter(
   const std::string& name) const;
 #endif
 

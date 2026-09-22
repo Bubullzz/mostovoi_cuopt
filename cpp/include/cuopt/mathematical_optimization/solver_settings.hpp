@@ -96,7 +96,7 @@ class solver_settings_t {
   mip_solver_settings_t<i_t, f_t>& get_mip_settings();
 
   const std::vector<parameter_info_t<f_t>>& get_float_parameters() const;
-  const std::vector<parameter_info_t<i_t>>& get_int_parameters() const;
+  const std::vector<parameter_info_t<int>>& get_int_parameters() const;
   const std::vector<parameter_info_t<bool>>& get_bool_parameters() const;
   const std::vector<parameter_info_t<std::string>>& get_string_parameters() const;
   const std::vector<std::string> get_parameter_names() const;
@@ -109,7 +109,7 @@ class solver_settings_t {
   mip_solver_settings_t<i_t, f_t> mip_settings;
 
   std::vector<parameter_info_t<f_t>> float_parameters;
-  std::vector<parameter_info_t<i_t>> int_parameters;
+  std::vector<parameter_info_t<int>> int_parameters;
   std::vector<parameter_info_t<bool>> bool_parameters;
   std::vector<parameter_info_t<std::string>> string_parameters;
 };

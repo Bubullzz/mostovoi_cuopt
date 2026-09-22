@@ -19,6 +19,7 @@
 #include <mip_heuristics/mip_constants.hpp>
 
 #include <cuopt/error.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 
 #include <utilities/device_scalar_init.hpp>
 
@@ -1624,10 +1625,10 @@ rmm::device_uvector<f_t>& pdhg_solver_t<i_t, f_t>::get_dual_solution()
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class pdhg_solver_t<int, float>;
+template class pdhg_solver_t<index_t, float>;
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template class pdhg_solver_t<int, double>;
+template class pdhg_solver_t<index_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

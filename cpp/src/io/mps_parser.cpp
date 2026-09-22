@@ -7,6 +7,7 @@
 
 #include <mps_parser_internal.hpp>
 
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <file_to_string.hpp>
 #include <utilities/error.hpp>
 
@@ -1812,7 +1813,7 @@ void mps_parser_t<i_t, f_t>::read_bound_and_value(std::string_view line,
 // NOTE: Explicitly instantiate all types here in order to avoid linker error
 template class mps_parser_t<int, float>;
 
-template class mps_parser_t<int, double>;
+template class mps_parser_t<index_t, double>;
 
 template void check_symmetric_offdiagonal_pairs<int, float>(
   const std::vector<int>&,

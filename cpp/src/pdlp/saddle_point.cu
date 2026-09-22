@@ -7,6 +7,7 @@
 
 #include <cuda/stream>
 #include <cuopt/error.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 
 #include <pdlp/restart_strategy/pdlp_restart_strategy.cuh>
 #include <pdlp/saddle_point.hpp>
@@ -174,11 +175,11 @@ rmm::device_uvector<f_t>& saddle_point_state_t<i_t, f_t>::get_next_AtY()
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class saddle_point_state_t<int, float>;
+template class saddle_point_state_t<index_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class saddle_point_state_t<int, double>;
+template class saddle_point_state_t<index_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

@@ -17,6 +17,7 @@
 // ctor/dtor code that belongs in the CUDA TU.
 
 #include <cuopt/export.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 
 // Required: the explicit instantiations below are guarded on MIP_INSTANTIATE_* /
@@ -57,12 +58,12 @@ pdlp_solver_settings_t<int, float>::get_pdlp_warm_start_data_view() const noexce
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template CUOPT_EXPORT const cpu_pdlp_warm_start_data_t<int, double>&
-pdlp_solver_settings_t<int, double>::get_cpu_pdlp_warm_start_data() const noexcept;
-template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<int, double>&
-pdlp_solver_settings_t<int, double>::get_cpu_pdlp_warm_start_data() noexcept;
-template CUOPT_EXPORT const pdlp_warm_start_data_view_t<int, double>&
-pdlp_solver_settings_t<int, double>::get_pdlp_warm_start_data_view() const noexcept;
+template CUOPT_EXPORT const cpu_pdlp_warm_start_data_t<index_t, double>&
+pdlp_solver_settings_t<index_t, double>::get_cpu_pdlp_warm_start_data() const noexcept;
+template CUOPT_EXPORT cpu_pdlp_warm_start_data_t<index_t, double>&
+pdlp_solver_settings_t<index_t, double>::get_cpu_pdlp_warm_start_data() noexcept;
+template CUOPT_EXPORT const pdlp_warm_start_data_view_t<index_t, double>&
+pdlp_solver_settings_t<index_t, double>::get_pdlp_warm_start_data_view() const noexcept;
 #endif
 
 }  // namespace cuopt::mathematical_optimization

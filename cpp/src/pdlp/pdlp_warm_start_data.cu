@@ -6,6 +6,7 @@
 /* clang-format on */
 
 #include <cuopt/export.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/pdlp/pdlp_warm_start_data.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 
@@ -188,10 +189,10 @@ void pdlp_warm_start_data_t<i_t, f_t>::check_sizes()
 }
 
 #if MIP_INSTANTIATE_FLOAT || PDLP_INSTANTIATE_FLOAT
-template class CUOPT_EXPORT pdlp_warm_start_data_t<int, float>;
+template class CUOPT_EXPORT pdlp_warm_start_data_t<index_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
-template class CUOPT_EXPORT pdlp_warm_start_data_t<int, double>;
+template class CUOPT_EXPORT pdlp_warm_start_data_t<index_t, double>;
 #endif
 }  // namespace cuopt::mathematical_optimization

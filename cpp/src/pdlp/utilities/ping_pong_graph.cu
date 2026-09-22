@@ -5,6 +5,8 @@
  */
 /* clang-format on */
 
+#include <cuopt/mathematical_optimization/index_type.hpp>
+
 #include <cuda/stream>
 #include <pdlp/utilities/ping_pong_graph.cuh>
 
@@ -16,6 +18,6 @@ ping_pong_graph_t<i_t>::ping_pong_graph_t(cuda::stream_ref stream_view, bool is_
 {
 }
 
-template class ping_pong_graph_t<int>;
+template class ping_pong_graph_t<index_t>;
 
 }  // namespace cuopt::mathematical_optimization::pdlp

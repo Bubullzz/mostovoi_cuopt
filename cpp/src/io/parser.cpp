@@ -6,6 +6,7 @@
 /* clang-format on */
 
 #include <cuopt/export.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/io/parser.hpp>
 
 #include <experimental_mps_fast/fast_parser.hpp>
@@ -36,11 +37,11 @@ mps_data_model_t<i_t, f_t> read_mps_from_string(std::string_view mps_contents,
 
 template CUOPT_EXPORT mps_data_model_t<int, float> read_mps(const std::string& mps_file,
                                                             bool fixed_mps_format);
-template CUOPT_EXPORT mps_data_model_t<int, double> read_mps(const std::string& mps_file,
-                                                             bool fixed_mps_format);
+template CUOPT_EXPORT mps_data_model_t<index_t, double> read_mps(const std::string& mps_file,
+                                                                 bool fixed_mps_format);
 template CUOPT_EXPORT mps_data_model_t<int, float> read_mps_from_string(
   std::string_view mps_contents, bool fixed_mps_format);
-template CUOPT_EXPORT mps_data_model_t<int, double> read_mps_from_string(
+template CUOPT_EXPORT mps_data_model_t<index_t, double> read_mps_from_string(
   std::string_view mps_contents, bool fixed_mps_format);
 
 template <typename i_t, typename f_t>

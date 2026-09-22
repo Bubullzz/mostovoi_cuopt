@@ -6,6 +6,7 @@
 /* clang-format on */
 
 #include <cuopt/error.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 
 #include <mip_heuristics/mip_constants.hpp>
 #include <pdlp/pdlp_constants.hpp>
@@ -141,7 +142,7 @@ template __global__ void add_weight_sums<float>(const float* primal_weight,
                                                 float* sum_primal_solution_weights,
                                                 float* sum_dual_solution_weights);
 
-template class weighted_average_solution_t<int, float>;
+template class weighted_average_solution_t<index_t, float>;
 #endif
 
 #if MIP_INSTANTIATE_DOUBLE
@@ -150,7 +151,7 @@ template __global__ void add_weight_sums<double>(const double* primal_weight,
                                                  double* sum_primal_solution_weights,
                                                  double* sum_dual_solution_weights);
 
-template class weighted_average_solution_t<int, double>;
+template class weighted_average_solution_t<index_t, double>;
 #endif
 
 }  // namespace cuopt::mathematical_optimization::pdlp

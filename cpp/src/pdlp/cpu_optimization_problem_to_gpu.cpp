@@ -14,6 +14,7 @@
 #include <cuopt/error.hpp>
 #include <cuopt/export.hpp>
 #include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
+#include <cuopt/mathematical_optimization/index_type.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 
 // Required: without it MIP_INSTANTIATE_* are undefined and this TU emits no symbols.
@@ -138,12 +139,12 @@ std::unique_ptr<optimization_problem_t<i_t, f_t>> to_optimization_problem(
 // ==============================================================================
 
 #if MIP_INSTANTIATE_FLOAT
-template CUOPT_EXPORT std::unique_ptr<optimization_problem_t<int32_t, float>>
-to_optimization_problem(optimization_problem_interface_t<int32_t, float>&, raft::handle_t const*);
+template CUOPT_EXPORT std::unique_ptr<optimization_problem_t<index_t, float>>
+to_optimization_problem(optimization_problem_interface_t<index_t, float>&, raft::handle_t const*);
 #endif
 #if MIP_INSTANTIATE_DOUBLE
-template CUOPT_EXPORT std::unique_ptr<optimization_problem_t<int32_t, double>>
-to_optimization_problem(optimization_problem_interface_t<int32_t, double>&, raft::handle_t const*);
+template CUOPT_EXPORT std::unique_ptr<optimization_problem_t<index_t, double>>
+to_optimization_problem(optimization_problem_interface_t<index_t, double>&, raft::handle_t const*);
 #endif
 
 }  // namespace cuopt::mathematical_optimization

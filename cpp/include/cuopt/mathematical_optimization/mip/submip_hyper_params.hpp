@@ -13,8 +13,8 @@
 template <typename i_t, typename f_t>
 struct mip_submip_hyper_params_t {
   // Enable or disable (recursive) RINS/RENS: -1 automatic, 0 disabled, 1 enabled
-  i_t rins = -1;
-  i_t rens = -1;
+  int rins = -1;
+  int rens = -1;
 
   // Base for calculating the target fix rate for the neighbourhood. Actual target value is
   // determined automatically according to the success and infeasible rate.
@@ -30,16 +30,16 @@ struct mip_submip_hyper_params_t {
   f_t target_mip_gap = 0.01;
 
   // The base node limit for the sub-MIP
-  i_t node_limit_offset = 200;
+  int node_limit_offset = 200;
 
   // The base iteration limit for the sub-MIP
-  i_t iteration_limit_offset = 10000;
+  int iteration_limit_offset = 10000;
 
   // The current level in the recursion. This is an internal parameter and will set automatically.
   i_t level = 0;
 
   // Maximum recursion level
-  i_t max_level = 10;
+  int max_level = 10;
 
   // Limit the number of simplex iterations spent in the submip. Set as a factor of the total
   // number of simplex iteration from the parent B&B.
