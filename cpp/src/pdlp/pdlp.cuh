@@ -241,6 +241,14 @@ class pdlp_solver_t {
   void transpose_primal_dual_back_to_col(rmm::device_uvector<f_t>& primal_to_transpose,
                                          rmm::device_uvector<f_t>& dual_to_transpose,
                                          rmm::device_uvector<f_t>& dual_slack_to_transpose);
+  void prepare_batch_layout_for_evaluation();
+  void restore_batch_layout_for_pdhg();
+  bool prepare_average_solution();
+  void unscale_iterates_for_evaluation(bool include_average);
+  void scale_iterates_for_solver(bool include_average);
+  void pdlp_restart(bool is_major_iteration,
+                    bool artificial_restart,
+                    std::vector<int>& has_restarted);
 
   // Initial scaling strategy
   pdlp::pdlp_initial_scaling_strategy_t<i_t, f_t> initial_scaling_strategy_;

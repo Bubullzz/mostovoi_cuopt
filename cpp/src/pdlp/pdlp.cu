@@ -3072,7 +3072,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
       // for PDHG. We transpose them back to COL for convergence/termination checks, and
       // swap_context / resize_context (which assume COL layout for block-based swaps).
       // The unscaled problem fields (problem_ptr->) stay COL permanently
-      if (batch_mode_) {prepare_batch_layout_for_evaluation()}
+      if (batch_mode_) { prepare_batch_layout_for_evaluation(); }
 
 #ifdef CUPDLP_DEBUG_MODE
       print("before scale slack", pdhg_solver_.get_dual_slack());
@@ -3112,7 +3112,7 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 
       // In batch mode, after having checked for termination and restart
       // We transpose back to row for the PDHG iterations
-      if (batch_mode_) {restore_batch_layout_for_pdhg()}
+      if (batch_mode_) { restore_batch_layout_for_pdhg(); }
     }
 
     const bool takes_major_step =
