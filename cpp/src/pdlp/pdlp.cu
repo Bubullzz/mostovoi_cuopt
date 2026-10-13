@@ -2597,6 +2597,159 @@ void pdlp_solver_t<i_t, f_t>::project_initial_primal_transform()
       stream_view_.get());
   }
 }
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::prepare_batch_layout_for_evaluation()
+{
+  if (!batch_mode_) { return; }
+  // Primal/dual iterates and scaled problem fields are row-major for PDHG.
+  // Termination, restart, and swap_context / resize_context read column-major blocks.
+  // The unscaled problem fields (problem_ptr->) stay column-major permanently.
+  rmm::device_uvector<f_t> dummy(0, stream_view_);
+  transpose_primal_dual_back_to_col(pdhg_solver_.get_potential_next_primal_solution(),
+                                    pdhg_solver_.get_potential_next_dual_solution(),
+                                    pdhg_solver_.get_dual_slack());
+  transpose_primal_dual_back_to_col(restart_strategy_.last_restart_duality_gap_.primal_solution_,
+                                    restart_strategy_.last_restart_duality_gap_.dual_solution_,
+                                    dummy);
+  transpose_primal_dual_back_to_col(
+    pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
+  transpose_problem_fields(/*to_row=*/false);
+}
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::restore_batch_layout_for_pdhg()
+{
+  if (!batch_mode_) { return; }
+
+  // Termination and restart are done. PDHG iterates in row-major layout.
+  transpose_primal_dual_to_row(pdhg_solver_.get_potential_next_primal_solution(),
+                               pdhg_solver_.get_potential_next_dual_solution(),
+                               pdhg_solver_.get_dual_slack());
+  rmm::device_uvector<f_t> dummy(0, stream_view_);
+  transpose_primal_dual_to_row(restart_strategy_.last_restart_duality_gap_.primal_solution_,
+                               restart_strategy_.last_restart_duality_gap_.dual_solution_,
+                               dummy);
+  transpose_primal_dual_to_row(
+    pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
+  transpose_problem_fields(/*to_row=*/true);
+}
+
+template <typename i_t, typename f_t>
+bool pdlp_solver_t<i_t, f_t>::prepare_average_solution()
+{
+  // Nothing to do if never_restart_to_average
+  if (settings_.hyper_params.never_restart_to_average) {return false;}
+
+  // A warm start already filled the average on the first step.
+  const bool warm_start_was_given = settings_.get_pdlp_warm_start_data().is_populated();
+  const bool rescale_average = internal_solver_iterations_ > 0 || !warm_start_was_given;
+
+  // We were given a warm_start average and we are on the first iteration 
+  if (!rescale_average) { return false; }
+
+  // Scaling the weighted average and unscaling it again is not exact in floating point
+  // (a * x / x can differ from x). That makes the current and average KKT scores look
+  // different when they must be equal:
+  // 1. At the start, before any step has been taken.
+  // 2. After a single step, where the average of one iterate is that iterate.
+  if (internal_solver_iterations_ <= 1) {
+    raft::copy(unscaled_primal_avg_solution_.data(),
+               pdhg_solver_.get_primal_solution().data(),
+               primal_size_h_,
+               stream_view_);
+    raft::copy(unscaled_dual_avg_solution_.data(),
+               pdhg_solver_.get_dual_solution().data(),
+               dual_size_h_,
+               stream_view_);
+  } else {
+    restart_strategy_.get_average_solutions(unscaled_primal_avg_solution_,
+                                            unscaled_dual_avg_solution_);
+  }
+  return true;
+}
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::unscale_iterates_for_evaluation(bool include_average)
+{
+  if (include_average) {
+    initial_scaling_strategy_.unscale_solutions(unscaled_primal_avg_solution_,
+                                                unscaled_dual_avg_solution_);
+  }
+
+  if (settings_.hyper_params.use_adaptive_step_size_strategy) {
+    initial_scaling_strategy_.unscale_solutions(pdhg_solver_.get_primal_solution(),
+                                                pdhg_solver_.get_dual_solution());
+  } else if (is_distributed_master()) {
+    multi_gpu_engine->for_each_shard([&](auto& shard) {
+      auto& sub = *shard.sub_pdlp;
+      sub.get_initial_scaling_strategy().unscale_solutions(
+        sub.pdhg_solver_.get_potential_next_primal_solution(),
+        sub.pdhg_solver_.get_potential_next_dual_solution(),
+        sub.pdhg_solver_.get_dual_slack());
+    });
+  } else {
+    initial_scaling_strategy_.unscale_solutions(
+      pdhg_solver_.get_potential_next_primal_solution(),
+      pdhg_solver_.get_potential_next_dual_solution(),
+      pdhg_solver_.get_dual_slack());
+  }
+}
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::scale_iterates_for_solver(bool include_average)
+{
+  if (include_average) {
+    initial_scaling_strategy_.scale_solutions(unscaled_primal_avg_solution_,
+                                              unscaled_dual_avg_solution_);
+  }
+
+  if (settings_.hyper_params.use_adaptive_step_size_strategy) {
+    initial_scaling_strategy_.scale_solutions(pdhg_solver_.get_primal_solution(),
+                                              pdhg_solver_.get_dual_solution());
+  } else if (is_distributed_master()) {
+    multi_gpu_engine->for_each_shard([&](auto& shard) {
+      auto& sub = *shard.sub_pdlp;
+      sub.get_initial_scaling_strategy().scale_solutions(
+        sub.pdhg_solver_.get_potential_next_primal_solution(),
+        sub.pdhg_solver_.get_potential_next_dual_solution(),
+        sub.pdhg_solver_.get_dual_slack());
+    });
+  } else {
+    initial_scaling_strategy_.scale_solutions(
+      pdhg_solver_.get_potential_next_primal_solution(),
+      pdhg_solver_.get_potential_next_dual_solution(),
+      pdhg_solver_.get_dual_slack());
+  }
+}
+
+template <typename i_t, typename f_t>
+void pdlp_solver_t<i_t, f_t>::pdlp_restart(bool is_major_iteration,
+                                           bool artificial_restart,
+                                           std::vector<int>& has_restarted)
+{
+  if (settings_.hyper_params.restart_strategy ==
+        static_cast<int>(
+          pdlp::pdlp_restart_strategy_t<i_t, f_t>::restart_strategy_t::NO_RESTART) ||
+      !(is_major_iteration || artificial_restart)) {
+    return;
+  }
+
+  restart_strategy_.compute_restart(
+    pdhg_solver_,
+    unscaled_primal_avg_solution_,
+    unscaled_dual_avg_solution_,
+    total_pdlp_iterations_,
+    primal_step_size_,
+    dual_step_size_,
+    primal_weight_,
+    step_size_,
+    current_termination_strategy_.get_convergence_information(),
+    average_termination_strategy_.get_convergence_information(),
+    best_primal_weight_,
+    has_restarted);
+}
+
 template <typename i_t, typename f_t>
 optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(const timer_t& timer)
 {
@@ -2865,6 +3018,21 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
     CUOPT_LOG_INFO(
       "   Iter    Primal Obj.      Dual Obj.    Gap        Primal Res.  Dual Res.   Time");
   }
+  /*
+  int nb_consecutive_minor_iterations = settings_.hyper_params.major_iteration - 1;
+  while (true) {
+    for(int i = 0; i < nb_consecutive_minor_iterations; i++)
+      take_minor_step();
+    take_major_step();
+    if (check_termination(): return);
+    if (should_restart()) {
+      perform_restart();
+      take_major_step();
+    }
+  }
+  */
+
+
   while (true) {
 #ifdef CUPDLP_DEBUG_MODE
     printf("Step: %d\n", total_pdlp_iterations_);
@@ -2897,50 +3065,14 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
           "dual_step_size", dual_step_size_.data(), dual_step_size_.size(), std::cout);
       }
 
-      // If a warm start is given and it's the first step, the average solutions were already filled
-      const bool warm_start_was_given = settings_.get_pdlp_warm_start_data().is_populated();
-      bool no_rescale_average = (internal_solver_iterations_ == 0 && warm_start_was_given) ||
-                                settings_.hyper_params.never_restart_to_average;
-
-      if (!no_rescale_average) {
-        // Average in PDLP is scaled then unscaled which can create numerical innacuracies (a * x /
-        // x can != x using float) This can create issues when comparing current and average kkt
-        // scores, falsly assuming they are different while they should be equal They should be
-        // equal:
-        // 1. At the very beginning of the solver, when no steps have been taken yet
-        // 2. After a single step, since average of one step is the same step
-        if (internal_solver_iterations_ <= 1) {
-          raft::copy(unscaled_primal_avg_solution_.data(),
-                     pdhg_solver_.get_primal_solution().data(),
-                     primal_size_h_,
-                     stream_view_);
-          raft::copy(unscaled_dual_avg_solution_.data(),
-                     pdhg_solver_.get_dual_solution().data(),
-                     dual_size_h_,
-                     stream_view_);
-        } else {
-          restart_strategy_.get_average_solutions(unscaled_primal_avg_solution_,
-                                                  unscaled_dual_avg_solution_);
-        }
-      }
+      // Update the average solution if needed, return true if the average solution should be re-scaled
+      bool should_rescale_average = prepare_average_solution();
 
       // In case of batch mode, primal/dual iterates and scaled problem fields are ROW-major
       // for PDHG. We transpose them back to COL for convergence/termination checks, and
       // swap_context / resize_context (which assume COL layout for block-based swaps).
       // The unscaled problem fields (problem_ptr->) stay COL permanently
-      if (batch_mode_) {
-        rmm::device_uvector<f_t> dummy(0, stream_view_);
-        transpose_primal_dual_back_to_col(pdhg_solver_.get_potential_next_primal_solution(),
-                                          pdhg_solver_.get_potential_next_dual_solution(),
-                                          pdhg_solver_.get_dual_slack());
-        transpose_primal_dual_back_to_col(
-          restart_strategy_.last_restart_duality_gap_.primal_solution_,
-          restart_strategy_.last_restart_duality_gap_.dual_solution_,
-          dummy);
-        transpose_primal_dual_back_to_col(
-          pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
-        transpose_problem_fields(/*to_row=*/false);
-      }
+      if (batch_mode_) {prepare_batch_layout_for_evaluation()}
 
 #ifdef CUPDLP_DEBUG_MODE
       print("before scale slack", pdhg_solver_.get_dual_slack());
@@ -2949,44 +3081,14 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
       print("before scale potential next dual", pdhg_solver_.get_potential_next_dual_solution());
 #endif
 
-      // We go back to the unscaled problem here. It ensures that we do not terminate 'too early'
-      // because of the error margin being evaluated on the scaled problem
-
-      // Evaluation is done on the unscaled problem and solutions
-
-      // If warm start data was given, the average solutions were also already scaled
-      if (!no_rescale_average) {
-        initial_scaling_strategy_.unscale_solutions(unscaled_primal_avg_solution_,
-                                                    unscaled_dual_avg_solution_);
-      }
-      if (settings_.hyper_params.use_adaptive_step_size_strategy) {
-        initial_scaling_strategy_.unscale_solutions(pdhg_solver_.get_primal_solution(),
-                                                    pdhg_solver_.get_dual_solution());
-      } else {
-        if (is_distributed_master()) {
-          // The only branch in cuPDLPx (Stable3)
-          multi_gpu_engine->for_each_shard([&](auto& shard) {
-            auto& sub = *shard.sub_pdlp;
-            sub.get_initial_scaling_strategy().unscale_solutions(
-              sub.pdhg_solver_.get_potential_next_primal_solution(),
-              sub.pdhg_solver_.get_potential_next_dual_solution(),
-              sub.pdhg_solver_.get_dual_slack());
-          });
-        } else {
-          initial_scaling_strategy_.unscale_solutions(
-            pdhg_solver_.get_potential_next_primal_solution(),
-            pdhg_solver_.get_potential_next_dual_solution(),
-            pdhg_solver_.get_dual_slack());
-        }
-      }
+      // We go back to the unscaled problem here.
+      // Evaluation is done on the unscaled problem and solutions.
+      unscale_iterates_for_evaluation(should_rescale_average);
 
 #ifdef CUPDLP_DEBUG_MODE
       print("after scale slack", pdhg_solver_.get_dual_slack());
       print("after scale potential next primal", pdhg_solver_.get_potential_next_primal_solution());
       print("after scale potential next dual", pdhg_solver_.get_potential_next_dual_solution());
-#endif
-
-#ifdef PDLP_DEBUG_MODE
       print("before check termination primal", pdhg_solver_.get_primal_solution());
       print("before check termination dual", pdhg_solver_.get_dual_solution());
       if (!settings_.hyper_params.never_restart_to_average) {
@@ -2996,87 +3098,21 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
 #endif
 
       // Check for termination
-      std::optional<optimization_problem_solution_t<i_t, f_t>> solution = check_termination(timer);
-
-      if (solution.has_value()) { return std::move(solution.value()); }
+      if (auto termination_solution = check_termination(timer)) { return std::move(*termination_solution); }
 
       if (settings_.hyper_params.rescale_for_restart) {
-        if (!settings_.hyper_params.never_restart_to_average) {
-          initial_scaling_strategy_.scale_solutions(unscaled_primal_avg_solution_,
-                                                    unscaled_dual_avg_solution_);
-        }
-        if (settings_.hyper_params.use_adaptive_step_size_strategy) {
-          initial_scaling_strategy_.scale_solutions(pdhg_solver_.get_primal_solution(),
-                                                    pdhg_solver_.get_dual_solution());
-        } else {
-          if (is_distributed_master()) {
-            // The only branch in cuPDLPx (Stable3)
-            multi_gpu_engine->for_each_shard([&](auto& shard) {
-              auto& sub = *shard.sub_pdlp;
-              sub.get_initial_scaling_strategy().scale_solutions(
-                sub.pdhg_solver_.get_potential_next_primal_solution(),
-                sub.pdhg_solver_.get_potential_next_dual_solution(),
-                sub.pdhg_solver_.get_dual_slack());
-            });
-          } else {
-            initial_scaling_strategy_.scale_solutions(
-              pdhg_solver_.get_potential_next_primal_solution(),
-              pdhg_solver_.get_potential_next_dual_solution(),
-              pdhg_solver_.get_dual_slack());
-          }
-        }
+        scale_iterates_for_solver(!settings_.hyper_params.never_restart_to_average);
       }
 
-      if (settings_.hyper_params.restart_strategy !=
-            static_cast<int>(
-              pdlp::pdlp_restart_strategy_t<i_t, f_t>::restart_strategy_t::NO_RESTART) &&
-          (is_major_iteration || artificial_restart_check_main_loop)) {
-        restart_strategy_.compute_restart(
-          pdhg_solver_,
-          unscaled_primal_avg_solution_,
-          unscaled_dual_avg_solution_,
-          total_pdlp_iterations_,
-          primal_step_size_,
-          dual_step_size_,
-          primal_weight_,
-          step_size_,
-          current_termination_strategy_.get_convergence_information(),  // Needed for KKT restart
-          average_termination_strategy_.get_convergence_information(),  // Needed for KKT restart
-          best_primal_weight_,  // Needed for cuPDLP+ restart
-          has_restarted         // Needed for cuPDLP+ restart
-        );
-      }
+      pdlp_restart(is_major_iteration, artificial_restart_check_main_loop, has_restarted);
 
       if (!settings_.hyper_params.rescale_for_restart) {
-        // We don't need to rescale average because what matters is weighted_average_solution
-        // getting the scaled accumulation
-        // During the next iteration, unscaled_avg_solution will be overwritten again through
-        // get_average_solutions
-        if (settings_.hyper_params.use_adaptive_step_size_strategy) {
-          initial_scaling_strategy_.scale_solutions(pdhg_solver_.get_primal_solution(),
-                                                    pdhg_solver_.get_dual_solution());
-        } else {
-          initial_scaling_strategy_.scale_solutions(
-            pdhg_solver_.get_potential_next_primal_solution(),
-            pdhg_solver_.get_potential_next_dual_solution(),
-            pdhg_solver_.get_dual_slack());
-        }
+        scale_iterates_for_solver(false);
       }
 
       // In batch mode, after having checked for termination and restart
       // We transpose back to row for the PDHG iterations
-      if (batch_mode_) {
-        transpose_primal_dual_to_row(pdhg_solver_.get_potential_next_primal_solution(),
-                                     pdhg_solver_.get_potential_next_dual_solution(),
-                                     pdhg_solver_.get_dual_slack());
-        rmm::device_uvector<f_t> dummy(0, stream_view_);
-        transpose_primal_dual_to_row(restart_strategy_.last_restart_duality_gap_.primal_solution_,
-                                     restart_strategy_.last_restart_duality_gap_.dual_solution_,
-                                     dummy);
-        transpose_primal_dual_to_row(
-          pdhg_solver_.get_primal_solution(), pdhg_solver_.get_dual_solution(), dummy);
-        transpose_problem_fields(/*to_row=*/true);
-      }
+      if (batch_mode_) {restore_batch_layout_for_pdhg()}
     }
 
     const bool takes_major_step =
