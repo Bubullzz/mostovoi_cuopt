@@ -139,6 +139,7 @@ message ChunkedProblemHeader {
 
   // MIP-specific
   bool enable_incumbents = 30;
+  bool enable_set_incumbent = 31;
 
   // Per-entry scalars for repeated_messages on OptimizationProblem (e.g. QC
   // rows).  The arrays inside each entry are unbounded in size and travel
@@ -331,6 +332,8 @@ message Incumbent {
   double objective = 2;
   repeated double assignment = 3;
   string job_id = 4;
+  // MIP solver bound at the time this incumbent was found.
+  double bound = 5;
 }
 
 message IncumbentResponse {

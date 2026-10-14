@@ -13,8 +13,9 @@
 template <typename i_t, typename f_t>
 struct mip_submip_hyper_params_t {
   // Enable or disable (recursive) RINS/RENS: -1 automatic, 0 disabled, 1 enabled
-  int rins = -1;
-  int rens = -1;
+  int rins     = -1;
+  int rens     = -1;
+  int mutation = -1;
 
   // Base for calculating the target fix rate for the neighbourhood. Actual target value is
   // determined automatically according to the success and infeasible rate.

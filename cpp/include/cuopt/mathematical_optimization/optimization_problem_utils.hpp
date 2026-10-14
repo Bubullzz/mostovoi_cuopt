@@ -8,12 +8,17 @@
 #pragma once
 
 #include <cuopt/error.hpp>
+#include <cuopt/mathematical_optimization/cpu_optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/cpu_pdlp_warm_start_data.hpp>
 #include <cuopt/mathematical_optimization/io/data_model_view.hpp>
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem_interface.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
+
+#include <limits>
+#include <span>
+#include <vector>
 
 namespace cuopt::mathematical_optimization {
 
@@ -34,6 +39,85 @@ inline constexpr char var_type_to_char(var_t variable_type)
   if (variable_type == var_t::INTEGER) { return 'I'; }
   if (variable_type == var_t::SEMI_CONTINUOUS) { return 'S'; }
   return 'C';
+}
+
+// Fill ranged constraint bounds from row_types + a single RHS when the ranged
+// pair was not supplied. No-op when either ranged vector is already populated.
+template <typename i_t, typename f_t>
+void expand_rhs(io::mps_data_model_t<i_t, f_t> const& mps,
+                std::vector<f_t>& constr_lb,
+                std::vector<f_t>& constr_ub)
+{
+  if (!constr_lb.empty() || !constr_ub.empty()) { return; }
+  const auto& row_types         = mps.get_row_types();
+  const auto& constraint_bounds = mps.get_constraint_bounds();
+  constr_lb.reserve(row_types.size());
+  constr_ub.reserve(row_types.size());
+  for (size_t i = 0; i < row_types.size(); ++i) {
+    if (row_types[i] == 'L') {
+      constr_lb.push_back(-std::numeric_limits<f_t>::infinity());
+      constr_ub.push_back(constraint_bounds[i]);
+    } else if (row_types[i] == 'G') {
+      constr_lb.push_back(constraint_bounds[i]);
+      constr_ub.push_back(std::numeric_limits<f_t>::infinity());
+    } else if (row_types[i] == 'E') {
+      constr_lb.push_back(constraint_bounds[i]);
+      constr_ub.push_back(constraint_bounds[i]);
+    }
+  }
+}
+
+/**
+ * @brief Copy optional initial primal/dual arrays onto a CPU problem.
+ *
+ * No-op when both spans are empty, or when @p problem is not a
+ * cpu_optimization_problem_t (GPU problems do not store these host arrays).
+ */
+template <typename i_t, typename f_t>
+void copy_initial_solutions_to_cpu_problem(optimization_problem_interface_t<i_t, f_t>* problem,
+                                           std::span<const f_t> primal,
+                                           std::span<const f_t> dual)
+{
+  if (primal.empty() && dual.empty()) { return; }
+  auto* cpu_problem = dynamic_cast<cpu_optimization_problem_t<i_t, f_t>*>(problem);
+  if (cpu_problem == nullptr) { return; }
+  if (!primal.empty()) { cpu_problem->set_initial_primal_solution(primal); }
+  if (!dual.empty()) { cpu_problem->set_initial_dual_solution(dual); }
+}
+
+/**
+ * @brief If the CPU problem has an initial primal, copy it onto MIP settings.
+ *
+ * Same contract as local solve: empty means unset; size/finiteness are left to
+ * add_initial_solution / problem_checking_t.
+ */
+template <typename i_t, typename f_t>
+void apply_initial_solutions_to_mip_settings(const cpu_optimization_problem_t<i_t, f_t>& problem,
+                                             mip_solver_settings_t<i_t, f_t>& settings)
+{
+  const auto primal = problem.get_initial_primal_solution_host();
+  if (!primal.empty()) {
+    settings.add_initial_solution(primal.data(), static_cast<i_t>(primal.size()));
+  }
+}
+
+/**
+ * @brief If the CPU problem has initial primal/dual arrays, copy them onto PDLP settings.
+ *
+ * Each array is applied independently when non-empty, matching local Solve.
+ */
+template <typename i_t, typename f_t>
+void apply_initial_solutions_to_pdlp_settings(const cpu_optimization_problem_t<i_t, f_t>& problem,
+                                              pdlp_solver_settings_t<i_t, f_t>& settings)
+{
+  const auto primal = problem.get_initial_primal_solution_host();
+  if (!primal.empty()) {
+    settings.set_initial_primal_solution(primal.data(), static_cast<i_t>(primal.size()));
+  }
+  const auto dual = problem.get_initial_dual_solution_host();
+  if (!dual.empty()) {
+    settings.set_initial_dual_solution(dual.data(), static_cast<i_t>(dual.size()));
+  }
 }
 
 /**
@@ -135,6 +219,11 @@ void populate_from_mps_data_model(optimization_problem_interface_t<i_t, f_t>* pr
   if (data_model.has_quadratic_constraints()) {
     problem->set_quadratic_constraints(data_model.get_quadratic_constraints());
   }
+
+  copy_initial_solutions_to_cpu_problem(
+    problem,
+    std::span<const f_t>{data_model.get_initial_primal_solution()},
+    std::span<const f_t>{data_model.get_initial_dual_solution()});
 }
 
 /**
@@ -333,6 +422,9 @@ void populate_from_data_model_view(
     io::canonicalize_quadratic_constraints<i_t, f_t>(qcs);
     problem->set_quadratic_constraints(std::move(qcs));
   }
+
+  copy_initial_solutions_to_cpu_problem(
+    problem, data_model->get_initial_primal_solution(), data_model->get_initial_dual_solution());
 }
 
 }  // namespace cuopt::mathematical_optimization

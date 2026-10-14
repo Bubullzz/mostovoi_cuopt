@@ -127,6 +127,7 @@ class pdlp_restart_strategy_t {
                         const rmm::device_uvector<f_t>& primal_weight);
 
   void increment_iteration_since_last_restart();
+  void reset_iterations_since_last_restart();
 
   void update_distance(pdhg_solver_t<i_t, f_t>& pdhg_solver,
                        rmm::device_uvector<f_t>& primal_weight,
@@ -163,6 +164,7 @@ class pdlp_restart_strategy_t {
   view_t view();
 
   i_t get_iterations_since_last_restart() const;
+  rmm::device_scalar<i_t> const& get_d_iterations_since_last_restart() const;
 
   void set_last_restart_was_average(bool value);
   bool get_last_restart_was_average() const;
@@ -238,7 +240,7 @@ class pdlp_restart_strategy_t {
   // to both primal and dual potential_next solutions of pdhg_solver, writing
   // into last_restart_duality_gap_.primal_distance_traveled_ and
   // last_restart_duality_gap_.dual_distance_traveled_.
-  // Used for distributed PDLP mirroring clarity
+  // Used for multi-GPU PDLP mirroring clarity
   void primal_dual_distance_squared_moved_from_last_restart_period(
     pdhg_solver_t<i_t, f_t>& pdhg_solver, i_t primal_size, i_t dual_size);
 
