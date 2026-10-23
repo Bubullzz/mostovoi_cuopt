@@ -497,24 +497,6 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  // --method 1 --num-gpus N (N>1 or -1 for all visible GPUs) selects multi-GPU PDLP.
-  // Default / concurrent requires 1–2 GPUs.
-  {
-    auto& pdlp_settings = settings.get_pdlp_settings();
-    const int num_gpus  = pdlp_settings.num_gpus;
-    const bool is_mpdlp =
-      pdlp_settings.method == cuopt::mathematical_optimization::method_t::PDLP &&
-      (num_gpus == -1 || num_gpus > 1);
-    if (!is_mpdlp && (num_gpus < 1 || num_gpus > 2)) {
-      auto log = dummy_logger(settings);
-      CUOPT_LOG_ERROR(
-        "num_gpus=%d is only supported with --method 1 (multi-GPU PDLP, where -1 selects "
-        "all visible GPUs). Concurrent / default mode requires 1 or 2 GPUs.",
-        num_gpus);
-      return -1;
-    }
-  }
-
   // Only initialize CUDA resources if using GPU memory backend (not remote execution)
   auto memory_backend = cuopt::mathematical_optimization::get_memory_backend_type();
   std::vector<rmm::mr::cuda_async_memory_resource> memory_resources;
