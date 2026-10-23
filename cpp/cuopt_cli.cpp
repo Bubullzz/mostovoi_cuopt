@@ -14,6 +14,7 @@
 #include <cuopt/mathematical_optimization/optimization_problem_utils.hpp>
 #include <cuopt/mathematical_optimization/solve.hpp>
 #include <cuopt/mathematical_optimization/solve_remote.hpp>
+#include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <utilities/logger.hpp>
 #include <utilities/timer.hpp>
 
@@ -313,22 +314,27 @@ int set_cuda_module_loading(int argc, char* argv[])
  */
 int main(int argc, char* argv[])
 {
-  // Handle dump flags before argparse so no other args are required
+  // This needs to be done before ANY cuda call and the mpi_context calls cudaSetDevics
+  if (set_cuda_module_loading(argc, argv) != 0) { return 1; }
+
+  cuopt::mathematical_optimization::pdlp::mp_context_t mp(argc, argv);
+
+  if (mp.is_root()) {
   for (int i = 1; i < argc; ++i) {
     std::string arg = argv[i];
     if (arg == "--dump-hyper-params") {
-      cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
-      settings.dump_parameters_to_file("/dev/stdout", true);
+      
+        cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
+        settings.dump_parameters_to_file("/dev/stdout", true);
       return 0;
     }
     if (arg == "--dump-params") {
-      cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
-      settings.dump_parameters_to_file("/dev/stdout", false);
+        cuopt::mathematical_optimization::solver_settings_t<int, double> settings;
+        settings.dump_parameters_to_file("/dev/stdout", false);
       return 0;
     }
   }
-
-  if (set_cuda_module_loading(argc, argv) != 0) { return 1; }
+}
 
   // Get the version string from the version_config.hpp file
   const std::string version_string = std::string("cuOpt ") + std::to_string(CUOPT_VERSION_MAJOR) +
@@ -442,8 +448,10 @@ int main(int argc, char* argv[])
   try {
     program.parse_args(argc, argv);
   } catch (const std::runtime_error& err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << program;
+    if (mp.is_root()) {
+      std::cerr << err.what() << std::endl;
+      std::cerr << program;
+    }
     return 1;
   }
 
@@ -514,10 +522,6 @@ int main(int argc, char* argv[])
   if (memory_backend == cuopt::mathematical_optimization::memory_backend_t::GPU) {
     int device_count   = raft::device_setter::get_device_count();
     int requested_gpus = settings.get_parameter<int>(CUOPT_NUM_GPUS);
-    if (requested_gpus == -1) {
-      requested_gpus                        = device_count;
-      settings.get_pdlp_settings().num_gpus = requested_gpus;
-    }
     if (requested_gpus > device_count) {
       auto log = dummy_logger(settings);
       CUOPT_LOG_ERROR("num-gpus=%d exceeds the number of visible CUDA devices: %d. Aborting solve.",
@@ -525,11 +529,17 @@ int main(int argc, char* argv[])
                       device_count);
       return -1;
     }
-    memory_resources.reserve(requested_gpus);
-    for (int i = 0; i < requested_gpus; ++i) {
-      raft::device_setter guard(i);
+    if (mp.is_mpi()) {
+      memory_resources.reserve(1);
       memory_resources.emplace_back();
-      rmm::mr::set_per_device_resource(rmm::cuda_device_id{i}, memory_resources.back());
+      rmm::mr::set_current_device_resource(memory_resources.back());
+    } else {
+      memory_resources.reserve(requested_gpus);
+      for (int i = 0; i < requested_gpus; ++i) {
+        raft::device_setter guard(i);
+        memory_resources.emplace_back();
+        rmm::mr::set_per_device_resource(rmm::cuda_device_id{i}, memory_resources.back());
+      }
     }
   }
 
