@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <argparse/argparse.hpp>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -87,6 +88,38 @@ inline cuopt::init_logger_t dummy_logger(
 }
 
 /**
+ * @brief Parse an input problem file and log the outcome.
+ *
+ * On success returns the parsed model. On failure logs the parser exception and the
+ * "Parsing input file failed" message via the already-initialized logger (caller must
+ * open it first), then returns std::nullopt so the caller can propagate a clean -1.
+ *
+ * @param file_path  Path to the input file (same dispatch rules as run_single_file).
+ * @param mps_reader MPS reader implementation selected by the CLI.
+ * @param settings   Solver settings (used only to read CUOPT_TIME_LIMIT for the parse timer).
+ */
+inline std::optional<cuopt::mathematical_optimization::io::mps_data_model_t<int, double>>
+read_mps_or_fail(const std::string& file_path,
+                 cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
+                 const cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
+{
+  const std::string base_filename = file_path.substr(file_path.find_last_of("/\\") + 1);
+  auto timer = cuopt::timer_t(settings.get_parameter<double>(CUOPT_TIME_LIMIT));
+
+  CUOPT_LOG_INFO("Reading file %s", base_filename.c_str());
+  try {
+    auto mps = cuopt::mathematical_optimization::io::read<int, double>(file_path, mps_reader);
+    CUOPT_LOG_INFO(
+      "Read file %s in %.2f seconds", base_filename.c_str(), timer.elapsed_time());
+    return mps;
+  } catch (const std::logic_error& e) {
+    CUOPT_LOG_ERROR("Parser exception: %s", e.what());
+    CUOPT_LOG_ERROR("Parsing input file failed. Exiting!");
+    return std::nullopt;
+  }
+}
+
+/**
  * @brief Run a single file
  * @param file_path Path to the input file. Dispatched by extension:
  *                  .lp/.lp.gz/.lp.bz2 → LP parser;
@@ -112,27 +145,9 @@ int run_single_file(const std::string& file_path,
     cuopt::mathematical_optimization::configure_logging(log_file, log_console, true);
   cuopt::init_logger_t log(log_file, log_console, /*truncate=*/false);
 
-  std::string base_filename = file_path.substr(file_path.find_last_of("/\\") + 1);
-
-  cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_data_model;
-  bool parsing_failed = false;
-  auto timer          = cuopt::timer_t(settings.get_parameter<double>(CUOPT_TIME_LIMIT));
-  {
-    CUOPT_LOG_INFO("Reading file %s", base_filename.c_str());
-    try {
-      mps_data_model =
-        cuopt::mathematical_optimization::io::read<int, double>(file_path, mps_reader);
-    } catch (const std::logic_error& e) {
-      CUOPT_LOG_ERROR("Parser exception: %s", e.what());
-      parsing_failed = true;
-    }
-  }
-  if (parsing_failed) {
-    auto log = dummy_logger(settings);
-    CUOPT_LOG_ERROR("Parsing input file failed. Exiting!");
-    return -1;
-  }
-  CUOPT_LOG_INFO("Read file %s in %.2f seconds", base_filename.c_str(), timer.elapsed_time());
+  auto maybe_mps = read_mps_or_fail(file_path, mps_reader, settings);
+  if (!maybe_mps) { return -1; }
+  auto mps_data_model = std::move(*maybe_mps);
 
   // Determine memory backend and create problem using interface
   // Create handle only for GPU memory backend (avoid CUDA init on CPU-only hosts)
@@ -525,5 +540,7 @@ int main(int argc, char* argv[])
     }
   }
 
+  if (mp.is_mpi())
+    return run_mp_solve(file_name, initial_solution_file, solve_relaxation, mps_reader, settings) 
   return run_single_file(file_name, initial_solution_file, solve_relaxation, mps_reader, settings);
 }
