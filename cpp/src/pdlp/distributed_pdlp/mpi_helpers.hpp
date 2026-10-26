@@ -36,6 +36,7 @@ class mp_context_t {
   bool is_master() const noexcept { return status == MPI_MASTER; }
   bool is_mpi() const noexcept { return status != MPI_UNUSED; }
   bool is_root() const noexcept { return is_master() || !is_mpi(); }
+  bool is_shard() const noexcept { return is_mpi() && !is_master(); }
 
   // Public read-only state (kept as fields for ergonomic access at call sites).
   MPI_Comm world_comm{MPI_COMM_NULL};
