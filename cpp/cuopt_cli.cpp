@@ -541,6 +541,6 @@ int main(int argc, char* argv[])
   }
 
   if (mp.is_mpi())
-    return run_mp_solve(file_name, initial_solution_file, solve_relaxation, mps_reader, settings) 
+    return run_mp_solve(file_name, mps_reader, settings, mp);
   return run_single_file(file_name, initial_solution_file, solve_relaxation, mps_reader, settings);
 }
