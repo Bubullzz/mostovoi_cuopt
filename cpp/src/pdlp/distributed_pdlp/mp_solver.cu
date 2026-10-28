@@ -5,11 +5,11 @@
 
 #include <pdlp/distributed_pdlp/mp_solver.hpp>
 
+#include <pdlp/distributed_pdlp/distributed_state.hpp>
 #include <pdlp/distributed_pdlp/distributed_utils.hpp>
 #include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <pdlp/distributed_pdlp/nccl_helpers.hpp>
 #include <pdlp/distributed_pdlp/partitioner.hpp>
-#include <pdlp/distributed_pdlp/shard.hpp>
 
 #include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/presolve/third_party_presolve.hpp>
@@ -45,8 +45,9 @@ namespace {
 //   2) MPI_Bcast it to every rank,
 //   3) each rank calls ncclCommInitRank with its own (world_size, rank).
 // Returned handle owns the comm; its deleter does the matching
-// ncclCommDestroy on the right device (see nccl_comm_deleter_t in shard.hpp)
-// so it's safe to move into pdlp_shard_t or drop on exception.
+// ncclCommDestroy on the right device (see nccl_comm_deleter_t in
+// nccl_helpers.hpp) so it's safe to move into distributed_state_t or drop
+// on exception.
 //
 // Collective: must be called by every rank in mp.world_comm.
 // ncclCommInitRank blocks until every rank arrives, so any earlier-exiting
@@ -284,13 +285,26 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                  rank_data.total_var_size);
 
   // Collective: every rank must reach this call. The returned handle owns
-  // the comm; dropping it (end of scope, exception) runs ncclCommDestroy on
-  // the right device. Moved into pdlp_shard_t once that's built.
+  // the comm; dropping it runs ncclCommDestroy on the right device. Moved
+  // into distributed_state_t below.
   auto nccl_comm = make_nccl_comm(mp);
   CUOPT_LOG_TRACE("rank %d: NCCL comm initialized (world_size=%d)", mp.rank, mp.world_size);
 
-  // TODO(MP): build the per-rank pdlp_shard_t from rank_data + std::move(nccl_comm),
-  // run the collective solve, gather + postsolve on master.
+  // Everything the per-rank solver needs to run collectives (comm + rank
+  // identity + its slice of the problem + per-peer halo staging buffers,
+  // allocated on handle_ptr's stream from rank_data). Owned here; will be
+  // moved into pdlp_solver_t once that ctor path accepts a
+  // distributed_state_t.
+  distributed_state_t<int, double> dist{mp.world_size,
+                                        mp.rank,
+                                        mp.device_id,
+                                        std::move(nccl_comm),
+                                        std::move(rank_data),
+                                        handle_ptr->get_stream()};
+
+  // TODO(MP): construct pdlp_solver_t with std::move(dist) (ctor path to be
+  // added — see distributed_state.hpp). Then run the collective solve;
+  // gather + postsolve on master.
   return 0;
 }
 

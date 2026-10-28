@@ -32,18 +32,9 @@ namespace cuopt::mathematical_optimization::pdlp {
 template <typename i_t, typename f_t>
 class pdlp_solver_t;
 
-// RAII deleter for ncclComm_t; sets the right device before destroy.
-struct nccl_comm_deleter_t {
-  int device_id{-1};
-  void operator()(ncclComm* comm) const noexcept
-  {
-    if (comm == nullptr) return;
-    cuopt_assert(device_id >= 0, "nccl_comm_deleter_t: device_id not set");
-    raft::device_setter guard(device_id);
-    CUOPT_NCCL_TRY_NO_THROW(ncclCommDestroy(comm));
-  }
-};
-using nccl_comm_unique_ptr_t = std::unique_ptr<ncclComm, nccl_comm_deleter_t>;
+// nccl_comm_deleter_t / nccl_comm_unique_ptr_t live in nccl_helpers.hpp
+// (included above); they are the per-comm RAII handle shared across the
+// SP-mGPU shard path and the MP distributed_state_t path.
 
 template <typename i_t, typename f_t>
 struct pdlp_shard_t {
