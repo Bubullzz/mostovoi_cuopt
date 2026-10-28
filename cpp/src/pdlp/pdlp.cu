@@ -166,7 +166,8 @@ template <typename i_t, typename f_t>
 pdlp_solver_t<i_t, f_t>::pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
                                        pdlp_solver_settings_t<i_t, f_t> const& settings,
                                        bool is_legacy_batch_mode,
-                                       bool is_distributed_sub_pdlp)
+                                       bool is_distributed_sub_pdlp,
+                                       std::optional<distributed_state_t<i_t, f_t>> dist)
   : original_batch_size_(batch_size_handler(settings)),
     climber_strategies_(original_batch_size_),
     batch_mode_(climber_strategies_.size() > 1),
@@ -193,6 +194,7 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
                         op_problem.n_constraints,
                         climber_strategies_,
                         settings_.hyper_params},
+    dist_(std::move(dist)),
     pdhg_solver_{handle_ptr_,
                  op_problem_scaled_,
                  is_legacy_batch_mode,

@@ -544,8 +544,8 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   pdlp_solver_t<int, double> solver(problem,
                                     pdlp_settings,
                                     /*is_batch_mode=*/false,
-                                    /*is_distributed_sub_pdlp=*/true);
-  (void)dist;  // unused in step 1; wire into pdlp_solver_t in step 2
+                                    /*is_distributed_sub_pdlp=*/true,
+                                    std::move(dist));
 
   auto partial_solution = solver.run_solver(lp_timer);
 

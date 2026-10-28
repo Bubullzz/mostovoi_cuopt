@@ -13,6 +13,7 @@
 #include <cuopt/mathematical_optimization/pdlp/solver_solution.hpp>
 
 #include <pdlp/cusparse_view.hpp>
+#include <pdlp/distributed_pdlp/distributed_state.hpp>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/initial_scaling_strategy/initial_scaling.cuh>
 #include <pdlp/pdhg.hpp>
@@ -65,8 +66,9 @@ class pdlp_solver_t {
    */
   pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
                 pdlp_solver_settings_t<i_t, f_t> const& settings,
-                bool is_batch_mode           = false,
-                bool is_distributed_sub_pdlp = false);
+                bool is_batch_mode                                = false,
+                bool is_distributed_sub_pdlp                      = false,
+                std::optional<distributed_state_t<i_t, f_t>> dist = std::nullopt);
 
   // Multi-GPU solver constructor
   pdlp_solver_t(mip::problem_t<i_t, f_t>& placeholder_problem,
@@ -220,6 +222,12 @@ class pdlp_solver_t {
   // (collectively bootstraps NCCL, owns RMM resources). Stays nullopt in
   // single-GPU mode; emplaced by the multi-GPU ctor.
   std::optional<multi_gpu_engine_t<i_t, f_t>> multi_gpu_engine;
+
+  // MP (multi-process) counterpart of multi_gpu_engine: per-rank distributed
+  // context passed into the ctor by the MPI driver (mp_solver.cu). nullopt in
+  // SP mode and in SP-mGPU shards (shards share master's multi_gpu_engine).
+  // Owned here so NCCL comm + halo buffers live for the full solve.
+  std::optional<distributed_state_t<i_t, f_t>> dist_;
 
   // Inner solver
   pdlp::pdhg_solver_t<i_t, f_t> pdhg_solver_;
