@@ -386,14 +386,6 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     parts            = partitioner->partition(partition_input);
   }
 
-  // Option A: broadcast the full host-side matrix + partition from master to
-  // every shard, then each rank runs the (unchanged) slicing algorithm and
-  // keeps only its own slice. See create_rank_data_for_rank for why the
-  // slicing can't easily be made per-rank-only without rewriting the halo
-  // plan computation.
-  //
-  // Shape first (so shards can size their receive buffers), then parts, then
-  // each matrix buffer. All collective; must be called by every rank.
   if (mp.is_mpi()) {
     // 1. Shape first, so shards can size every receive buffer below.
     int shape[3] = {n_cstr, n_vars, nnz};
@@ -466,16 +458,10 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                  rank_data.total_cstr_size,
                  rank_data.total_var_size);
 
-  // Collective: every rank must reach this call. The returned handle owns
-  // the comm; dropping it runs ncclCommDestroy on the right device. Moved
-  // into distributed_state_t below.
   auto nccl_comm = make_nccl_comm(mp);
   CUOPT_LOG_TRACE("rank %d: NCCL comm initialized (world_size=%d)", mp.rank, mp.world_size);
 
-  // Everything the per-rank solver needs to run collectives (comm + rank
-  // identity + its slice of the problem + per-peer halo staging buffers,
-  // allocated on handle_ptr's stream from rank_data). Owned here until
-  // moved into solve_lp below.
+  // Everything the per-rank solver needs to run collectives
   distributed_state_t<int, double> dist{mp.world_size,
                                         mp.rank,
                                         mp.device_id,
@@ -484,16 +470,9 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                                         handle_ptr->get_stream()};
 
   // ----- Build the LOCAL optimization_problem_t this rank hands to solve_lp -----
-  // Mirrors the first half of pdlp_shard_t's ctor body (shard.cu:43-99).
-  // The second half (problem_t wrap + reverse_* override + pdlp_solver_t
-  // ctor) now lives inside solve_lp's distributed path, so we only need
-  // the opt_problem here. Once that path is proven, pdlp_shard_t + the
-  // SP-mGPU orchestrator ctor at pdlp.cu:410+ can be deleted.
   const auto& rd = dist.rank_data;
 
-  // 1. Gather per-shard host slices sized to TOTAL (owned + halo). Owned
-  //    slots get real values; halo slots keep defaults (±inf / 0) because
-  //    they must not be read before a halo exchange fills them.
+  // 1. Gather per-shard host slices
   std::vector<double> h_shard_obj(rd.total_var_size, 0.0);
   std::vector<double> h_shard_var_lb(rd.total_var_size,
                                      -std::numeric_limits<double>::infinity());
@@ -515,9 +494,7 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     h_shard_cstr_ub[i] = h_cstr_ub[g];
   }
 
-  // 2. Build optimization_problem_t sized to TOTAL on this process's device.
-  //    Lives in this frame for the solver's lifetime (opt_problem is
-  //    retained for the same reason pdlp_shard_t owns it as a struct field).
+  // 2. Build optimization_problem_t
   optimization_problem_t<int, double> opt_problem(handle_ptr.get());
   opt_problem.set_csr_constraint_matrix(rd.h_A_values.data(),
                                         static_cast<int>(rd.h_A_values.size()),
