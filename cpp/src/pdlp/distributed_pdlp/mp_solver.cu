@@ -5,6 +5,7 @@
 
 #include <pdlp/distributed_pdlp/mp_solver.hpp>
 
+#include <pdlp/distributed_pdlp/distributed_utils.hpp>
 #include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <pdlp/distributed_pdlp/partitioner.hpp>
 
@@ -43,6 +44,19 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
 
   auto pdlp_settings = settings.get_pdlp_settings();
   auto lp_timer      = cuopt::timer_t(pdlp_settings.time_limit);
+
+  // Shared across the master-only block and the subsequent MPI_Bcast. Master
+  // fills them inside the if-block; shards receive them via the broadcast.
+  int n_cstr = 0;
+  int n_vars = 0;
+  int nnz    = 0;
+  std::vector<int>    parts;
+  std::vector<int>    h_A_row_offsets;
+  std::vector<int>    h_A_col_indices;
+  std::vector<double> h_A_values;
+  std::vector<int>    h_A_t_row_offsets;
+  std::vector<int>    h_A_t_col_indices;
+  std::vector<double> h_A_t_values;
 
   if (mp.is_master()) {
     const bool run_presolve = pdlp_settings.presolver != presolver_t::None;
@@ -106,15 +120,15 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                      pdlp_settings.presolver == presolver_t::PSLP ? "PSLP" : "Papilo",
                      presolve_time);
     }
-    const auto& mps  = run_presolve ? host_res->reduced_problem : mps_data_model;
-    const int n_vars = static_cast<int>(mps.get_objective_coefficients().size());
-    const int n_cstr = static_cast<int>(mps.get_constraint_lower_bounds().size());
-    const int nnz    = static_cast<int>(mps.get_constraint_matrix_values().size());
+    const auto& mps = run_presolve ? host_res->reduced_problem : mps_data_model;
+    n_vars          = static_cast<int>(mps.get_objective_coefficients().size());
+    n_cstr          = static_cast<int>(mps.get_constraint_lower_bounds().size());
+    nnz             = static_cast<int>(mps.get_constraint_matrix_values().size());
 
     // A (CSR) — mutable copies for the engine + partitioner consumers below.
-    std::vector<int> h_A_row_offsets  = mps.get_constraint_matrix_offsets();
-    std::vector<int> h_A_col_indices  = mps.get_constraint_matrix_indices();
-    std::vector<double> h_A_values    = mps.get_constraint_matrix_values();
+    h_A_row_offsets = mps.get_constraint_matrix_offsets();
+    h_A_col_indices = mps.get_constraint_matrix_indices();
+    h_A_values      = mps.get_constraint_matrix_values();
 
     // ----- 2. Transpose A -> A^T on the host (one-shot CSR transpose) -----
     // CSC(A) and CSR(A^T) share the same memory layout, so the CSC produced
@@ -127,12 +141,11 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     A_csr.x         = h_A_values;
     ds::csc_matrix_t<int, double> AT_as_csc(n_vars, n_cstr, nnz);
     A_csr.to_compressed_col(AT_as_csc);
-    std::vector<int> h_A_t_row_offsets   = std::move(AT_as_csc.col_start);
-    std::vector<int> h_A_t_col_indices   = std::move(AT_as_csc.i);
-    std::vector<double> h_A_t_values     = std::move(AT_as_csc.x);
+    h_A_t_row_offsets = std::move(AT_as_csc.col_start);
+    h_A_t_col_indices = std::move(AT_as_csc.i);
+    h_A_t_values      = std::move(AT_as_csc.x);
 
     // ----- 3. Partition -----
-    std::vector<int> parts;
     partitioner_input_t<int, double> partition_input;
     partition_input.nb_cstr  = n_cstr;
     partition_input.nb_vars  = n_vars;
@@ -181,8 +194,65 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     parts            = partitioner->partition(partition_input);
   }
 
-  // TODO(MP): scatter the partitioned data across ranks via NCCL, build the
-  // per-rank engine, run the collective solve, gather + postsolve on master.
+  // Option A: broadcast the full host-side matrix + partition from master to
+  // every shard, then each rank runs the (unchanged) slicing algorithm and
+  // keeps only its own slice. See create_rank_data_for_rank for why the
+  // slicing can't easily be made per-rank-only without rewriting the halo
+  // plan computation.
+  //
+  // Shape first (so shards can size their receive buffers), then parts, then
+  // each matrix buffer. All collective; must be called by every rank.
+  if (mp.is_mpi()) {
+    int shape[3] = {n_cstr, n_vars, nnz};
+    CUOPT_MPI_TRY(MPI_Bcast(shape, 3, MPI_INT, 0, mp.world_comm));
+    n_cstr = shape[0];
+    n_vars = shape[1];
+    nnz    = shape[2];
+
+    if (!mp.is_master()) {
+      parts.resize(static_cast<std::size_t>(n_cstr) + static_cast<std::size_t>(n_vars));
+      h_A_row_offsets.resize(n_cstr + 1);
+      h_A_col_indices.resize(nnz);
+      h_A_values.resize(nnz);
+      h_A_t_row_offsets.resize(n_vars + 1);
+      h_A_t_col_indices.resize(nnz);
+      h_A_t_values.resize(nnz);
+    }
+
+    CUOPT_MPI_TRY(
+      MPI_Bcast(parts.data(), static_cast<int>(parts.size()), MPI_INT, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_row_offsets.data(), n_cstr + 1, MPI_INT, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_col_indices.data(), nnz, MPI_INT, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_values.data(), nnz, MPI_DOUBLE, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_row_offsets.data(), n_vars + 1, MPI_INT, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_col_indices.data(), nnz, MPI_INT, 0, mp.world_comm));
+    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_values.data(), nnz, MPI_DOUBLE, 0, mp.world_comm));
+  }
+
+  // Every rank computes the full slicing and keeps only its own slice.
+  // Freed below so the full-matrix peak host memory is a transient.
+  auto rank_data = create_rank_data_for_rank<int, double>(parts,
+                                                          h_A_row_offsets,
+                                                          h_A_col_indices,
+                                                          h_A_values,
+                                                          h_A_t_row_offsets,
+                                                          h_A_t_col_indices,
+                                                          h_A_t_values,
+                                                          mp.world_size,
+                                                          n_cstr,
+                                                          n_vars,
+                                                          nnz,
+                                                          mp.rank);
+
+  CUOPT_LOG_INFO("rank %d: owns %d constraints, %d variables (total %d / %d after halo)",
+                 mp.rank,
+                 rank_data.owned_cstr_size,
+                 rank_data.owned_var_size,
+                 rank_data.total_cstr_size,
+                 rank_data.total_var_size);
+
+  // TODO(MP): construct the NCCL comm, build the per-rank engine from
+  // rank_data, run the collective solve, gather + postsolve on master.
   return 0;
 }
 

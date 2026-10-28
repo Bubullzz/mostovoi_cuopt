@@ -260,4 +260,54 @@ template std::vector<rank_data_t<int, double>> create_rank_data_from_parts<int, 
   int nb_vars,
   int nnz);
 
+
+// Bad but functionnal. will make it fast later.
+template <typename i_t, typename f_t>
+rank_data_t<i_t, f_t> create_rank_data_for_rank(
+  const std::vector<i_t>& parts,
+  const std::vector<i_t>& A_row_offsets,
+  const std::vector<i_t>& A_col_indices,
+  const std::vector<f_t>& A_values,
+  const std::vector<i_t>& A_t_row_offsets,
+  const std::vector<i_t>& A_t_col_indices,
+  const std::vector<f_t>& A_t_values,
+  i_t nb_parts,
+  i_t nb_cstr,
+  i_t nb_vars,
+  i_t nnz,
+  i_t keep_rank)
+{
+  cuopt_expects(keep_rank >= 0 && keep_rank < nb_parts,
+                error_type_t::ValidationError,
+                "create_rank_data_for_rank: keep_rank=%d out of range [0, %d)",
+                static_cast<int>(keep_rank),
+                static_cast<int>(nb_parts));
+  auto all = create_rank_data_from_parts<i_t, f_t>(parts,
+                                                   A_row_offsets,
+                                                   A_col_indices,
+                                                   A_values,
+                                                   A_t_row_offsets,
+                                                   A_t_col_indices,
+                                                   A_t_values,
+                                                   nb_parts,
+                                                   nb_cstr,
+                                                   nb_vars,
+                                                   nnz);
+  return std::move(all[keep_rank]);
+}
+
+template rank_data_t<int, double> create_rank_data_for_rank<int, double>(
+  const std::vector<int>& parts,
+  const std::vector<int>& A_row_offsets,
+  const std::vector<int>& A_col_indices,
+  const std::vector<double>& A_values,
+  const std::vector<int>& A_t_row_offsets,
+  const std::vector<int>& A_t_col_indices,
+  const std::vector<double>& A_t_values,
+  int nb_parts,
+  int nb_cstr,
+  int nb_vars,
+  int nnz,
+  int keep_rank);
+
 }  // namespace cuopt::mathematical_optimization::pdlp
