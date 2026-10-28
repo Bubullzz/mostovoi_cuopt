@@ -89,12 +89,24 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   int n_vars = 0;
   int nnz    = 0;
   std::vector<int>    parts;
+  // Constraint matrix (A) + its transpose (A^T), both as host-side CSR.
   std::vector<int>    h_A_row_offsets;
   std::vector<int>    h_A_col_indices;
   std::vector<double> h_A_values;
   std::vector<int>    h_A_t_row_offsets;
   std::vector<int>    h_A_t_col_indices;
   std::vector<double> h_A_t_values;
+  // Variable-indexed (size n_vars) and constraint-indexed (size n_cstr) data.
+  std::vector<double> h_obj;
+  std::vector<double> h_var_lb;
+  std::vector<double> h_var_ub;
+  std::vector<double> h_cstr_lb;
+  std::vector<double> h_cstr_ub;
+  // Problem-level scalars. maximize is a bool at the API, but we transport
+  // it as a double (0.0/1.0) so all 3 scalars pack into one MPI_Bcast.
+  bool   maximize                 = false;
+  double objective_offset         = 0.0;
+  double objective_scaling_factor = 1.0;
 
   if (mp.is_master()) {
     const bool run_presolve = pdlp_settings.presolver != presolver_t::None;
@@ -163,6 +175,18 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     h_A_row_offsets = mps.get_constraint_matrix_offsets();
     h_A_col_indices = mps.get_constraint_matrix_indices();
     h_A_values      = mps.get_constraint_matrix_values();
+
+    // Bounds + objective, straight off the (reduced) mps. These are the
+    // vectors every shard will slice via rank_data.local_to_global_{var,cstr}
+    // inside the pdlp_solver_t MP ctor.
+    h_obj                    = mps.get_objective_coefficients();
+    h_var_lb                 = mps.get_variable_lower_bounds();
+    h_var_ub                 = mps.get_variable_upper_bounds();
+    h_cstr_lb                = mps.get_constraint_lower_bounds();
+    h_cstr_ub                = mps.get_constraint_upper_bounds();
+    maximize                 = mps.get_sense();
+    objective_offset         = mps.get_objective_offset();
+    objective_scaling_factor = mps.get_objective_scaling_factor();
 
     // ----- 2. Transpose A -> A^T on the host (one-shot CSR transpose) -----
     // CSC(A) and CSR(A^T) share the same memory layout, so the CSC produced
@@ -237,12 +261,14 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   // Shape first (so shards can size their receive buffers), then parts, then
   // each matrix buffer. All collective; must be called by every rank.
   if (mp.is_mpi()) {
+    // 1. Shape first, so shards can size every receive buffer below.
     int shape[3] = {n_cstr, n_vars, nnz};
     CUOPT_MPI_TRY(MPI_Bcast(shape, 3, MPI_INT, 0, mp.world_comm));
     n_cstr = shape[0];
     n_vars = shape[1];
     nnz    = shape[2];
 
+    // 2. Shard-side allocation. Master's buffers are already filled.
     if (!mp.is_master()) {
       parts.resize(static_cast<std::size_t>(n_cstr) + static_cast<std::size_t>(n_vars));
       h_A_row_offsets.resize(n_cstr + 1);
@@ -251,16 +277,38 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
       h_A_t_row_offsets.resize(n_vars + 1);
       h_A_t_col_indices.resize(nnz);
       h_A_t_values.resize(nnz);
+      h_obj.resize(n_vars);
+      h_var_lb.resize(n_vars);
+      h_var_ub.resize(n_vars);
+      h_cstr_lb.resize(n_cstr);
+      h_cstr_ub.resize(n_cstr);
     }
 
-    CUOPT_MPI_TRY(
-      MPI_Bcast(parts.data(), static_cast<int>(parts.size()), MPI_INT, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_row_offsets.data(), n_cstr + 1, MPI_INT, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_col_indices.data(), nnz, MPI_INT, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_values.data(), nnz, MPI_DOUBLE, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_row_offsets.data(), n_vars + 1, MPI_INT, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_col_indices.data(), nnz, MPI_INT, 0, mp.world_comm));
-    CUOPT_MPI_TRY(MPI_Bcast(h_A_t_values.data(), nnz, MPI_DOUBLE, 0, mp.world_comm));
+    // 3. Partition + matrix (A, A^T).
+    bcast(parts, mp);
+    bcast(h_A_row_offsets, mp);
+    bcast(h_A_col_indices, mp);
+    bcast(h_A_values, mp);
+    bcast(h_A_t_row_offsets, mp);
+    bcast(h_A_t_col_indices, mp);
+    bcast(h_A_t_values, mp);
+
+    // 4. Bounds + objective.
+    bcast(h_obj, mp);
+    bcast(h_var_lb, mp);
+    bcast(h_var_ub, mp);
+    bcast(h_cstr_lb, mp);
+    bcast(h_cstr_ub, mp);
+
+    // 5. Problem-level scalars, packed into one 3-double message
+    //    (bool->double is lossless for 0.0/1.0).
+    double scalars[3] = {maximize ? 1.0 : 0.0, objective_offset, objective_scaling_factor};
+    CUOPT_MPI_TRY(MPI_Bcast(scalars, 3, MPI_DOUBLE, 0, mp.world_comm));
+    if (!mp.is_master()) {
+      maximize                 = (scalars[0] != 0.0);
+      objective_offset         = scalars[1];
+      objective_scaling_factor = scalars[2];
+    }
   }
 
   // Every rank computes the full slicing and keeps only its own slice.
@@ -302,9 +350,12 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                                         std::move(rank_data),
                                         handle_ptr->get_stream()};
 
-  // TODO(MP): construct pdlp_solver_t with std::move(dist) (ctor path to be
-  // added — see distributed_state.hpp). Then run the collective solve;
-  // gather + postsolve on master.
+  // TODO(MP): reconstruct a local mps_data_model_t<int,double> on each rank
+  // from the broadcast h_obj / h_var_{lb,ub} / h_cstr_{lb,ub} + scalars +
+  // h_A_* (owned by this frame; shards hold the full reduced problem on
+  // host so the pdlp_solver_t MP ctor can slice via rank_data). Then
+  // construct pdlp_solver_t with that mps + std::move(dist), run the
+  // collective solve, gather + postsolve on master.
   return 0;
 }
 

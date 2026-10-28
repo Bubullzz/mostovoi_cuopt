@@ -10,6 +10,7 @@
 #include <mpi.h>
 
 #include <memory>
+#include <vector>
 
 namespace cuopt::mathematical_optimization::pdlp {
 
@@ -73,5 +74,25 @@ class mp_context_t {
                              _cuopt_mpi_errstr);                      \
     }                                                                 \
   } while (0)
+
+// Maps C++ scalar types to their MPI_Datatype handles. Only the types we
+// actually broadcast in the distributed PDLP path are specialized; adding a
+// new scalar type is a 1-line specialization. Not constexpr because MPI
+// datatype handles are implementation-defined opaque runtime objects.
+template <typename T>
+inline MPI_Datatype mpi_datatype_of();
+template <> inline MPI_Datatype mpi_datatype_of<int>()    { return MPI_INT; }
+template <> inline MPI_Datatype mpi_datatype_of<double>() { return MPI_DOUBLE; }
+
+// Collective: broadcast a std::vector<T> from master (rank 0) to every rank
+// in mp.world_comm. Both sides must already have the correct v.size() --
+// size discovery is the caller's job (typically a prior bcast of the shape).
+// On rank 0 v.data() is the source; elsewhere it's the destination.
+template <typename T>
+inline void bcast(std::vector<T>& v, const mp_context_t& mp)
+{
+  CUOPT_MPI_TRY(MPI_Bcast(
+    v.data(), static_cast<int>(v.size()), mpi_datatype_of<T>(), 0, mp.world_comm));
+}
 
 }  // namespace cuopt::mathematical_optimization::pdlp
