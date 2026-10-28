@@ -13,6 +13,8 @@
 
 #include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/presolve/third_party_presolve.hpp>
+#include <mip_heuristics/problem/problem.cuh>
+#include <pdlp/pdlp.cuh>
 
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
@@ -20,7 +22,6 @@
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
-#include <cuopt/mathematical_optimization/solve.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -519,8 +520,34 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   const std::vector<int> h_my_l2g_cstr   = {dist.rank_data.local_to_global_cstr.begin(),
                                             dist.rank_data.local_to_global_cstr.begin() + my_owned_cstr};
 
-  auto partial_solution = cuopt::mathematical_optimization::solve_lp(
-    opt_problem, pdlp_settings, std::move(dist));
+  const auto stream = handle_ptr->get_stream();
+
+  mip::problem_t<int, double> problem(opt_problem);
+
+  problem.reverse_offsets.resize(rd.h_A_t_row_offsets.size(), stream);
+  problem.reverse_constraints.resize(rd.h_A_t_col_indices.size(), stream);
+  problem.reverse_coefficients.resize(rd.h_A_t_values.size(), stream);
+  raft::copy(problem.reverse_offsets.data(),
+             rd.h_A_t_row_offsets.data(),
+             rd.h_A_t_row_offsets.size(),
+             stream);
+  raft::copy(problem.reverse_constraints.data(),
+             rd.h_A_t_col_indices.data(),
+             rd.h_A_t_col_indices.size(),
+             stream);
+  raft::copy(problem.reverse_coefficients.data(),
+             rd.h_A_t_values.data(),
+             rd.h_A_t_values.size(),
+             stream);
+  handle_ptr->sync_stream();
+
+  pdlp_solver_t<int, double> solver(problem,
+                                    pdlp_settings,
+                                    /*is_batch_mode=*/false,
+                                    /*is_distributed_sub_pdlp=*/true);
+  (void)dist;  // unused in step 1; wire into pdlp_solver_t in step 2
+
+  auto partial_solution = solver.run_solver(lp_timer);
 
   auto solution = gather_distributed_solution(
     partial_solution, h_my_l2g_var, h_my_l2g_cstr, n_vars, n_cstr, mp, handle_ptr.get());
@@ -532,8 +559,7 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
 
   assert(solution);
   if (presolver_ptr) {
-    const auto stream = handle_ptr->get_stream();
-    auto h_primal     = cuopt::host_copy(solution->get_primal_solution(), stream);
+    auto h_primal = cuopt::host_copy(solution->get_primal_solution(), stream);
     auto h_dual       = cuopt::host_copy(solution->get_dual_solution(), stream);
     auto h_rc         = cuopt::host_copy(solution->get_reduced_cost(), stream);
     handle_ptr->sync_stream();
