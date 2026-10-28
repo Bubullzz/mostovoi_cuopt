@@ -10,14 +10,17 @@
 #include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <pdlp/distributed_pdlp/nccl_helpers.hpp>
 #include <pdlp/distributed_pdlp/partitioner.hpp>
+#include <pdlp/pdlp.cuh>
 
 #include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/presolve/third_party_presolve.hpp>
+#include <mip_heuristics/problem/problem.cuh>
 
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
 #include <cuopt/mathematical_optimization/constants.h>
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
+#include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 
@@ -25,12 +28,14 @@
 #include <utilities/logger.hpp>
 #include <utilities/timer.hpp>
 
+#include <raft/core/copy.hpp>
 #include <raft/core/handle.hpp>
 
 #include <nccl.h>
 
 #include <algorithm>
 #include <cassert>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <utility>
@@ -350,12 +355,105 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                                         std::move(rank_data),
                                         handle_ptr->get_stream()};
 
-  // TODO(MP): reconstruct a local mps_data_model_t<int,double> on each rank
-  // from the broadcast h_obj / h_var_{lb,ub} / h_cstr_{lb,ub} + scalars +
-  // h_A_* (owned by this frame; shards hold the full reduced problem on
-  // host so the pdlp_solver_t MP ctor can slice via rank_data). Then
-  // construct pdlp_solver_t with that mps + std::move(dist), run the
-  // collective solve, gather + postsolve on master.
+  // ----- Build the LOCAL problem_t this rank hands to pdlp_solver_t -----
+  // Transplanted from pdlp_shard_t's ctor body (shard.cu:43-125). We skip
+  // adding a new "MP ctor" on pdlp_solver_t -- the EXISTING single-GPU ctor
+  // with is_distributed_sub_pdlp=true already does the right thing for a
+  // per-rank peer. Once this path is proven, pdlp_shard_t + the SP-mGPU
+  // orchestrator ctor at pdlp.cu:410+ can be deleted.
+  const auto& rd = dist.rank_data;
+
+  // 1. Gather per-shard host slices sized to TOTAL (owned + halo). Owned
+  //    slots get real values; halo slots keep defaults (±inf / 0) because
+  //    they must not be read before a halo exchange fills them.
+  std::vector<double> h_shard_obj(rd.total_var_size, 0.0);
+  std::vector<double> h_shard_var_lb(rd.total_var_size,
+                                     -std::numeric_limits<double>::infinity());
+  std::vector<double> h_shard_var_ub(rd.total_var_size,
+                                     std::numeric_limits<double>::infinity());
+  std::vector<double> h_shard_cstr_lb(rd.total_cstr_size,
+                                      -std::numeric_limits<double>::infinity());
+  std::vector<double> h_shard_cstr_ub(rd.total_cstr_size,
+                                      std::numeric_limits<double>::infinity());
+  for (int i = 0; i < rd.owned_var_size; ++i) {
+    const auto g      = rd.local_to_global_var[i];
+    h_shard_obj[i]    = h_obj[g];
+    h_shard_var_lb[i] = h_var_lb[g];
+    h_shard_var_ub[i] = h_var_ub[g];
+  }
+  for (int i = 0; i < rd.owned_cstr_size; ++i) {
+    const auto g       = rd.local_to_global_cstr[i];
+    h_shard_cstr_lb[i] = h_cstr_lb[g];
+    h_shard_cstr_ub[i] = h_cstr_ub[g];
+  }
+
+  // 2. Build optimization_problem_t sized to TOTAL on this process's device.
+  //    Lives in this frame for the solver's lifetime (opt_problem is
+  //    retained for the same reason pdlp_shard_t owns it as a struct field).
+  optimization_problem_t<int, double> opt_problem(handle_ptr.get());
+  opt_problem.set_csr_constraint_matrix(rd.h_A_values.data(),
+                                        static_cast<int>(rd.h_A_values.size()),
+                                        rd.h_A_col_indices.data(),
+                                        static_cast<int>(rd.h_A_col_indices.size()),
+                                        rd.h_A_row_offsets.data(),
+                                        static_cast<int>(rd.h_A_row_offsets.size()));
+  opt_problem.set_objective_coefficients(h_shard_obj.data(), rd.total_var_size);
+  opt_problem.set_variable_lower_bounds(h_shard_var_lb.data(), rd.total_var_size);
+  opt_problem.set_variable_upper_bounds(h_shard_var_ub.data(), rd.total_var_size);
+  opt_problem.set_constraint_lower_bounds(h_shard_cstr_lb.data(), rd.total_cstr_size);
+  opt_problem.set_constraint_upper_bounds(h_shard_cstr_ub.data(), rd.total_cstr_size);
+  opt_problem.set_maximize(maximize);
+  opt_problem.set_objective_offset(objective_offset);
+  opt_problem.set_objective_scaling_factor(objective_scaling_factor);
+  opt_problem.set_problem_category(problem_category_t::LP);
+
+  // 3. Wrap in mip::problem_t (what pdlp_solver_t consumes).
+  mip::problem_t<int, double> sub_problem(opt_problem);
+
+  // 4. Override reverse_* (A^T) with the pre-sliced LOCAL A^T from rank_data.
+  //    problem_t's ctor computes a transpose of the LOCAL A, which is wrong
+  //    in distributed mode: A_local is owned_cstr x total_var, and A^T_local
+  //    is the owned_var x total_cstr slice we built during partitioning
+  //    (see shard.cu:104-108).
+  auto stream = handle_ptr->get_stream();
+  sub_problem.reverse_offsets.resize(rd.h_A_t_row_offsets.size(), stream);
+  sub_problem.reverse_constraints.resize(rd.h_A_t_col_indices.size(), stream);
+  sub_problem.reverse_coefficients.resize(rd.h_A_t_values.size(), stream);
+  raft::copy(sub_problem.reverse_offsets.data(),
+             rd.h_A_t_row_offsets.data(),
+             rd.h_A_t_row_offsets.size(),
+             stream);
+  raft::copy(sub_problem.reverse_constraints.data(),
+             rd.h_A_t_col_indices.data(),
+             rd.h_A_t_col_indices.size(),
+             stream);
+  raft::copy(sub_problem.reverse_coefficients.data(),
+             rd.h_A_t_values.data(),
+             rd.h_A_t_values.size(),
+             stream);
+  handle_ptr->sync_stream(stream);
+
+  // 5. Build the solver via the EXISTING single-GPU ctor with the shard
+  //    flag. is_distributed_sub_pdlp=true opts out of (see pdlp.cu:204/216/370):
+  //      - pdhg_solver_t:              distributed path toggle
+  //      - initial_scaling_strategy_:  local Ruiz / Pock-Chambolle (incoherent across ranks)
+  //      - problem representation:     CSR/CSC transpose check (A/A^T are independent slices)
+  //    All three are exactly what we want for an MP peer.
+  pdlp_solver_t<int, double> solver(sub_problem,
+                                    pdlp_settings,
+                                    /*is_legacy_batch_mode=*/false,
+                                    /*is_distributed_sub_pdlp=*/true);
+  CUOPT_LOG_TRACE("rank %d: pdlp_solver_t constructed (shard-mode)", mp.rank);
+
+  // TODO(MP): the solver is constructed but has no handle to `dist` yet, so
+  // calling solver.run_solver(lp_timer) would run an isolated single-GPU
+  // iteration over this rank's partial problem (wrong). Next step: add
+  // std::optional<distributed_state_t<i_t,f_t>> dist_ as a member of
+  // pdlp_solver_t and port multi_gpu_engine_t's distributed primitives
+  // (halo_exchange_{var,cstr}, allreduce_sum, distributed_dot,
+  // distributed_l2_norm, distributed_spmv_A{,t}) to methods on
+  // distributed_state_t, dispatched at the ~20-30 call sites in the
+  // iteration loop. Finally gather + postsolve on master.
   return 0;
 }
 
