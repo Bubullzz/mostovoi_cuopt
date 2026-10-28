@@ -10,11 +10,9 @@
 #include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <pdlp/distributed_pdlp/nccl_helpers.hpp>
 #include <pdlp/distributed_pdlp/partitioner.hpp>
-#include <pdlp/pdlp.cuh>
 
 #include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/presolve/third_party_presolve.hpp>
-#include <mip_heuristics/problem/problem.cuh>
 
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
@@ -22,6 +20,7 @@
 #include <cuopt/mathematical_optimization/io/mps_data_model.hpp>
 #include <cuopt/mathematical_optimization/optimization_problem.hpp>
 #include <cuopt/mathematical_optimization/pdlp/solver_settings.hpp>
+#include <cuopt/mathematical_optimization/solve.hpp>
 #include <cuopt/mathematical_optimization/solver_settings.hpp>
 
 #include <utilities/copy_helpers.hpp>
@@ -30,6 +29,8 @@
 
 #include <raft/core/copy.hpp>
 #include <raft/core/handle.hpp>
+
+#include <rmm/device_uvector.hpp>
 
 #include <nccl.h>
 
@@ -74,6 +75,130 @@ nccl_comm_unique_ptr_t make_nccl_comm(const mp_context_t& mp)
   CUOPT_NCCL_TRY(ncclCommInitRank(&raw, mp.world_size, id, mp.rank));
   return nccl_comm_unique_ptr_t(raw, nccl_comm_deleter_t{mp.device_id});
 }
+std::optional<optimization_problem_solution_t<int, double>> gather_distributed_solution(
+  optimization_problem_solution_t<int, double>& partial_solution,
+  const std::vector<int>& h_my_l2g_var,
+  const std::vector<int>& h_my_l2g_cstr,
+  int n_vars,
+  int n_cstr,
+  const mp_context_t& mp,
+  const raft::handle_t* handle_ptr)
+{
+  const int my_owned_var  = static_cast<int>(h_my_l2g_var.size());
+  const int my_owned_cstr = static_cast<int>(h_my_l2g_cstr.size());
+  cuopt_assert(static_cast<int>(partial_solution.get_primal_solution().size()) == my_owned_var,
+               "gather: local primal size != owned_var_size");
+  cuopt_assert(static_cast<int>(partial_solution.get_dual_solution().size()) == my_owned_cstr,
+               "gather: local dual size != owned_cstr_size");
+
+  const auto stream = handle_ptr->get_stream();
+
+  // 1. Pull this rank's owned primal/dual/rc off device.
+  std::vector<double> h_local_primal(my_owned_var);
+  std::vector<double> h_local_dual(my_owned_cstr);
+  std::vector<double> h_local_rc(my_owned_var);
+  raft::copy(
+    h_local_primal.data(), partial_solution.get_primal_solution().data(), my_owned_var, stream);
+  raft::copy(
+    h_local_dual.data(), partial_solution.get_dual_solution().data(), my_owned_cstr, stream);
+  raft::copy(
+    h_local_rc.data(), partial_solution.get_reduced_cost().data(), my_owned_var, stream);
+  stream.synchronize();
+
+  // 2. Master collects per-rank owned sizes to compute Gatherv displacements.
+  //    Allocated world_size on every rank (negligible); non-master's copies
+  //    are ignored by MPI.
+  std::vector<int> owned_var_counts(mp.world_size);
+  std::vector<int> owned_cstr_counts(mp.world_size);
+  CUOPT_MPI_TRY(MPI_Gather(
+    &my_owned_var, 1, MPI_INT, owned_var_counts.data(), 1, MPI_INT, 0, mp.world_comm));
+  CUOPT_MPI_TRY(MPI_Gather(
+    &my_owned_cstr, 1, MPI_INT, owned_cstr_counts.data(), 1, MPI_INT, 0, mp.world_comm));
+
+  std::vector<int> var_displs(mp.world_size, 0);
+  std::vector<int> cstr_displs(mp.world_size, 0);
+  if (mp.is_master()) {
+    for (int r = 1; r < mp.world_size; ++r) {
+      var_displs[r]  = var_displs[r - 1] + owned_var_counts[r - 1];
+      cstr_displs[r] = cstr_displs[r - 1] + owned_cstr_counts[r - 1];
+    }
+    // Sanity: owned slices must disjointly cover the (presolved) global problem.
+    cuopt_assert(var_displs.back() + owned_var_counts.back() == n_vars,
+                 "gather sizes don't sum to n_vars");
+    cuopt_assert(cstr_displs.back() + owned_cstr_counts.back() == n_cstr,
+                 "gather sizes don't sum to n_cstr");
+  }
+
+  // 3. Gatherv values + index keys to master.
+  std::vector<double> h_recv_primal, h_recv_dual, h_recv_rc;
+  std::vector<int> h_recv_l2g_var, h_recv_l2g_cstr;
+  if (mp.is_master()) {
+    h_recv_primal.resize(n_vars);
+    h_recv_rc.resize(n_vars);
+    h_recv_dual.resize(n_cstr);
+    h_recv_l2g_var.resize(n_vars);
+    h_recv_l2g_cstr.resize(n_cstr);
+  }
+  CUOPT_MPI_TRY(MPI_Gatherv(h_local_primal.data(), my_owned_var, MPI_DOUBLE,
+                            h_recv_primal.data(), owned_var_counts.data(), var_displs.data(),
+                            MPI_DOUBLE, 0, mp.world_comm));
+  CUOPT_MPI_TRY(MPI_Gatherv(h_local_rc.data(), my_owned_var, MPI_DOUBLE,
+                            h_recv_rc.data(), owned_var_counts.data(), var_displs.data(),
+                            MPI_DOUBLE, 0, mp.world_comm));
+  CUOPT_MPI_TRY(MPI_Gatherv(h_local_dual.data(), my_owned_cstr, MPI_DOUBLE,
+                            h_recv_dual.data(), owned_cstr_counts.data(), cstr_displs.data(),
+                            MPI_DOUBLE, 0, mp.world_comm));
+  CUOPT_MPI_TRY(MPI_Gatherv(h_my_l2g_var.data(), my_owned_var, MPI_INT,
+                            h_recv_l2g_var.data(), owned_var_counts.data(), var_displs.data(),
+                            MPI_INT, 0, mp.world_comm));
+  CUOPT_MPI_TRY(MPI_Gatherv(h_my_l2g_cstr.data(), my_owned_cstr, MPI_INT,
+                            h_recv_l2g_cstr.data(), owned_cstr_counts.data(), cstr_displs.data(),
+                            MPI_INT, 0, mp.world_comm));
+
+  // 4. Shards are done — their local partial_solution is still valid for
+  //    any shard-local diagnostics (termination_stats, etc.).
+  if (!mp.is_master()) return std::nullopt;
+
+  // 5. Scatter each rank's slice into the correct global index on host.
+  //    Same as the thrust::scatter at multi_gpu_engine.cu:278-279, done
+  //    serially since Gatherv already laid everything out local-rank-
+  //    contiguously.
+  std::vector<double> h_global_primal(n_vars);
+  std::vector<double> h_global_rc(n_vars);
+  std::vector<double> h_global_dual(n_cstr);
+  for (int i = 0; i < n_vars; ++i) {
+    const int g        = h_recv_l2g_var[i];
+    h_global_primal[g] = h_recv_primal[i];
+    h_global_rc[g]     = h_recv_rc[i];
+  }
+  for (int i = 0; i < n_cstr; ++i) {
+    const int g      = h_recv_l2g_cstr[i];
+    h_global_dual[g] = h_recv_dual[i];
+  }
+
+  // 6. H→D onto master's GPU. These become the final solution's storage
+  //    (the ctor steals them via move).
+  rmm::device_uvector<double> d_global_primal(n_vars, stream);
+  rmm::device_uvector<double> d_global_dual(n_cstr, stream);
+  rmm::device_uvector<double> d_global_rc(n_vars, stream);
+  raft::copy(d_global_primal.data(), h_global_primal.data(), n_vars, stream);
+  raft::copy(d_global_dual.data(), h_global_dual.data(), n_cstr, stream);
+  raft::copy(d_global_rc.data(), h_global_rc.data(), n_vars, stream);
+  stream.synchronize();
+
+  // 7. Build the global solution. Termination stats/status come straight
+  //    from partial_solution — they're already globally correct.
+  auto term_stats  = partial_solution.get_additional_termination_informations();
+  auto term_status = partial_solution.get_terminations_status();
+  return optimization_problem_solution_t<int, double>(d_global_primal,
+                                                      d_global_dual,
+                                                      d_global_rc,
+                                                      /*objective_name=*/"",
+                                                      /*var_names=*/{},
+                                                      /*row_names=*/{},
+                                                      std::move(term_stats),
+                                                      std::move(term_status));
+}
 
 }  // namespace
 
@@ -113,10 +238,14 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   double objective_offset         = 0.0;
   double objective_scaling_factor = 1.0;
 
+  // Hoisted out of the master-only block so the post-solve_lp master-only
+  // undo() call at the bottom of this function can reach them. Only master
+  // ever populates these; on shards they stay default-constructed.
+  std::unique_ptr<mip::third_party_presolve_t<int, double>> presolver_ptr;
+  std::optional<mip::third_party_presolve_host_result_t<int, double>> host_res;
+
   if (mp.is_master()) {
     const bool run_presolve = pdlp_settings.presolver != presolver_t::None;
-    std::unique_ptr<mip::third_party_presolve_t<int, double>> presolver_ptr;
-    std::optional<mip::third_party_presolve_host_result_t<int, double>> host_res;
     [[maybe_unused]] double presolve_time = 0.0;
 
     if (run_presolve) {
@@ -182,8 +311,8 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
     h_A_values      = mps.get_constraint_matrix_values();
 
     // Bounds + objective, straight off the (reduced) mps. These are the
-    // vectors every shard will slice via rank_data.local_to_global_{var,cstr}
-    // inside the pdlp_solver_t MP ctor.
+    // global vectors every rank will slice via rank_data.local_to_global_*
+    // when building its sliced opt_problem below.
     h_obj                    = mps.get_objective_coefficients();
     h_var_lb                 = mps.get_variable_lower_bounds();
     h_var_ub                 = mps.get_variable_upper_bounds();
@@ -345,9 +474,8 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
 
   // Everything the per-rank solver needs to run collectives (comm + rank
   // identity + its slice of the problem + per-peer halo staging buffers,
-  // allocated on handle_ptr's stream from rank_data). Owned here; will be
-  // moved into pdlp_solver_t once that ctor path accepts a
-  // distributed_state_t.
+  // allocated on handle_ptr's stream from rank_data). Owned here until
+  // moved into solve_lp below.
   distributed_state_t<int, double> dist{mp.world_size,
                                         mp.rank,
                                         mp.device_id,
@@ -355,12 +483,12 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
                                         std::move(rank_data),
                                         handle_ptr->get_stream()};
 
-  // ----- Build the LOCAL problem_t this rank hands to pdlp_solver_t -----
-  // Transplanted from pdlp_shard_t's ctor body (shard.cu:43-125). We skip
-  // adding a new "MP ctor" on pdlp_solver_t -- the EXISTING single-GPU ctor
-  // with is_distributed_sub_pdlp=true already does the right thing for a
-  // per-rank peer. Once this path is proven, pdlp_shard_t + the SP-mGPU
-  // orchestrator ctor at pdlp.cu:410+ can be deleted.
+  // ----- Build the LOCAL optimization_problem_t this rank hands to solve_lp -----
+  // Mirrors the first half of pdlp_shard_t's ctor body (shard.cu:43-99).
+  // The second half (problem_t wrap + reverse_* override + pdlp_solver_t
+  // ctor) now lives inside solve_lp's distributed path, so we only need
+  // the opt_problem here. Once that path is proven, pdlp_shard_t + the
+  // SP-mGPU orchestrator ctor at pdlp.cu:410+ can be deleted.
   const auto& rd = dist.rank_data;
 
   // 1. Gather per-shard host slices sized to TOTAL (owned + halo). Owned
@@ -407,53 +535,72 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   opt_problem.set_objective_scaling_factor(objective_scaling_factor);
   opt_problem.set_problem_category(problem_category_t::LP);
 
-  // 3. Wrap in mip::problem_t (what pdlp_solver_t consumes).
-  mip::problem_t<int, double> sub_problem(opt_problem);
+  const int my_owned_var                 = dist.rank_data.owned_var_size;
+  const int my_owned_cstr                = dist.rank_data.owned_cstr_size;
+  const std::vector<int> h_my_l2g_var    = {dist.rank_data.local_to_global_var.begin(),
+                                            dist.rank_data.local_to_global_var.begin() + my_owned_var};
+  const std::vector<int> h_my_l2g_cstr   = {dist.rank_data.local_to_global_cstr.begin(),
+                                            dist.rank_data.local_to_global_cstr.begin() + my_owned_cstr};
 
-  // 4. Override reverse_* (A^T) with the pre-sliced LOCAL A^T from rank_data.
-  //    problem_t's ctor computes a transpose of the LOCAL A, which is wrong
-  //    in distributed mode: A_local is owned_cstr x total_var, and A^T_local
-  //    is the owned_var x total_cstr slice we built during partitioning
-  //    (see shard.cu:104-108).
-  auto stream = handle_ptr->get_stream();
-  sub_problem.reverse_offsets.resize(rd.h_A_t_row_offsets.size(), stream);
-  sub_problem.reverse_constraints.resize(rd.h_A_t_col_indices.size(), stream);
-  sub_problem.reverse_coefficients.resize(rd.h_A_t_values.size(), stream);
-  raft::copy(sub_problem.reverse_offsets.data(),
-             rd.h_A_t_row_offsets.data(),
-             rd.h_A_t_row_offsets.size(),
-             stream);
-  raft::copy(sub_problem.reverse_constraints.data(),
-             rd.h_A_t_col_indices.data(),
-             rd.h_A_t_col_indices.size(),
-             stream);
-  raft::copy(sub_problem.reverse_coefficients.data(),
-             rd.h_A_t_values.data(),
-             rd.h_A_t_values.size(),
-             stream);
-  handle_ptr->sync_stream(stream);
+  auto partial_solution = cuopt::mathematical_optimization::solve_lp(
+    opt_problem, pdlp_settings, std::move(dist));
 
-  // 5. Build the solver via the EXISTING single-GPU ctor with the shard
-  //    flag. is_distributed_sub_pdlp=true opts out of (see pdlp.cu:204/216/370):
-  //      - pdhg_solver_t:              distributed path toggle
-  //      - initial_scaling_strategy_:  local Ruiz / Pock-Chambolle (incoherent across ranks)
-  //      - problem representation:     CSR/CSC transpose check (A/A^T are independent slices)
-  //    All three are exactly what we want for an MP peer.
-  pdlp_solver_t<int, double> solver(sub_problem,
-                                    pdlp_settings,
-                                    /*is_legacy_batch_mode=*/false,
-                                    /*is_distributed_sub_pdlp=*/true);
-  CUOPT_LOG_TRACE("rank %d: pdlp_solver_t constructed (shard-mode)", mp.rank);
+  auto solution = gather_distributed_solution(
+    partial_solution, h_my_l2g_var, h_my_l2g_cstr, n_vars, n_cstr, mp, handle_ptr.get());
 
-  // TODO(MP): the solver is constructed but has no handle to `dist` yet, so
-  // calling solver.run_solver(lp_timer) would run an isolated single-GPU
-  // iteration over this rank's partial problem (wrong). Next step: add
-  // std::optional<distributed_state_t<i_t,f_t>> dist_ as a member of
-  // pdlp_solver_t and port multi_gpu_engine_t's distributed primitives
-  // (halo_exchange_{var,cstr}, allreduce_sum, distributed_dot,
-  // distributed_l2_norm, distributed_spmv_A{,t}) to methods on
-  // distributed_state_t, dispatched at the ~20-30 call sites in the
-  // iteration loop. Finally gather + postsolve on master.
+  if (!mp.is_master()) {
+    assert(!solution);
+    return 0;
+  }
+
+  assert(solution);
+  if (presolver_ptr) {
+    const auto stream = handle_ptr->get_stream();
+    auto h_primal     = cuopt::host_copy(solution->get_primal_solution(), stream);
+    auto h_dual       = cuopt::host_copy(solution->get_dual_solution(), stream);
+    auto h_rc         = cuopt::host_copy(solution->get_reduced_cost(), stream);
+    handle_ptr->sync_stream();
+
+    presolver_ptr->undo(h_primal,
+                        h_dual,
+                        h_rc,
+                        cuopt::mathematical_optimization::problem_category_t::LP,
+                        /*status_to_skip=*/false,
+                        pdlp_settings.dual_postsolve);
+
+    auto primal_uv = cuopt::device_copy(h_primal, stream);
+    auto dual_uv   = cuopt::device_copy(h_dual, stream);
+    auto rc_uv     = cuopt::device_copy(h_rc, stream);
+    handle_ptr->sync_stream();
+
+    // Rebuild the solution in the original user space. Names come from the
+    // user's original mps (not the reduced one); termination stats + status
+    // carry over from the gathered solution unchanged.
+    auto term_vec   = solution->get_additional_termination_informations();
+    auto status_vec = solution->get_terminations_status();
+    solution.emplace(primal_uv,
+                     dual_uv,
+                     rc_uv,
+                     mps_data_model.get_objective_name(),
+                     mps_data_model.get_variable_names(),
+                     mps_data_model.get_row_names(),
+                     std::move(term_vec),
+                     std::move(status_vec));
+  }
+
+  solution->set_solve_time(lp_timer.elapsed_time());
+  CUOPT_LOG_INFO("PDLP finished (mp)");
+  CUOPT_LOG_INFO("Status: %s   Objective: %.8e  Iterations: %d  Time: %.3fs",
+                 solution->get_termination_status_string().c_str(),
+                 solution->get_objective_value(),
+                 solution->get_additional_termination_information().number_of_steps_taken,
+                 solution->get_solve_time());
+
+  if (pdlp_settings.sol_file != "") {
+    CUOPT_LOG_INFO("Writing solution to file %s", pdlp_settings.sol_file.c_str());
+    solution->write_to_sol_file(pdlp_settings.sol_file, handle_ptr->get_stream());
+  }
+
   return 0;
 }
 
