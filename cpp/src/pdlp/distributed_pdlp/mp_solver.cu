@@ -104,7 +104,7 @@ std::optional<optimization_problem_solution_t<int, double>> gather_distributed_s
     h_local_dual.data(), partial_solution.get_dual_solution().data(), my_owned_cstr, stream);
   raft::copy(
     h_local_rc.data(), partial_solution.get_reduced_cost().data(), my_owned_var, stream);
-  stream.synchronize();
+  stream.sync();
 
   // 2. Master collects per-rank owned sizes to compute Gatherv displacements.
   //    Allocated world_size on every rank (negligible); non-master's copies
@@ -185,7 +185,7 @@ std::optional<optimization_problem_solution_t<int, double>> gather_distributed_s
   raft::copy(d_global_primal.data(), h_global_primal.data(), n_vars, stream);
   raft::copy(d_global_dual.data(), h_global_dual.data(), n_cstr, stream);
   raft::copy(d_global_rc.data(), h_global_rc.data(), n_vars, stream);
-  stream.synchronize();
+  stream.sync();
 
   // 7. Build the global solution. Termination stats/status come straight
   //    from partial_solution — they're already globally correct.

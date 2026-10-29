@@ -21,8 +21,9 @@ namespace cuopt::mathematical_optimization::pdlp {
 //   - `mp` is the per-process MPI context produced by `mp_context_t`.
 //
 // Returns 0 on success, -1 on recoverable error.
-int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& mps_data_model,
-                 cuopt::mathematical_optimization::solver_settings_t<int, double>& settings,
-                 mp_context_t& mp);
+int run_mp_solve(
+  const cuopt::mathematical_optimization::io::mps_data_model_t<int, double>& mps_data_model,
+  cuopt::mathematical_optimization::solver_settings_t<int, double>& settings,
+  mp_context_t& mp);
 
 }  // namespace cuopt::mathematical_optimization::pdlp

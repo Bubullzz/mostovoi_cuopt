@@ -14,6 +14,7 @@
 #include <cuopt/mathematical_optimization/optimization_problem_utils.hpp>
 #include <cuopt/mathematical_optimization/solve.hpp>
 #include <cuopt/mathematical_optimization/solve_remote.hpp>
+#include <pdlp/distributed_pdlp/mp_solver.hpp>
 #include <pdlp/distributed_pdlp/mpi_helpers.hpp>
 #include <utilities/logger.hpp>
 #include <utilities/timer.hpp>
@@ -540,7 +541,14 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (mp.is_mpi())
-    return run_mp_solve(file_name, mps_reader, settings, mp);
+  if (mp.is_mpi()) {
+    cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_data_model;
+    if (mp.is_master()) {
+      auto maybe_mps = read_mps_or_fail(file_name, mps_reader, settings);
+      if (!maybe_mps) { return -1; }
+      mps_data_model = std::move(*maybe_mps);
+    }
+    return run_mp_solve(mps_data_model, settings, mp);
+  }
   return run_single_file(file_name, initial_solution_file, solve_relaxation, mps_reader, settings);
 }

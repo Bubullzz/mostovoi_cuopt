@@ -399,6 +399,16 @@ set_target_properties(nccl_external PROPERTIES
 message(STATUS "Using NCCL: ${NCCL_LIBRARY}")
 
 # ##################################################################################################
+# - MPI (multi-process PDLP driver) ---------------------------------------------------------------
+# Required: the multi-process (mpirun / srun) PDLP path uses MPI for problem bcast, status
+# bcast, and solution gather; it co-exists with NCCL (NCCL does GPU collectives inside the
+# solver iteration loop, MPI does the launcher-side control/data plumbing). CMake's shipped
+# FindMPI pulls include dirs + libs from mpicxx; the conda env must have an MPI implementation
+# installed (e.g. `conda install -c conda-forge openmpi`).
+find_package(MPI REQUIRED COMPONENTS CXX)
+message(STATUS "Using MPI: ${MPI_CXX_LIBRARIES}")
+
+# ##################################################################################################
 # - KaMinPar (multi-threaded partitioning for multi-GPU PDLP) --------------------------------------
 # Brought in the RAPIDS way (rapids_cpm_find): uses an installed KaMinPar (deb/rpm/conda,
 # discovered via its CMake config) if present, otherwise builds the pinned source via CPM.
@@ -1000,6 +1010,28 @@ set_target_properties(cuopt_mathopt_objs
         CUDA_VISIBILITY_PRESET ${CUOPT_SYMBOL_VISIBILITY}
         VISIBILITY_INLINES_HIDDEN ${CUOPT_VISIBILITY_INLINES_HIDDEN}
 )
+
+# The multi-process (MPI) PDLP driver symbols -- mp_context_t::ctor/dtor and
+# run_mp_solve() -- must stay default-visible in libcuopt_mathopt.so because
+# cuopt_cli links them from the shared library. Target-wide visibility is
+# hidden (CUOPT_SYMBOL_VISIBILITY above), so override on just these files.
+#
+# Same mechanism as the gRPC-generated protobuf sources (see the matching
+# set_property call above near GRPC_PROTO_GENERATED_FILES).
+#
+# Must live in this CMakeLists.txt (not in src/pdlp/CMakeLists.txt where
+# the files are added to LP_CORE_FILES): CMake SOURCE properties are only
+# visible to a target when set in the same directory scope as the target
+# definition. The source files are referenced with full paths so the
+# property lookup matches what add_library sees.
+set_property(
+    SOURCE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pdlp/distributed_pdlp/mp_solver.cu
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/pdlp/distributed_pdlp/mpi_helpers.cu
+    APPEND PROPERTY COMPILE_OPTIONS
+        "$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=-fvisibility=default>"
+        "$<$<COMPILE_LANGUAGE:CXX>:-fvisibility=default>"
+)
 target_compile_options(cuopt_mathopt_objs
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUOPT_CXX_FLAGS}>"
         "$<$<COMPILE_LANGUAGE:CUDA>:${CUOPT_CUDA_FLAGS}>"
@@ -1059,6 +1091,10 @@ target_link_libraries(cuopt_mathopt_objs
         OpenMP::OpenMP_CUDA
         simde::simde
         nccl_external
+        # MPI brings <mpi.h> + libmpi for the multi-process PDLP driver
+        # (mp_solver.cu, mpi_helpers.cu). PRIVATE: no PUBLIC cuopt_mathopt
+        # header exposes MPI_* types; the CLI picks MPI up directly below.
+        MPI::MPI_CXX
         ${CMAKE_DL_LIBS}
 )
 # partitioner.cpp includes <kaminpar.h>; KaMinPar is linked by file below so its PUBLIC
@@ -1103,6 +1139,7 @@ target_link_libraries(cuopt_mathopt
         OpenMP::OpenMP_CUDA
         simde::simde
         nccl_external
+        MPI::MPI_CXX
         ${CMAKE_DL_LIBS}
 )
 # Linked by file (not target_link_libraries(... KaMinPar)) so it doesn't leak into cuopt's
@@ -1604,6 +1641,12 @@ if (NOT BUILD_LP_ONLY AND NOT SKIP_MATHOPT_BUILD)
             TBB::tbb
             PRIVATE
             argparse::argparse
+            # cuopt_cli.cpp includes <pdlp/distributed_pdlp/mpi_helpers.hpp>
+            # which pulls in <mpi.h>; it also instantiates mp_context_t which
+            # calls MPI_Init_thread. cuopt_mathopt links MPI PRIVATE, so the
+            # include/link flags do not propagate to this executable -- name
+            # the imported target explicitly.
+            MPI::MPI_CXX
     )
     # Use RUNPATH when building locally in order to allow LD_LIBRARY_PATH to override the conda env path
     if (NOT DEFINED INSTALL_TARGET OR "${INSTALL_TARGET}" STREQUAL "")

@@ -35,6 +35,15 @@ set(LP_CORE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/distributed_algorithms.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/distributed_utils.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/partitioner.cpp
+  # Multi-process (MPI) PDLP driver + MPI session management. These add a hard
+  # link-time dep on MPI::MPI_CXX (see find_package(MPI ...) in cpp/CMakeLists.txt).
+  # NOTE: these two files are also pinned to -fvisibility=default via a
+  # set_source_files_properties() call in cpp/CMakeLists.txt (next to
+  # add_library(cuopt_mathopt_objs ...)) -- it has to live there because
+  # CMake SOURCE properties only reach a target when set in the same
+  # directory scope as the add_library call.
+  ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/mp_solver.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/mpi_helpers.cu
 )
 
 # C and Python adapter files

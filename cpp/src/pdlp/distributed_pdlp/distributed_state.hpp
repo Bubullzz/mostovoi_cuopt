@@ -9,7 +9,11 @@
 
 #include <raft/core/copy.hpp>
 
-#include <rmm/cuda_stream_view.hpp>
+// Stream handle: use cuda::stream_ref (CCCL) directly, matching the rest of
+// cuopt (shard.hpp, pdhg.hpp, barrier/*). The rmm::cuda_stream_view alias has
+// been dropped in the rmm version pinned by this cuopt dev env.
+#include <cuda/stream>
+
 #include <rmm/device_uvector.hpp>
 
 #include <cstddef>
@@ -52,7 +56,7 @@ struct distributed_state_t {
                       int device_id_,
                       nccl_comm_unique_ptr_t&& nccl_comm_,
                       rank_data_t<i_t, f_t>&& rank_data_,
-                      rmm::cuda_stream_view stream)
+                      cuda::stream_ref stream)
     : world_size(world_size_),
       rank(rank_),
       device_id(device_id_),
@@ -61,7 +65,9 @@ struct distributed_state_t {
   {
     build_send_plan(rank_data.var_send_per_peer, var_send_indices_d, var_send_buf_d, stream);
     build_send_plan(rank_data.cstr_send_per_peer, cstr_send_indices_d, cstr_send_buf_d, stream);
-    stream.synchronize();
+    // cuda::stream_ref: modern CCCL API is sync() (not synchronize(), which
+    // was the old rmm::cuda_stream_view name and has been dropped).
+    stream.sync();
   }
 
   distributed_state_t(const distributed_state_t&)                = delete;
@@ -89,7 +95,7 @@ struct distributed_state_t {
   static void build_send_plan(std::vector<std::vector<i_t>> const& send_per_peer,
                               std::vector<rmm::device_uvector<i_t>>& indices_d,
                               std::vector<rmm::device_uvector<f_t>>& buf_d,
-                              rmm::cuda_stream_view stream)
+                              cuda::stream_ref stream)
   {
     const std::size_t n_peers = send_per_peer.size();
     indices_d.reserve(n_peers);
