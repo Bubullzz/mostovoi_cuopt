@@ -2644,8 +2644,9 @@ optimization_problem_solution_t<i_t, f_t> pdlp_solver_t<i_t, f_t>::run_solver(co
   scale_problem();
 
   // mixed precision and cusparse structure redirection are not supported in multi-GPU
+  // (neither single-process master/shards nor multi-process ranks, i.e. dist_)
   // as memory footprint is not currently a bottleneck in multi-GPU
-  if (!is_distributed_master()) {
+  if (!is_distributed_master() && !dist_) {
     // Update FP32 matrix copies for mixed precision SpMV after scaling
     pdhg_solver_.get_cusparse_view().update_mixed_precision_matrices();
     pdhg_solver_.redirect_reduced_csr_structure(*problem_ptr);
