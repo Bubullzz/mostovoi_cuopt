@@ -653,8 +653,9 @@ std::optional<optimization_problem_solution_t<i_t, f_t>> pdlp_solver_t<i_t, f_t>
     // Every rank has its own clock, but all ranks must stop at the same iteration (otherwise
     // their collectives no longer match and the solve hangs): only rank 0's clock counts, the
     // allreduce (sum of 0s + rank 0's flag) broadcasts its decision.
-    rmm::device_scalar<f_t> d_timed_out((dist_->rank == 0 && timed_out) ? f_t(1) : f_t(0),
-                                        stream_view_);
+    // (device_scalar's ctor takes an lvalue: a temporary value is a deleted overload)
+    const f_t local_flag = (dist_->rank == 0 && timed_out) ? f_t(1) : f_t(0);
+    rmm::device_scalar<f_t> d_timed_out(local_flag, stream_view_);
     dist_->allreduce_sum_inplace(raft::make_device_scalar_view<f_t>(d_timed_out.data()),
                                  stream_view_);
     timed_out = d_timed_out.value(stream_view_) > f_t(0);
