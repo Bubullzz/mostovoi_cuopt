@@ -911,6 +911,17 @@ void pdlp_restart_strategy_t<i_t, f_t>::cupdlpx_restart(
     engine->allreduce_sum_inplace_to_master([](pdlp_solver_t<i_t, f_t>& sp) -> f_t* {
       return sp.get_restart_strategy().last_restart_duality_gap_.dual_distance_traveled_.data();
     });
+  } else if (auto* dist = pdhg_solver.get_distributed_state()) {
+    // Multi-process: squared distances over this rank's OWNED slices, summed across ranks.
+    // Every rank ends up with the global values (the sqrt happens later, on the global sums).
+    primal_dual_distance_squared_moved_from_last_restart_period(
+      pdhg_solver, dist->rank_data.owned_var_size, dist->rank_data.owned_cstr_size);
+    dist->allreduce_sum_inplace(
+      raft::make_device_scalar_view<f_t>(last_restart_duality_gap_.primal_distance_traveled_.data()),
+      stream_view_);
+    dist->allreduce_sum_inplace(
+      raft::make_device_scalar_view<f_t>(last_restart_duality_gap_.dual_distance_traveled_.data()),
+      stream_view_);
   } else {
     primal_dual_distance_squared_moved_from_last_restart_period(
       pdhg_solver, primal_size_h_, dual_size_h_);

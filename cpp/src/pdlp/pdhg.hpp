@@ -144,6 +144,7 @@ class pdhg_solver_t {
   // Null for single-GPU and for SP-mGPU shards.
   void set_distributed_state(distributed_state_t<i_t, f_t>* dist) { dist_ = dist; }
   bool is_distributed_rank() const { return dist_ != nullptr; }
+  distributed_state_t<i_t, f_t>* get_distributed_state() const { return dist_; }
 
   i_t total_pdhg_iterations_;
 
