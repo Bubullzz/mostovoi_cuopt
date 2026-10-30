@@ -537,6 +537,13 @@ void pdhg_solver_t<i_t, f_t>::compute_At_y()
     return;
   }
 
+  // Multi-process dispatch: halo-exchange the dual solution (the buffer this SpMV reads),
+  // then the local SpMV on this rank's slice of A^T.
+  if (dist_) {
+    dist_->distributed_compute_At_y(*this, stream_view_);
+    return;
+  }
+
   if (reduced_matrix_.active()) {
     reduced_matrix_.compute_At_y(current_saddle_point_state_.get_dual_solution());
     return;
@@ -597,6 +604,13 @@ void pdhg_solver_t<i_t, f_t>::compute_A_x()
   // per-shard local cusparse SpMV.
   if (is_distributed_master()) {
     mgpu_engine_->distributed_compute_A_x();
+    return;
+  }
+
+  // Multi-process dispatch: halo-exchange the reflected primal (the buffer this SpMV reads),
+  // then the local SpMV on this rank's slice of A.
+  if (dist_) {
+    dist_->distributed_compute_A_x(*this, stream_view_);
     return;
   }
 
@@ -1740,7 +1754,8 @@ void pdhg_solver_t<i_t, f_t>::update_reduced_matrix(f_t relative_kkt,
                                                     bool restarted,
                                                     rmm::device_uvector<f_t>& restart_primal)
 {
-  if (is_distributed_master()) { return; }
+  // The reduced matrix is a single-GPU optimization: not supported in any multi-GPU mode.
+  if (is_distributed_master() || dist_) { return; }
   if (reduced_matrix_.update_mode(relative_kkt,
                                   restarted,
                                   potential_next_primal_solution_,

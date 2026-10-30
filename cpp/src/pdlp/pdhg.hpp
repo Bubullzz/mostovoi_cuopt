@@ -31,6 +31,10 @@ namespace cuopt::mathematical_optimization::pdlp {
 template <typename i_t, typename f_t>
 struct multi_gpu_engine_t;
 
+// Forward-declared for the same reason: distributed_state.hpp includes this header.
+template <typename i_t, typename f_t>
+struct distributed_state_t;
+
 template <typename i_t, typename f_t>
 class pdhg_solver_t {
  public:
@@ -133,6 +137,14 @@ class pdhg_solver_t {
   // Single-GPU PDHG reports false.
   bool is_distributed_master() const { return mgpu_engine_ != nullptr; }
 
+  // Multi-process (MPI + NCCL) wiring: the owning pdlp_solver_t hands its
+  // distributed_state_t here. Non-null means this pdhg is one rank of a multi-process solve:
+  // it runs the normal single-GPU code on its local slice, except that the SpMVs
+  // (compute_A_x / compute_At_y) halo-exchange their input first.
+  // Null for single-GPU and for SP-mGPU shards.
+  void set_distributed_state(distributed_state_t<i_t, f_t>* dist) { dist_ = dist; }
+  bool is_distributed_rank() const { return dist_ != nullptr; }
+
   i_t total_pdhg_iterations_;
 
  private:
@@ -227,6 +239,7 @@ class pdhg_solver_t {
   // Non-owning. Set on the master pdhg_solver_ in multi-GPU mode; null
   // (default) means single-GPU path.
   multi_gpu_engine_t<i_t, f_t>* mgpu_engine_{nullptr};
+  distributed_state_t<i_t, f_t>* dist_{nullptr};  // not owned (lives in pdlp_solver_t)
 };
 
 }  // namespace cuopt::mathematical_optimization::pdlp

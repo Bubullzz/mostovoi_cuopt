@@ -283,6 +283,11 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
   cuopt_expects(!(settings_.first_primal_feasible && settings_.all_primal_feasible),
                 error_type_t::ValidationError,
                 "first_primal_feasible and all_primal_feasible are mutually exclusive");
+
+  // Multi-process: let the pdhg halo-exchange before its SpMVs. Points into dist_, which has
+  // the same lifetime as this solver (same pattern as set_multi_gpu_engine).
+  if (dist_) { pdhg_solver_.set_distributed_state(&dist_.value()); }
+
   cuopt_expects(batch_mode_ || !settings_.all_primal_feasible,
                 error_type_t::ValidationError,
                 "all_primal_feasible only applies in batch mode");
