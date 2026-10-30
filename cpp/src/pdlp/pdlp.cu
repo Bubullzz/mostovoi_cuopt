@@ -21,6 +21,7 @@
 #include <linear_algebra/sparse_matrix.hpp>
 #include <mip_heuristics/mip_constants.hpp>
 #include "cuopt/mathematical_optimization/pdlp/solver_solution.hpp"
+#include "distributed_pdlp/mp_algorithms.hpp"
 #include "distributed_pdlp/multi_gpu_engine.hpp"
 
 #include <utilities/copy_helpers.hpp>
@@ -3265,6 +3266,11 @@ void pdlp_solver_t<i_t, f_t>::scale_problem()
     multi_gpu_engine->for_each_shard([](auto& shard) {
       shard.sub_pdlp->get_initial_scaling_strategy().release_iteration_scratch();
     });
+  } else if (dist_) {
+    // Multi-process: this rank scales its own slice, collectives keep the halos / global
+    // rescaling consistent across ranks.
+    distributed_scaling(*dist_, *this, settings_.hyper_params, inside_mip_);
+    initial_scaling_strategy_.release_iteration_scratch();
   } else {
     initial_scaling_strategy_.scale_problem();
 
@@ -3313,6 +3319,14 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_step_size()
     // all shards, syncs) lives inside distributed_compute_initial_step_size.
     multi_gpu_engine->distributed_compute_initial_step_size(
       settings_.hyper_params, dual_size_h_, scaling_factor, max_iterations, tolerance);
+    return;
+  }
+
+  if (dist_) {
+    // Multi-process dispatch: power iteration across ranks (global sizes live in dist_),
+    // the resulting step size is written to this rank's step_size_.
+    distributed_compute_initial_step_size(
+      *dist_, *this, settings_.hyper_params, scaling_factor, max_iterations, tolerance);
     return;
   }
 
@@ -3501,6 +3515,12 @@ void pdlp_solver_t<i_t, f_t>::compute_initial_primal_weight()
     // - primal/dual step sizes from master's current step_size_, seeding
     // master + all shards, syncs)
     multi_gpu_engine->distributed_compute_initial_primal_weight(settings_.hyper_params);
+    return;
+  }
+
+  if (dist_) {
+    // Multi-process dispatch: short-circuit -> 1, set locally on this rank.
+    distributed_compute_initial_primal_weight(*dist_, *this, settings_.hyper_params);
     return;
   }
 

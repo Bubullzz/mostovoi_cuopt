@@ -466,6 +466,8 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   distributed_state_t<int, double> dist{mp.world_size,
                                         mp.rank,
                                         mp.device_id,
+                                        static_cast<int>(n_vars),
+                                        static_cast<int>(n_cstr),
                                         std::move(nccl_comm),
                                         std::move(rank_data),
                                         handle_ptr->get_stream()};

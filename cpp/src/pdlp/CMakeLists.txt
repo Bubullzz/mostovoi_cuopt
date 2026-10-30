@@ -42,6 +42,8 @@ set(LP_CORE_FILES
   # add_library(cuopt_mathopt_objs ...)) -- it has to live there because
   # CMake SOURCE properties only reach a target when set in the same
   # directory scope as the add_library call.
+  ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/distributed_state.cu
+  ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/mp_algorithms.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/mp_solver.cu
   ${CMAKE_CURRENT_SOURCE_DIR}/distributed_pdlp/mpi_helpers.cu
 )

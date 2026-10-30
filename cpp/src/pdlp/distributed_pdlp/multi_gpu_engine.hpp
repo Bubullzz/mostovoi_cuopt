@@ -46,20 +46,7 @@
 
 namespace cuopt::mathematical_optimization::pdlp {
 
-// Maps the solver floating-point type to the matching NCCL datatype so that
-// halo exchanges / all-reduces transfer the correct element size for both
-// double and float instantiations.
-template <typename f_t>
-constexpr ncclDataType_t nccl_data_type()
-{
-  static_assert(std::is_same_v<f_t, double> || std::is_same_v<f_t, float>,
-                "Unsupported floating-point type for NCCL transfers");
-  if constexpr (std::is_same_v<f_t, double>) {
-    return ncclFloat64;
-  } else {
-    return ncclFloat32;
-  }
-}
+// nccl_data_type<f_t>() now lives in nccl_helpers.hpp (shared with distributed_state_t).
 
 /**
  * @brief Multi-GPU PDLP terminology and ownership model.
