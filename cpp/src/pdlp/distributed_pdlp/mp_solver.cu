@@ -543,6 +543,11 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
              stream);
   handle_ptr->sync_stream();
 
+  // One rank = one GPU. The reduced matrix is not available in distributed mode (each rank only
+  // has its slice of A, and the SpMVs go through the halo-exchange path instead).
+  pdlp_settings.num_gpus                    = 1;
+  pdlp_settings.hyper_params.reduced_matrix = reduced_matrix_mode_t::OFF;
+
   pdlp_solver_t<int, double> solver(problem,
                                     pdlp_settings,
                                     /*is_batch_mode=*/false,

@@ -5,6 +5,7 @@
  */
 /* clang-format on */
 
+#include <pdlp/distributed_pdlp/distributed_state.hpp>
 #include <pdlp/distributed_pdlp/multi_gpu_engine.hpp>
 #include <pdlp/pdlp.cuh>
 #include <pdlp/pdlp_climber_strategy.hpp>
@@ -279,6 +280,41 @@ void convergence_information_t<i_t, f_t>::distributed_init_l2_norms(
     [](pdlp_shard_t<i_t, f_t>& s) -> i_t { return s.rank_data.owned_var_size; });
 }
 
+// Multi-process version: this rank does its owned slice, the allreduce makes the result global.
+template <typename i_t, typename f_t>
+void convergence_information_t<i_t, f_t>::distributed_init_l2_norms(
+  distributed_state_t<i_t, f_t>& dist)
+{
+  cuopt_assert(!batch_mode_, "multi-process PDLP is not supported in batch mode");
+  cuopt_expects(!hyper_params_.initial_primal_weight_combined_bounds,
+                error_type_t::ValidationError,
+                "distributed_init_l2_norms: only the Stable3-shaped path is "
+                "supported (initial_primal_weight_combined_bounds=false).");
+  raft::common::nvtx::range scope("mp_distributed_init_l2_norms");
+
+  // RHS: raw sum of squared finite bounds over the owned constraints, allreduce, THEN sqrt
+  // (sqrt is not additive).
+  rmm::device_scalar<f_t> d_rhs_sq(zero_v<f_t>, stream_view_);
+  compute_sum_bounds_squared(problem_ptr->constraint_lower_bounds,
+                             problem_ptr->constraint_upper_bounds,
+                             d_rhs_sq,
+                             stream_view_,
+                             static_cast<std::size_t>(dist.rank_data.owned_cstr_size));
+  dist.allreduce_sum_inplace(raft::make_device_scalar_view<f_t>(d_rhs_sq.data()), stream_view_);
+  const f_t l2_rhs = std::sqrt(d_rhs_sq.value(stream_view_));
+  raft::copy(l2_norm_primal_right_hand_side_.data(), &l2_rhs, 1, stream_view_);
+
+  // Objective: ordinary global L2 norm over the owned variables.
+  dist.distributed_l2_norm(
+    raft::device_span<f_t>(problem_ptr->objective_coefficients.data(),
+                           dist.rank_data.owned_var_size),
+    raft::make_device_scalar_view<f_t>(l2_norm_primal_linear_objective_.data()),
+    *handle_ptr_);
+
+  // l2_rhs lives on the host stack: make sure the copy is done before returning.
+  stream_view_.sync();
+}
+
 // ---------------------------------------------------------------------------
 // init_reduction_storage: allocate and size the temporary buffers used by
 // cub::DeviceReduce and cub::DeviceSegmentedReduce throughout solving.
@@ -525,6 +561,54 @@ void convergence_information_t<i_t, f_t>::distributed_compute_dual_residual_and_
   apply_dual_objective_scaling_and_offset();
 }
 
+// Multi-process version of the primal step: same as the SP one, but this rank only does its own
+// shard, and the allreduce leaves the global objective on every rank.
+template <typename i_t, typename f_t>
+void convergence_information_t<i_t, f_t>::distributed_compute_primal_residual_and_objective(
+  distributed_state_t<i_t, f_t>& dist,
+  pdhg_solver_t<i_t, f_t>& pdhg,
+  const pdlp_solver_settings_t<i_t, f_t>& settings)
+{
+  cuopt_expects(!settings.per_constraint_residual,
+                error_type_t::ValidationError,
+                "per_constraint_residual is not yet supported in multi-process mode");
+  cuopt_assert(!batch_mode_, "multi-process PDLP is not supported in batch mode");
+
+  // A @ x needs the halo entries of potential_next_primal_solution.
+  dist.halo_exchange_var(pdhg.get_potential_next_primal_solution(), stream_view_);
+
+  compute_primal_residual(op_problem_cusparse_view_,
+                          pdhg.get_dual_tmp_resource(),
+                          pdhg.get_potential_next_dual_solution());
+  compute_primal_objective_owned_partial(pdhg.get_potential_next_primal_solution(),
+                                         dist.rank_data.owned_var_size);
+
+  dist.allreduce_sum_inplace(raft::make_device_scalar_view<f_t>(primal_objective_.data()),
+                             stream_view_);
+  apply_primal_objective_scaling_and_offset();
+}
+
+template <typename i_t, typename f_t>
+void convergence_information_t<i_t, f_t>::distributed_compute_dual_residual_and_objective(
+  distributed_state_t<i_t, f_t>& dist, pdhg_solver_t<i_t, f_t>& pdhg)
+{
+  // A^T @ y needs the halo entries of potential_next_dual_solution.
+  dist.halo_exchange_cstr(pdhg.get_potential_next_dual_solution(), stream_view_);
+
+  compute_dual_residual(op_problem_cusparse_view_,
+                        pdhg.get_primal_tmp_resource(),
+                        pdhg.get_potential_next_primal_solution(),
+                        pdhg.get_dual_slack());
+  compute_dual_objective_owned_partial(pdhg.get_potential_next_primal_solution(),
+                                       pdhg.get_dual_slack(),
+                                       dist.rank_data.owned_var_size,
+                                       dist.rank_data.owned_cstr_size);
+
+  dist.allreduce_sum_inplace(raft::make_device_scalar_view<f_t>(dual_objective_.data()),
+                             stream_view_);
+  apply_dual_objective_scaling_and_offset();
+}
+
 template <typename i_t, typename f_t>
 void convergence_information_t<i_t, f_t>::compute_convergence_information(
   pdhg_solver_t<i_t, f_t>& current_pdhg_solver,
@@ -566,9 +650,14 @@ void convergence_information_t<i_t, f_t>::compute_convergence_information(
   print("dual_slack", dual_slack);
 #endif
 
+  // Non-null only on multi-process ranks.
+  auto* dist = current_pdhg_solver.get_distributed_state();
+
   if (current_pdhg_solver.is_distributed_master()) {
     distributed_compute_primal_residual_and_objective(*current_pdhg_solver.get_mgpu_engine(),
                                                       settings);
+  } else if (dist) {
+    distributed_compute_primal_residual_and_objective(*dist, current_pdhg_solver, settings);
   } else {
     compute_primal_residual(
       op_problem_cusparse_view_, current_pdhg_solver.get_dual_tmp_resource(), dual_iterate);
@@ -592,6 +681,12 @@ void convergence_information_t<i_t, f_t>::compute_convergence_information(
           .l2_primal_residual_.data();
       },
       [](pdlp_shard_t<i_t, f_t>& shard) -> i_t { return shard.rank_data.owned_cstr_size; });
+  } else if (dist) {
+    // Global norm over the owned constraint rows only (halo rows would be counted twice).
+    dist->distributed_l2_norm(
+      raft::device_span<f_t>(primal_residual_.data(), dist->rank_data.owned_cstr_size),
+      raft::make_device_scalar_view<f_t>(l2_primal_residual_.data()),
+      *handle_ptr_);
   } else if (!batch_mode_) {
     my_l2_norm<i_t, f_t>(primal_residual_, l2_primal_residual_, handle_ptr_);
   } else {
@@ -637,6 +732,8 @@ void convergence_information_t<i_t, f_t>::compute_convergence_information(
 
   if (current_pdhg_solver.is_distributed_master()) {
     distributed_compute_dual_residual_and_objective(*current_pdhg_solver.get_mgpu_engine());
+  } else if (dist) {
+    distributed_compute_dual_residual_and_objective(*dist, current_pdhg_solver);
   } else {
     compute_dual_residual(op_problem_cusparse_view_,
                           current_pdhg_solver.get_primal_tmp_resource(),
@@ -661,6 +758,11 @@ void convergence_information_t<i_t, f_t>::compute_convergence_information(
           .l2_dual_residual_.data();
       },
       [](pdlp_shard_t<i_t, f_t>& shard) -> i_t { return shard.rank_data.owned_var_size; });
+  } else if (dist) {
+    dist->distributed_l2_norm(
+      raft::device_span<f_t>(dual_residual_.data(), dist->rank_data.owned_var_size),
+      raft::make_device_scalar_view<f_t>(l2_dual_residual_.data()),
+      *handle_ptr_);
   } else if (!batch_mode_) {
     my_l2_norm<i_t, f_t>(dual_residual_, l2_dual_residual_, handle_ptr_);
   } else {

@@ -286,7 +286,12 @@ pdlp_solver_t<i_t, f_t>::pdlp_solver_t(mip::problem_t<i_t, f_t>& op_problem,
 
   // Multi-process: let the pdhg halo-exchange before its SpMVs. Points into dist_, which has
   // the same lifetime as this solver (same pattern as set_multi_gpu_engine).
-  if (dist_) { pdhg_solver_.set_distributed_state(&dist_.value()); }
+  if (dist_) {
+    pdhg_solver_.set_distributed_state(&dist_.value());
+    // The ctor above computed the RHS / objective norms from this rank's shard only (and
+    // before scaling). Replace them with the global ones, same as the SP master does.
+    current_termination_strategy_.get_convergence_information().distributed_init_l2_norms(*dist_);
+  }
 
   cuopt_expects(batch_mode_ || !settings_.all_primal_feasible,
                 error_type_t::ValidationError,
@@ -643,7 +648,18 @@ std::optional<optimization_problem_solution_t<i_t, f_t>> pdlp_solver_t<i_t, f_t>
   const timer_t& timer)
 {
   // Check for time limit
-  if (time_limit_reached(timer)) {
+  bool timed_out = time_limit_reached(timer);
+  if (dist_) {
+    // Every rank has its own clock, but all ranks must stop at the same iteration (otherwise
+    // their collectives no longer match and the solve hangs): only rank 0's clock counts, the
+    // allreduce (sum of 0s + rank 0's flag) broadcasts its decision.
+    rmm::device_scalar<f_t> d_timed_out((dist_->rank == 0 && timed_out) ? f_t(1) : f_t(0),
+                                        stream_view_);
+    dist_->allreduce_sum_inplace(raft::make_device_scalar_view<f_t>(d_timed_out.data()),
+                                 stream_view_);
+    timed_out = d_timed_out.value(stream_view_) > f_t(0);
+  }
+  if (timed_out) {
     if (settings_.save_best_primal_so_far) {
 #ifdef PDLP_VERBOSE_MODE
       RAFT_CUDA_TRY(cudaDeviceSynchronize());

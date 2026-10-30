@@ -76,6 +76,10 @@ class convergence_information_t {
   // matching the single-GPU compute_sum_bounds semantics).
   void distributed_init_l2_norms(multi_gpu_engine_t<i_t, f_t>& engine);
 
+  // Multi-process (MPI + NCCL) counterpart: every rank computes the same global
+  // norms (partial sums over its owned slice, allreduce, sqrt).
+  void distributed_init_l2_norms(distributed_state_t<i_t, f_t>& dist);
+
   struct view_t {
     i_t primal_size;
     i_t dual_size;
@@ -180,6 +184,15 @@ class convergence_information_t {
   void distributed_compute_primal_residual_and_objective(
     multi_gpu_engine_t<i_t, f_t>& engine, const pdlp_solver_settings_t<i_t, f_t>& settings);
   void distributed_compute_dual_residual_and_objective(multi_gpu_engine_t<i_t, f_t>& engine);
+
+  // Multi-process versions of the two above: same steps, but every rank runs them on
+  // its own shard and the allreduce leaves the global values on all ranks.
+  void distributed_compute_primal_residual_and_objective(
+    distributed_state_t<i_t, f_t>& dist,
+    pdhg_solver_t<i_t, f_t>& pdhg,
+    const pdlp_solver_settings_t<i_t, f_t>& settings);
+  void distributed_compute_dual_residual_and_objective(distributed_state_t<i_t, f_t>& dist,
+                                                       pdhg_solver_t<i_t, f_t>& pdhg);
 
   // Ctor helpers — each handles both batch and non-batch internally.
   void init_objective_offsets();
