@@ -214,6 +214,11 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   auto pdlp_settings = settings.get_pdlp_settings();
   auto lp_timer      = cuopt::timer_t(pdlp_settings.time_limit);
 
+  // Without this, every CUOPT_LOG_* below is silently dropped. All ranks log to the console;
+  // only the master writes the log file (the ranks would otherwise truncate each other's).
+  cuopt::init_logger_t log(mp.is_master() ? pdlp_settings.log_file : std::string{},
+                           pdlp_settings.log_to_console);
+
   // Shared across the master-only block and the subsequent MPI_Bcast. Master
   // fills them inside the if-block; shards receive them via the broadcast.
   int n_cstr = 0;
