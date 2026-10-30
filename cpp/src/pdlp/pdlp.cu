@@ -2322,6 +2322,39 @@ void pdlp_solver_t<i_t, f_t>::compute_fixed_error(std::vector<int>& has_restarte
     });
     multi_gpu_engine->allreduce_sum_inplace_to_master(
       [](auto& sp) -> f_t* { return sp.step_size_strategy_.get_norm_squared_delta_dual().data(); });
+  } else if (dist_) {
+    // Multi-process counterpart of the master branch above, run on this rank only.
+    // SpMV is the first operation in compute_interaction_and_movement (its input is the
+    // reflected dual, which the descriptor is redirected to), so halo-exchange it first.
+    // The three local dot products are restricted to the owned slices, then summed across
+    // ranks: every rank ends up with the global values in its own step_size_strategy_.
+    cuopt_assert(!batch_mode_, "multi-process PDLP does not support batch mode");
+
+    // Make sure all previous cuSparse operations are finished before setting the
+    // potential_next_dual_solution descriptor
+    stream_view_.sync();
+
+    dist_->halo_exchange_cstr(pdhg_solver_.get_reflected_dual(), stream_view_);
+
+    RAFT_CUSPARSE_TRY(cusparseDnVecSetValues(cusparse_view.potential_next_dual_solution.get(),
+                                             (void*)pdhg_solver_.get_reflected_dual().data()));
+
+    step_size_strategy_.compute_interaction_and_movement(pdhg_solver_.get_primal_tmp_resource(),
+                                                         cusparse_view,
+                                                         pdhg_solver_.get_saddle_point_state(),
+                                                         dist_->rank_data.owned_var_size,
+                                                         dist_->rank_data.owned_cstr_size);
+
+    dist_->allreduce_sum_inplace(
+      raft::make_device_scalar_view<f_t>(step_size_strategy_.get_interaction().data()),
+      stream_view_);
+    dist_->allreduce_sum_inplace(
+      raft::make_device_scalar_view<f_t>(step_size_strategy_.get_norm_squared_delta_primal().data()),
+      stream_view_);
+    dist_->allreduce_sum_inplace(
+      raft::make_device_scalar_view<f_t>(step_size_strategy_.get_norm_squared_delta_dual().data()),
+      stream_view_);
+    // The descriptor is put back after the sync below, like the single-GPU path.
   } else {
     // Sync to make sure all previous cuSparse operations are finished before setting the
     // potential_next_dual_solution
