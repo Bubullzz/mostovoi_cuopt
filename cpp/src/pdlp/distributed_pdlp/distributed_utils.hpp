@@ -12,19 +12,21 @@
 namespace cuopt::mathematical_optimization::pdlp {
 
 // Slices the data to prepare a split from graph partitioning with halo communication.
-template <typename i_t, typename f_t>
+// `index_t` walks the global CSR and may be wider than the solver index `i_t`. Each shard's
+// nonzero count is checked to fit in `i_t` before any local offset is stored.
+template <typename i_t, typename index_t, typename f_t>
 std::vector<rank_data_t<i_t, f_t>> create_rank_data_from_parts(
-  const std::vector<i_t>& parts,
-  const std::vector<i_t>& A_row_offsets,
-  const std::vector<i_t>& A_col_indices,
+  const std::vector<int>& parts,
+  const std::vector<index_t>& A_row_offsets,
+  const std::vector<index_t>& A_col_indices,
   const std::vector<f_t>& A_values,
-  const std::vector<i_t>& A_t_row_offsets,
-  const std::vector<i_t>& A_t_col_indices,
+  const std::vector<index_t>& A_t_row_offsets,
+  const std::vector<index_t>& A_t_col_indices,
   const std::vector<f_t>& A_t_values,
-  i_t nb_parts,
+  int nb_parts,
   i_t nb_cstr,
   i_t nb_vars,
-  i_t nnz);
+  index_t nnz);
 
 // Multi-process variant: every rank runs the slicing algorithm on the full
 // (broadcast) host data and keeps only its own slice. Internally defers to
@@ -35,19 +37,18 @@ std::vector<rank_data_t<i_t, f_t>> create_rank_data_from_parts(
 // the full algorithm cost today. A future optimization can skip the index-
 // remap work for non-kept ranks; the memory of the discarded slices is
 // released when the returned rank_data_t detaches.
-template <typename i_t, typename f_t>
-rank_data_t<i_t, f_t> create_rank_data_for_rank(
-  const std::vector<i_t>& parts,
-  const std::vector<i_t>& A_row_offsets,
-  const std::vector<i_t>& A_col_indices,
-  const std::vector<f_t>& A_values,
-  const std::vector<i_t>& A_t_row_offsets,
-  const std::vector<i_t>& A_t_col_indices,
-  const std::vector<f_t>& A_t_values,
-  i_t nb_parts,
-  i_t nb_cstr,
-  i_t nb_vars,
-  i_t nnz,
-  i_t keep_rank);
+template <typename i_t, typename index_t, typename f_t>
+rank_data_t<i_t, f_t> create_rank_data_for_rank(const std::vector<int>& parts,
+                                                const std::vector<index_t>& A_row_offsets,
+                                                const std::vector<index_t>& A_col_indices,
+                                                const std::vector<f_t>& A_values,
+                                                const std::vector<index_t>& A_t_row_offsets,
+                                                const std::vector<index_t>& A_t_col_indices,
+                                                const std::vector<f_t>& A_t_values,
+                                                int nb_parts,
+                                                i_t nb_cstr,
+                                                i_t nb_vars,
+                                                index_t nnz,
+                                                int keep_rank);
 
 }  // namespace cuopt::mathematical_optimization::pdlp

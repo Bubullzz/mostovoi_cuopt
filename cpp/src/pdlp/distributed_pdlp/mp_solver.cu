@@ -444,18 +444,18 @@ int run_mp_solve(const cuopt::mathematical_optimization::io::mps_data_model_t<in
   }
 
   // Every rank computes the full slicing and keeps only its own slice.
-  auto rank_data = create_rank_data_for_rank<int, double>(parts,
-                                                          h_A_row_offsets,
-                                                          h_A_col_indices,
-                                                          h_A_values,
-                                                          h_A_t_row_offsets,
-                                                          h_A_t_col_indices,
-                                                          h_A_t_values,
-                                                          mp.world_size,
-                                                          n_cstr,
-                                                          n_vars,
-                                                          nnz,
-                                                          mp.rank);
+  auto rank_data = create_rank_data_for_rank<int, int, double>(parts,
+                                                               h_A_row_offsets,
+                                                               h_A_col_indices,
+                                                               h_A_values,
+                                                               h_A_t_row_offsets,
+                                                               h_A_t_col_indices,
+                                                               h_A_t_values,
+                                                               mp.world_size,
+                                                               n_cstr,
+                                                               n_vars,
+                                                               nnz,
+                                                               mp.rank);
 
   CUOPT_LOG_INFO("rank %d: owns %d constraints, %d variables (total %d / %d after halo)",
                  mp.rank,

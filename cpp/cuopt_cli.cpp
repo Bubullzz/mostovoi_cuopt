@@ -26,10 +26,12 @@
 
 #include <unistd.h>
 #include <argparse/argparse.hpp>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <math_optimization/solution_reader.hpp>
@@ -89,30 +91,60 @@ inline cuopt::init_logger_t dummy_logger(
 }
 
 /**
- * @brief Parse an input problem file and log the outcome.
+/**
+ * @brief A parsed problem held with either 32-bit or 64-bit matrix indices.
  *
- * On success returns the parsed model. On failure logs the parser exception and the
+ * The 64-bit alternative exists for problems whose nonzero count exceeds INT_MAX.
+ * Only multi-GPU PDLP can solve those (it partitions the matrix into per-GPU
+ * sub-problems that are individually 32-bit), so every other code path in this
+ * CLI works exclusively with the 32-bit alternative.
+ */
+using problem_variant_t =
+  std::variant<cuopt::mathematical_optimization::io::mps_data_model_t<int, double>,
+               cuopt::mathematical_optimization::io::mps_data_model_t<int64_t, double>>;
+
+/**
+ * @brief Parse the input file into the requested index width.
+ * @param file_path Path to the input file; the format is dispatched by extension.
+ * @param mps_reader MPS reader implementation selected by the CLI
+ * @param index_64bit If true, parse into a 64-bit index model
+ */
+problem_variant_t read_problem(const std::string& file_path,
+                               cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
+                               bool index_64bit)
+{
+  namespace io = cuopt::mathematical_optimization::io;
+  if (index_64bit) { return io::read<int64_t, double>(file_path, mps_reader); }
+  return io::read<int, double>(file_path, mps_reader);
+}
+
+/**
+ * @brief read_problem() plus logging of the outcome.
+ *
+ * On success returns the parsed problem. On failure logs the parser exception and the
  * "Parsing input file failed" message via the already-initialized logger (caller must
  * open it first), then returns std::nullopt so the caller can propagate a clean -1.
+ * Shared by the single-process path and the MPI path (where only the master parses).
  *
- * @param file_path  Path to the input file (same dispatch rules as run_single_file).
- * @param mps_reader MPS reader implementation selected by the CLI.
- * @param settings   Solver settings (used only to read CUOPT_TIME_LIMIT for the parse timer).
+ * @param file_path   Path to the input file (same dispatch rules as run_single_file).
+ * @param mps_reader  MPS reader implementation selected by the CLI.
+ * @param index_64bit If true, parse into a 64-bit index model.
+ * @param settings    Solver settings (used only to read CUOPT_TIME_LIMIT for the parse timer).
  */
-inline std::optional<cuopt::mathematical_optimization::io::mps_data_model_t<int, double>>
-read_mps_or_fail(const std::string& file_path,
-                 cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
-                 const cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
+std::optional<problem_variant_t> read_problem_or_fail(
+  const std::string& file_path,
+  cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
+  bool index_64bit,
+  const cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
 {
   const std::string base_filename = file_path.substr(file_path.find_last_of("/\\") + 1);
   auto timer = cuopt::timer_t(settings.get_parameter<double>(CUOPT_TIME_LIMIT));
 
   CUOPT_LOG_INFO("Reading file %s", base_filename.c_str());
   try {
-    auto mps = cuopt::mathematical_optimization::io::read<int, double>(file_path, mps_reader);
-    CUOPT_LOG_INFO(
-      "Read file %s in %.2f seconds", base_filename.c_str(), timer.elapsed_time());
-    return mps;
+    auto problem = read_problem(file_path, mps_reader, index_64bit);
+    CUOPT_LOG_INFO("Read file %s in %.2f seconds", base_filename.c_str(), timer.elapsed_time());
+    return problem;
   } catch (const std::logic_error& e) {
     CUOPT_LOG_ERROR("Parser exception: %s", e.what());
     CUOPT_LOG_ERROR("Parsing input file failed. Exiting!");
@@ -134,7 +166,8 @@ int run_single_file(const std::string& file_path,
                     const std::string& initial_solution_file,
                     bool solve_relaxation,
                     cuopt::mathematical_optimization::io::mps_reader_type_t mps_reader,
-                    cuopt::mathematical_optimization::solver_settings_t<int, double>& settings)
+                    cuopt::mathematical_optimization::solver_settings_t<int, double>& settings,
+                    bool index_64bit = false)
 {
   // The CLI and the solver library have separate loggers that both write this file.
   // Configure the solver's first so its own initializer reuses that configuration rather
@@ -146,9 +179,9 @@ int run_single_file(const std::string& file_path,
     cuopt::mathematical_optimization::configure_logging(log_file, log_console, true);
   cuopt::init_logger_t log(log_file, log_console, /*truncate=*/false);
 
-  auto maybe_mps = read_mps_or_fail(file_path, mps_reader, settings);
-  if (!maybe_mps) { return -1; }
-  auto mps_data_model = std::move(*maybe_mps);
+  auto maybe_problem = read_problem_or_fail(file_path, mps_reader, index_64bit, settings);
+  if (!maybe_problem) { return -1; }
+  problem_variant_t problem = std::move(*maybe_problem);
 
   // Determine memory backend and create problem using interface
   // Create handle only for GPU memory backend (avoid CUDA init on CPU-only hosts)
@@ -183,11 +216,27 @@ int run_single_file(const std::string& file_path,
       CUOPT_LOG_ERROR("Initial solution file is not supported for multi-GPU PDLP.");
       return -1;
     }
-    auto solution = cuopt::mathematical_optimization::solve_lp(
-      handle_ptr.get(), mps_data_model, settings.get_pdlp_settings());
+    auto sol = std::visit(
+      [&](auto const& mps) {
+        return cuopt::mathematical_optimization::solve_lp(
+          handle_ptr.get(), mps, settings.get_pdlp_settings());
+      },
+      problem);
+    if (sol.get_error_status().get_error_type() != cuopt::error_type_t::Success) {
+      CUOPT_LOG_ERROR("Multi-GPU PDLP failed: %s", sol.get_error_status().what());
+      return -1;
+    }
     return 0;
   }
-
+  // Only the 32-bit model is wired into the solver; the 64-bit one stops here for now.
+  if (std::holds_alternative<
+        cuopt::mathematical_optimization::io::mps_data_model_t<int64_t, double>>(problem)) {
+    CUOPT_LOG_ERROR(
+      "64-bit index is only supported for multi-GPU PDLP, set it using --num-gpus and --method 1.");
+    return -1;
+  }
+  auto& mps_data_model =
+    std::get<cuopt::mathematical_optimization::io::mps_data_model_t<int, double>>(problem);
   cuopt::mathematical_optimization::adopt_from_mps_data_model(problem_interface.get(),
                                                               std::move(mps_data_model));
 
@@ -391,6 +440,13 @@ int main(int argc, char* argv[])
     .default_value(std::string("default"))
     .choices("default", "experimental-fast");
 
+  program.add_argument("--mps-index-64bit")
+    .help(
+      "parse the input MPS/LP file into a 64-bit index model (required when the nonzero "
+      "count exceeds INT_MAX; only usable with --presolve 0, --method 1 and --num-gpus >1 or -1)")
+    .default_value(false)
+    .implicit_value(true);
+
   program.add_argument("--dump-hyper-params")
     .help("print hyper-parameters only in config file format and exit")
     .default_value(false)
@@ -494,6 +550,7 @@ int main(int argc, char* argv[])
   const auto solve_relaxation      = program.get<bool>("--relaxation");
   const auto params_file           = program.get<std::string>("--params-file");
   const auto mps_reader_arg        = program.get<std::string>("--mps-reader");
+  const auto index_64bit           = program.get<bool>("--mps-index-64bit");
 
   auto mps_reader = cuopt::mathematical_optimization::io::mps_reader_type_t::default_reader;
   if (mps_reader_arg == "experimental-fast") {
@@ -542,13 +599,25 @@ int main(int argc, char* argv[])
   }
 
   if (mp.is_mpi()) {
+    // The MP solver only takes a 32-bit index model for now.
+    if (index_64bit) {
+      auto log = dummy_logger(settings);
+      CUOPT_LOG_ERROR("--mps-index-64bit is not supported with MPI yet.");
+      return -1;
+    }
     cuopt::mathematical_optimization::io::mps_data_model_t<int, double> mps_data_model;
     if (mp.is_master()) {
-      auto maybe_mps = read_mps_or_fail(file_name, mps_reader, settings);
-      if (!maybe_mps) { return -1; }
-      mps_data_model = std::move(*maybe_mps);
+      // Logger only for the read: run_mp_solve opens its own right after.
+      auto log           = dummy_logger(settings);
+      auto maybe_problem = read_problem_or_fail(
+        file_name, mps_reader, /*index_64bit=*/false, settings);
+      if (!maybe_problem) { return -1; }
+      mps_data_model =
+        std::move(std::get<cuopt::mathematical_optimization::io::mps_data_model_t<int, double>>(
+          *maybe_problem));
     }
     return run_mp_solve(mps_data_model, settings, mp);
   }
-  return run_single_file(file_name, initial_solution_file, solve_relaxation, mps_reader, settings);
+  return run_single_file(
+    file_name, initial_solution_file, solve_relaxation, mps_reader, settings, index_64bit);
 }

@@ -297,10 +297,8 @@ endif ()
 FetchContent_Declare(
         papilo
         GIT_REPOSITORY "https://github.com/scipopt/papilo.git"
-        GIT_TAG "3a0d1d30a0a580530b37495b0ebb5926cf6e8a2c"
+        GIT_TAG "815a2cc77597d9a07d6d6aadf0ba23fb52ae5117"
         GIT_PROGRESS TRUE
-        PATCH_COMMAND git -C <SOURCE_DIR> apply
-                      "${CMAKE_CURRENT_SOURCE_DIR}/patches/papilo_parallel_integrality_guard.patch"
         EXCLUDE_FROM_ALL
         SYSTEM
 )
@@ -317,7 +315,7 @@ FetchContent_MakeAvailable(papilo)
 FetchContent_Declare(
         pslp
         GIT_REPOSITORY "https://github.com/dance858/PSLP.git"
-        GIT_TAG "v0.1.0"
+        GIT_TAG "v0.3.1"
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
         SYSTEM
