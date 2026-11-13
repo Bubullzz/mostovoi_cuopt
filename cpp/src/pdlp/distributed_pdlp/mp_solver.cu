@@ -12,9 +12,9 @@
 #include <pdlp/distributed_pdlp/partitioner.hpp>
 
 #include <linear_algebra/sparse_matrix.hpp>
-#include <mip_heuristics/presolve/third_party_presolve.hpp>
 #include <mip_heuristics/problem/problem.cuh>
 #include <pdlp/pdlp.cuh>
+#include <presolve/third_party_presolve.hpp>
 
 #include <cuopt/error.hpp>
 #include <cuopt/mathematical_optimization/backend_selection.hpp>
